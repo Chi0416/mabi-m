@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>瑪奇 Mobile 生活力</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232c8650'/%3E%3Cpath d='M32 54V31' stroke='%23f8faf5' stroke-width='5' stroke-linecap='round' fill='none'/%3E%3Cpath d='M32 35c0-11 8-19 20-19 0 12-8 19-20 19z' fill='%23f8faf5'/%3E%3Cpath d='M32 41c0-9-7-15-17-15 0 10 7 15 17 15z' fill='%23bfe3cb'/%3E%3C/svg%3E" id="app-icon">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=LXGW+WenKai+TC:wght@400;700&amp;family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
+<style id="app-style">
+/* Layout: one column of ledger sections — what to gather first, then each town's notice board for handing in. */
+:root {
+  --bg: #edf1ea;
+  --surface: #f8faf5;
+  --surface-2: #e2e8dd;
+  --fg: #1a251f;
+  --muted: #5a695f;
+  --line: #ccd6c8;
+  --accent: #2c8650;
+  --accent-fg: #ffffff;
+  --gold: #9a6d07;
+  --good: #23784a;
+  --good-soft: #d7eedf;
+  --warn: #b0521a;
+  --warn-soft: #f6e2d4;
+  --info: #4b627a;
+  --info-soft: #e0e7ee;
+  --danger: #b3362f;
+  --ink: #2a2414;
+  --ink-soft: #efe6cf;
+  --k-gather: #2f7d46;  --k-gather-bg: #dcefe0;
+  --k-mine: #45607d;    --k-mine-bg: #dfe6ee;
+  --k-cook: #a5571b;    --k-cook-bg: #f5e3d3;
+  --k-hunt: #a33a3a;    --k-hunt-bg: #f3dddb;
+  --k-other: #5f5a73;   --k-other-bg: #e5e3ec;
+  --font-display: "LXGW WenKai TC", "Kaiti TC", "BiauKai", "Noto Sans TC", serif;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111915; --surface: #18231e; --surface-2: #213029; --fg: #e4ede6; --muted: #93a699; --line: #2c3d35;
+    --accent: #5ccf88; --accent-fg: #0d1a12; --gold: #e3b94c;
+    --good: #6bd394; --good-soft: #1c3627; --warn: #f19a60; --warn-soft: #3a261a; --info: #a3b8cf; --info-soft: #22303d; --danger: #ff7d73;
+    --ink: #f3e7c4; --ink-soft: #33301f;
+    --k-gather: #79d394; --k-gather-bg: #1d3626; --k-mine: #9bb7d6; --k-mine-bg: #213041;
+    --k-cook: #f0aa70; --k-cook-bg: #3a2818; --k-hunt: #f08b84; --k-hunt-bg: #3b2020; --k-other: #c2bbdb; --k-other-bg: #2b2838;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111915; --surface: #18231e; --surface-2: #213029; --fg: #e4ede6; --muted: #93a699; --line: #2c3d35;
+  --accent: #5ccf88; --accent-fg: #0d1a12; --gold: #e3b94c;
+  --good: #6bd394; --good-soft: #1c3627; --warn: #f19a60; --warn-soft: #3a261a; --info: #a3b8cf; --info-soft: #22303d; --danger: #ff7d73;
+  --ink: #f3e7c4; --ink-soft: #33301f;
+  --k-gather: #79d394; --k-gather-bg: #1d3626; --k-mine: #9bb7d6; --k-mine-bg: #213041;
+  --k-cook: #f0aa70; --k-cook-bg: #3a2818; --k-hunt: #f08b84; --k-hunt-bg: #3b2020; --k-other: #c2bbdb; --k-other-bg: #2b2838;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 56px; display: grid; gap: 32px; }
+.wrap > .site-title + .apptabs { margin-top: -18px; }
+h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; margin: 0; text-wrap: balance; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Masthead */
+.mast { display: grid; gap: 8px; }
+.site-title { font-size: clamp(24px, 5vw, 36px); line-height: 1.2; }
+.mast p { margin: 0; color: var(--muted); }
+.mast p b { color: var(--fg); }
+.mast-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 10px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+
+/* Totals */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.stat { background: var(--surface); padding: 14px 16px; display: grid; gap: 2px; }
+.stat .k { font-size: 12px; color: var(--muted); letter-spacing: .06em; }
+.stat .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.stat .v small { font-size: 14px; color: var(--muted); font-weight: 500; }
+.stat .v.gold { color: var(--gold); }
+@media (max-width: 640px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ready-banner { margin: 0; padding: 12px 16px; border-radius: var(--r); background: var(--good-soft); color: var(--good); font-weight: 500; }
+.overview { display: grid; gap: 10px; }
+.chars { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 14px 16px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); }
+.chars .chars-label { font-family: var(--font-display); font-size: 19px; font-weight: 700; }
+.chars .chars-note { flex: 1 1 200px; font-size: 13px; color: var(--muted); }
+.chars .chars-gold { margin-left: auto; text-align: right; color: var(--gold); font-size: 14px; }
+.chars .chars-gold b { font-size: 24px; }
+.hint { margin: 0; font-size: 13px; color: var(--info); }
+
+section { display: grid; gap: 14px; }
+.sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.sec-head h2 { font-size: 24px; }
+.sec-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* Material ledger */
+.mat-groups { display: grid; gap: 18px; }
+.mat-group { display: grid; gap: 8px; }
+.g-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.g-head h3 { font-size: 19px; }
+.g-meta { font-size: 13px; color: var(--muted); }
+.cook-sub { display: grid; gap: 8px; margin-top: 4px; padding-left: 14px; border-left: 3px solid var(--k-cook-bg); }
+.cook-sub h4 { font-size: 16px; color: var(--k-cook); }
+.cook-warn { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+.ledger { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.mat { display: grid; grid-template-columns: minmax(0, 1.4fr) 96px 168px 120px; align-items: center; gap: 8px 16px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.mat:first-child { border-top: 0; }
+.mat-name { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.mat-name > div { display: grid; gap: 2px; min-width: 0; }
+.mat-name strong { font-family: var(--font-display); font-size: 19px; font-weight: 700; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.mat-src { font-size: 13px; color: var(--muted); }
+.tick { flex: none; width: 28px; height: 28px; margin-top: 1px; border-radius: 7px; border: 2px solid var(--muted); background: var(--surface); display: grid; place-items: center; padding: 0; }
+.tick:hover:not(:disabled) { border-color: var(--accent); }
+.tick[aria-checked="true"] { background: var(--good); border-color: var(--good); }
+.tick[aria-checked="true"]::after { content: ""; width: 7px; height: 13px; border: solid var(--accent-fg); border-width: 0 3px 3px 0; transform: translateY(-2px) rotate(45deg); }
+.mat-need { text-align: right; }
+.lbl { display: block; font-size: 11px; color: var(--muted); letter-spacing: .06em; }
+.mat-need b { font-size: 20px; font-variant-numeric: tabular-nums; }
+.bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--surface-2); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+.st-ready .bar span { background: var(--good); }
+.st-ready .mat-name strong { text-decoration: line-through; text-decoration-color: var(--muted); text-decoration-thickness: 1px; }
+.st-idle { opacity: .55; }
+.status { justify-self: end; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.st-short .status { background: var(--warn-soft); color: var(--warn); }
+.st-enough .status, .st-ready .status { background: var(--good-soft); color: var(--good); }
+.st-unknown .status { background: var(--info-soft); color: var(--info); }
+.st-idle .status { background: var(--surface-2); color: var(--muted); }
+/* Phones: three lines — tick + name + status / source / need + held. */
+@media (max-width: 700px) {
+  .mat { gap: 8px; padding: 12px 14px; }
+  .mat:not(.need-row) { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .mat:not(.need-row) .mat-name { grid-row: 1; grid-column: 1 / 3; }
+  .mat:not(.need-row) .status { grid-row: 1; grid-column: 3; align-self: start; }
+  .mat:not(.need-row) .mat-need { grid-row: 2; grid-column: 1; text-align: left; padding-left: 40px; }
+  .mat:not(.need-row) .mat-have { grid-row: 2; grid-column: 2 / 4; justify-self: end; display: flex; align-items: center; gap: 6px; }
+  .mat-have:empty { display: none; }
+  .mat-need .lbl, .mat-have .lbl { display: inline; margin-right: 4px; }
+  .mat-have .stepper input { width: 44px; }
+}
+
+/* Stepper */
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); overflow: hidden; }
+.stepper button { width: 32px; height: 32px; border: 0; background: transparent; font-size: 18px; line-height: 1; color: var(--fg); }
+.stepper button:hover:not(:disabled) { background: var(--surface-2); }
+.stepper button:disabled { color: var(--muted); opacity: .45; cursor: default; }
+.stepper input, .stepper output { width: 56px; height: 32px; border: 0; border-inline: 1px solid var(--line); background: var(--surface); text-align: center; font-variant-numeric: tabular-nums; font-weight: 700; display: grid; place-items: center; }
+.stepper input { -moz-appearance: textfield; appearance: textfield; }
+.stepper input::-webkit-outer-spin-button, .stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.empty { margin: 0; padding: 18px 16px; border: 1px dashed var(--line); border-radius: var(--r); color: var(--muted); font-size: 14px; }
+
+/* Town boards */
+.boards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 18px; align-items: start; }
+.board { display: grid; gap: 10px; min-width: 0; }
+.board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--fg); }
+.board-head h3 { font-size: 22px; }
+.board-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; color: inherit; }
+.board-toggle:hover { color: var(--accent); }
+.board-toggle .chev { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid currentColor; }
+.board-toggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+.sec-note { margin: 0; color: var(--muted); font-size: 14px; }
+/* Whole town-board section can be hidden once scrolls are bought; a one-line summary stays. */
+.fold-sum { display: none; }
+#sec-boards.is-folded > .fold-sum { display: block; }
+.fold-sum span { white-space: nowrap; }
+#sec-boards.is-folded > :not(.sec-head):not(.fold-sum) { display: none; }
+.board-head span { font-size: 13px; color: var(--muted); }
+.board-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--muted); }
+.board-tools .chk { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
+.board-tools .sum { margin-left: auto; }
+.board-tools .gold { color: var(--gold); font-variant-numeric: tabular-nums; }
+.tick.small { width: 22px; height: 22px; border-radius: 6px; margin-top: 0; }
+.tick.small[aria-checked="true"]::after { width: 5px; height: 10px; border-width: 0 2px 2px 0; }
+.unit { font-size: 13px; color: var(--muted); }
+/* Every card has the same four rows; equal rows within a town via 1fr, footer pinned to the bottom. */
+.quests { display: grid; gap: 10px; grid-auto-rows: 1fr; }
+.quest { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.quest.is-done { opacity: .6; }
+.q-top { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; }
+.q-top h4 { font-size: 18px; min-width: 0; }
+.q-top.stack h4 { flex-basis: 100%; }
+.q-top .chip.ok, .q-top .chip.done { margin-left: auto; }
+.q-buy { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--muted); }
+.q-buy .price { margin-left: auto; color: var(--gold); font-variant-numeric: tabular-nums; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
+.seg button { width: 32px; height: 28px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; padding: 0; }
+.seg button:first-child { border-left: 0; }
+.seg.seg-wide button { width: 40px; }
+.seg button:hover:not(:disabled) { background: var(--surface-2); color: var(--fg); }
+.seg button[aria-checked="true"] { background: var(--accent); color: var(--accent-fg); }
+.chip { font-size: 12px; font-weight: 500; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+.k-採集 { color: var(--k-gather); background: var(--k-gather-bg); }
+.k-採礦 { color: var(--k-mine); background: var(--k-mine-bg); }
+.k-料理 { color: var(--k-cook); background: var(--k-cook-bg); }
+.k-討伐 { color: var(--k-hunt); background: var(--k-hunt-bg); }
+.k-其他 { color: var(--k-other); background: var(--k-other-bg); }
+.chip.ok { color: var(--good); background: var(--good-soft); }
+.chip.done { color: var(--muted); background: var(--surface-2); }
+.chip.mine { color: var(--ink); background: var(--ink-soft); }
+.chip.city { color: var(--muted); background: transparent; box-shadow: inset 0 0 0 1px var(--line); font-family: var(--font-body); }
+.req { margin: 0; font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.req b { font-variant-numeric: tabular-nums; }
+.req .total { color: var(--muted); }
+.req input { width: 64px; padding: 3px 6px; border: 1px solid var(--info); border-radius: 6px; background: var(--info-soft); text-align: center; font-variant-numeric: tabular-nums; }
+.req .tbd { font-size: 12px; color: var(--info); }
+.counters { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.ctr { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.q-foot { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; font-size: 13px; color: var(--muted); }
+.q-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.link-btn { border: 0; background: none; padding: 4px 6px; border-radius: 6px; color: var(--muted); font-size: 13px; }
+.link-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--fg); }
+.link-btn:disabled { opacity: .45; cursor: default; }
+.link-btn.danger { color: var(--danger); }
+.link-btn.strong { color: var(--accent); font-weight: 500; }
+
+.btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 500; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.mine-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px; color: var(--muted); }
+/* Feature tabs */
+.apptabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+.apptabs button { border: 0; background: none; padding: 10px 16px; margin-bottom: -1px; border-bottom: 3px solid transparent; font-family: var(--font-display); font-size: 19px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.apptabs button:hover { color: var(--fg); }
+.apptabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+@media (max-width: 420px) { .apptabs button { padding-inline: 11px; } }
+.tabpanel { display: grid; gap: 32px; min-width: 0; }
+.stats.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Crafting: skill picker (one wrapping row of pills) and product cards */
+.skill-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.skill-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 14px; font-weight: 500; white-space: nowrap; }
+.skill-tabs button:hover { border-color: var(--muted); }
+.skill-tabs button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.skill-tabs .cnt { min-width: 18px; font-size: 12px; line-height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--accent-fg); text-align: center; font-variant-numeric: tabular-nums; }
+.skill-tabs button[aria-pressed="true"] .cnt { background: var(--accent-fg); color: var(--accent); }
+.mat.need-row { grid-template-columns: minmax(0, 1fr) auto; }
+.mat.need-row .mat-need { padding-left: 0; text-align: right; }
+#skill-panel, #cook-skill-panel { display: grid; gap: 10px; }
+.effect { margin: 0; padding: 6px 10px; border-radius: 8px; background: var(--info-soft); color: var(--info); font-size: 13px; }
+.effect b { font-weight: 700; margin-right: 4px; }
+.mat-src.from { color: var(--fg); }
+/* Recipe inputs: two-column slots, padded to the tab's longest recipe so every card lines up. */
+.ingr { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 26px; gap: 4px 6px; font-size: 13px; }
+.ingr li { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; padding: 0 8px; border-radius: 6px; background: var(--surface-2); }
+.ingr li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ingr li > b { flex: none; font-variant-numeric: tabular-nums; }
+.ingr li > b small { font-size: 11px; font-weight: 400; color: var(--muted); margin-right: 1px; }
+.ingr li.blank { background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .5; }
+
+.products { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 10px; grid-auto-rows: 1fr; }
+
+/* Quick-jump bar: right edge on wide screens, bottom bar on phones */
+.quicknav { position: fixed; z-index: 6; right: max(12px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 6px; }
+.quicknav button { padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--fg); font-size: 13px; font-weight: 500; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.quicknav button:hover { border-color: var(--accent); color: var(--accent); }
+h2[id] { scroll-margin-top: 16px; }
+@media (max-width: 1260px) {
+  .quicknav { top: auto; transform: none; right: 50%; translate: 50% 0; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); flex-direction: row; padding: 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.16); }
+  .quicknav button { border: 0; box-shadow: none; background: transparent; }
+  .wrap { padding-bottom: 96px; }
+}
+
+.source { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 4px; }
+.source p { margin: 0; }
+.source a { color: var(--accent); }
+@media (prefers-reduced-motion: no-preference) { .bar span { transition: width .25s ease; } .board-toggle .chev { transition: transform .15s ease; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <h1 class="site-title">瑪奇 Mobile 生活力</h1>
+  <nav class="apptabs" role="tablist" aria-label="功能">
+    <button type="button" role="tab" id="tabbtn-board" aria-controls="tab-board" aria-selected="true" data-role="tab" data-tab="board">佈告欄</button>
+    <button type="button" role="tab" id="tabbtn-craft" aria-controls="tab-craft" aria-selected="false" data-role="tab" data-tab="craft">武器・防具</button>
+    <button type="button" role="tab" id="tabbtn-cook" aria-controls="tab-cook" aria-selected="false" data-role="tab" data-tab="cook">料理・藥水</button>
+  </nav>
+
+  <div class="tabpanel" id="tab-board" role="tabpanel" aria-labelledby="tabbtn-board">
+  <header class="mast">
+    <div class="mast-row">
+      <span class="badge num" id="rev-badge">共用清單</span>
+    </div>
+    <p>依卷軸張數和角色數，自動加總要收的材料。</p>
+  </header>
+
+  <section class="overview" aria-labelledby="h-mine">
+    <div class="sec-head">
+      <h2 id="h-mine">我的進度</h2>
+      <div class="mine-tools" id="mine-tools"></div>
+    </div>
+    <div class="chars" id="chars"></div>
+    <p class="hint" id="unknown-hint" hidden></p>
+    <p class="ready-banner" id="ready" hidden>材料全部打勾了，可以回佈告欄交付。</p>
+  </section>
+
+  <section id="sec-boards" aria-labelledby="h-boards">
+    <div class="sec-head">
+      <h2 id="h-boards">各城佈告欄</h2>
+      <span id="boards-toggle-all"></span>
+    </div>
+    <p class="sec-note fold-sum num" id="boards-fold-sum"></p>
+    <p class="sec-note">卷軸每張：提爾克那 300、杜巴頓 480、庫漢 900、班克爾 1,000 金幣。每個角色每種最多買 3 張，選 0 就是這輪不做。點城市名稱展開卷軸；買好、交付後在城市名稱下方打勾。</p>
+    <div class="boards" id="boards"></div>
+  </section>
+
+  <section aria-labelledby="h-mats">
+    <div class="sec-head">
+      <h2 id="h-mats">採集總表</h2>
+      <p>依生活技能分組，同一組可以一次採完。需要量 = 每張數量 × 每角色張數 × 角色數，收齊就打勾。</p>
+    </div>
+    <div id="mats"></div>
+  </section>
+
+  <section aria-labelledby="h-hunts">
+    <div class="sec-head">
+      <h2 id="h-hunts">討伐任務</h2>
+      <p>不用交材料，完成指定狩獵地的次數即可。</p>
+    </div>
+    <div id="hunts"></div>
+  </section>
+
+  <footer class="source">
+    <p>四城共 24 張卷軸的名稱、委託數量與獎勵，取自 2026-10-08／09 遊戲內各城佈告欄的截圖。各城佈告欄的卷軸種類固定，補貨只會重置購買次數。</p>
+    <p>佈告欄的介紹最早看到的是巴哈姆特瑪奇 Mobile 哈啦板〈各個城鎮廣場旁的「任務佈告欄」別忘了去接!〉（<a href="https://forum.gamer.com.tw/C.php?bsn=32564&amp;snA=966" target="_blank" rel="noopener">原文連結</a>）。</p>
+  </footer>
+  </div>
+
+  <div class="tabpanel" id="tab-craft" role="tabpanel" aria-labelledby="tabbtn-craft" hidden>
+    <header class="mast">
+      <div class="mast-row"><span class="badge num" id="recipe-badge">配方整理中</span></div>
+      <p>選好每個產品要做幾個，自動加總所需材料。</p>
+      <p><b>練技攻略：</b>先做 30 等裝備，六種製作技能都練到 Lv17；再改做 50 等裝備（材料加工到三階），練到 Lv22。</p>
+    </header>
+
+    <section aria-labelledby="h-skills">
+      <div class="sec-head">
+        <h2 id="h-skills">製作台</h2>
+        <div class="mine-tools"><span>技能可多選</span><button type="button" class="link-btn" id="craft-reset" data-role="c-reset" data-group="craft" disabled>清空數量</button></div>
+      </div>
+      <div class="skill-tabs" id="skill-tabs" role="group" aria-label="生活技能（可多選）"></div>
+      <div id="skill-panel"></div>
+    </section>
+
+    <section aria-labelledby="h-craft-need">
+      <div class="sec-head">
+        <h2 id="h-craft-need">所需材料</h2>
+        <div class="mine-tools" id="craft-tools"></div>
+      </div>
+      <div id="craft-need"></div>
+    </section>
+
+  </div>
+
+  <div class="tabpanel" id="tab-cook" role="tabpanel" aria-labelledby="tabbtn-cook" hidden>
+    <header class="mast">
+      <div class="mast-row"><span class="badge num" id="cook-badge">配方整理中</span></div>
+      <p>選好每道要做幾個，自動加總所需材料和取得方式。</p>
+    </header>
+
+    <section aria-labelledby="h-cook-skills">
+      <div class="sec-head">
+        <h2 id="h-cook-skills">生活技能</h2>
+        <div class="mine-tools"><span>技能可多選</span><button type="button" class="link-btn" id="cook-reset" data-role="c-reset" data-group="cook" disabled>清空數量</button></div>
+      </div>
+      <div class="skill-tabs" id="cook-skill-tabs" role="group" aria-label="生活技能（可多選）"></div>
+      <div id="cook-skill-panel"></div>
+    </section>
+
+    <section aria-labelledby="h-cook-need">
+      <div class="sec-head">
+        <h2 id="h-cook-need">所需材料</h2>
+        <div class="mine-tools" id="cook-tools"></div>
+      </div>
+      <div id="cook-need"></div>
+    </section>
+  </div>
+
+  <nav class="quicknav" id="quicknav" aria-label="快速跳轉"></nav>
+</div>
+
+<script type="application/json" id="catalog">{"rev":4,"updated":"2026-10-09","quests":[{"id":"t-1","city":"提爾克那","kind":"料理","target":"煎蛋","qty":5,"title":"料理卷軸：煎蛋","reward":"料理經驗 171・禮盒","price":300,"order":1,"method":"料理"},{"id":"t-2","city":"提爾克那","kind":"採集","target":"蜘蛛網","qty":10,"title":"採集卷軸：蜘蛛絲","reward":"技能經驗 171・禮盒","price":300,"order":2,"note":"卷軸名稱是蜘蛛絲，實際要交蜘蛛網","method":"日常採集"},{"id":"t-3","city":"提爾克那","kind":"採集","target":"羊毛","qty":20,"title":"採集卷軸：羊毛","reward":"技能經驗 225・禮盒","price":300,"order":3,"method":"剪羊毛"},{"id":"t-4","city":"提爾克那","kind":"採集","target":"血紅藥草","qty":20,"title":"採集卷軸：血紅藥草","reward":"技能經驗 171・禮盒","price":300,"order":4,"method":"採集藥草"},{"id":"t-5","city":"提爾克那","kind":"討伐","target":"狼之森林","qty":4,"title":"討伐卷軸：狼之森林","reward":"EXP 600・禮盒・金幣 1,110","price":300,"order":5},{"id":"t-6","city":"提爾克那","kind":"採集","target":"小麥","qty":10,"title":"採集卷軸：小麥","reward":"技能經驗 171・禮盒","price":300,"order":6,"method":"收割"},{"id":"t-7","city":"提爾克那","kind":"採集","target":"馬鈴薯","qty":10,"title":"採集卷軸：馬鈴薯","reward":"技能經驗 171・禮盒","price":300,"order":7,"method":"鋤地"},{"id":"dun-1","city":"杜巴頓","kind":"討伐","target":"女神庭園","qty":4,"title":"討伐卷軸：女神庭園","reward":"EXP 1,730・禮盒・金幣 1,610","price":480,"order":1},{"id":"dun-2","city":"杜巴頓","kind":"料理","target":"蘋果汁","qty":5,"title":"料理卷軸：蘋果汁","reward":"料理經驗 225・禮盒","price":480,"order":2,"method":"料理"},{"id":"dun-3","city":"杜巴頓","kind":"採集","target":"咻咻蘑菇","qty":20,"title":"採集卷軸：咻咻蘑菇","reward":"技能經驗 225・禮盒","price":480,"order":3,"method":"採集藥草"},{"id":"dun-4","city":"杜巴頓","kind":"採集","target":"牛奶","qty":10,"title":"採集卷軸：牛奶","reward":"技能經驗 225・禮盒","price":480,"order":4,"unit":"瓶","method":"日常採集"},{"id":"dun-5","city":"杜巴頓","kind":"採礦","target":"鐵礦石","qty":20,"title":"採礦卷軸：鐵礦石","reward":"採礦經驗 171・禮盒","price":480,"order":5,"method":"採礦"},{"id":"dun-6","city":"杜巴頓","kind":"採集","target":"玉米","qty":10,"title":"採集卷軸：玉米","reward":"技能經驗 171・禮盒","price":480,"order":6,"method":"收割"},{"id":"dun-7","city":"杜巴頓","kind":"採集","target":"洋蔥","qty":10,"title":"採集卷軸：洋蔥","reward":"技能經驗 171・禮盒","price":480,"order":7,"method":"鋤地"},{"id":"kuh-1","city":"庫漢","kind":"討伐","target":"冰霜峽谷","qty":4,"title":"討伐卷軸：冰霜峽谷","reward":"EXP 9,680・禮盒・金幣 2,700","price":900,"order":1},{"id":"kuh-2","city":"庫漢","kind":"料理","target":"蒸蛤蜊","qty":5,"title":"料理卷軸：蒸蛤蜊","reward":"料理經驗 281・禮盒","price":900,"order":2,"method":"料理"},{"id":"kuh-3","city":"庫漢","kind":"採集","target":"箭花","qty":20,"title":"採集卷軸：箭花","reward":"技能經驗 171・禮盒","price":900,"order":3,"method":"採集藥草"},{"id":"kuh-4","city":"庫漢","kind":"採集","target":"雞蛋","qty":10,"title":"採集卷軸：雞蛋","reward":"技能經驗 171・禮盒","price":900,"order":4,"method":"日常採集"},{"id":"kuh-5","city":"庫漢","kind":"採集","target":"高級原木+","qty":20,"title":"採集卷軸：高級原木+","reward":"技能經驗 281・禮盒","price":900,"order":5,"method":"伐木"},{"id":"kuh-6","city":"庫漢","kind":"採集","target":"貝類","qty":10,"title":"採集卷軸：貝類","reward":"技能經驗 171・禮盒","price":900,"order":6,"method":"鋤地"},{"id":"ban-1","city":"班克爾","kind":"採集","target":"黃豆","qty":10,"title":"採集卷軸：黃豆","reward":"技能經驗 198・禮盒","price":1000,"order":1,"method":"收割"},{"id":"ban-2","city":"班克爾","kind":"採集","target":"防風草","qty":10,"title":"採集卷軸：防風草","reward":"技能經驗 198・禮盒","price":1000,"order":2,"method":"鋤地"},{"id":"ban-3","city":"班克爾","kind":"料理","target":"烤整顆馬鈴薯","qty":5,"title":"料理卷軸：烤整顆馬鈴薯","reward":"料理經驗 225・禮盒","price":1000,"order":3,"method":"料理"},{"id":"ban-4","city":"班克爾","kind":"討伐","target":"雲海曠野","qty":4,"title":"討伐卷軸：雲海曠野","reward":"EXP 1.8萬・禮盒・金幣 3,460","price":1000,"order":4}],"cook":{"煎蛋":[{"item":"雞蛋","qty":1},{"item":"鹽","qty":1}],"蘋果汁":[{"item":"蘋果","qty":4},{"item":"藥草","qty":2},{"item":"裝水的瓶子","qty":1},{"item":"糖","qty":2}],"蒸蛤蜊":[{"item":"貝類","qty":10},{"item":"裝水的瓶子","qty":5},{"item":"檸檬","qty":4},{"item":"藥草","qty":3}],"烤整顆馬鈴薯":[{"item":"馬鈴薯","qty":4},{"item":"藥草","qty":2},{"item":"糖","qty":2}],"沙威瑪":[{"item":"清淡的肉","qty":10},{"item":"黃豆","qty":12},{"item":"麵粉","qty":3},{"item":"高麗菜","qty":5},{"item":"檸檬","qty":2}],"炒蔬菜":[{"item":"馬鈴薯","qty":8},{"item":"洋蔥","qty":3},{"item":"高麗菜","qty":6},{"item":"藥草","qty":2}],"蘋果鮮奶油蛋糕":[{"item":"蘋果","qty":12},{"item":"鮮奶油","qty":2},{"item":"麵粉","qty":4},{"item":"糖","qty":9}],"蘋果舒芙蕾":[{"item":"蘋果","qty":8},{"item":"麵粉","qty":2},{"item":"雞蛋","qty":4},{"item":"糖","qty":4}],"奶油醬牛排":[{"item":"肉","qty":10},{"item":"鮮奶油","qty":2},{"item":"大蒜","qty":2},{"item":"胡椒","qty":3}],"鱸魚辣魚湯":[{"item":"鱸魚","qty":6},{"item":"白蘿蔔","qty":4},{"item":"洋蔥","qty":6},{"item":"裝水的瓶子","qty":5},{"item":"辣椒粉","qty":4},{"item":"胡椒","qty":2}],"豆乳刨冰":[{"item":"豆乳","qty":4},{"item":"冰","qty":10},{"item":"檸檬","qty":2},{"item":"糖","qty":6},{"item":"藥草","qty":3}]}}</script>
+
+<script type="application/json" id="recipes">{"rev":5,"updated":"2026-10-09","items":[{"name":"錐刺匕首S","skill":"鍛造技術","product":true,"gear":50,"exp":222,"inputs":[{"item":"合金鋼錠","qty":3},{"item":"高級皮革","qty":3}]},{"name":"平背魯特琴S","skill":"木工","product":true,"gear":50,"exp":222,"inputs":[{"item":"高級木材","qty":4},{"item":"合金鋼錠","qty":2}]},{"name":"冰川法球S","skill":"魔法工藝","product":true,"gear":50,"exp":222,"inputs":[{"item":"高級木材","qty":3},{"item":"合金鋼錠","qty":3}]},{"name":"鎖甲上衣S","skill":"重甲製作","product":true,"gear":50,"exp":201,"inputs":[{"item":"合金鋼錠","qty":4},{"item":"高級布料","qty":2}]},{"name":"厚皮甲上衣S","skill":"輕甲製作","product":true,"gear":50,"exp":201,"inputs":[{"item":"高級皮革","qty":4},{"item":"高級布料","qty":2}]},{"name":"厚布戰鬥服上衣S","skill":"布衣製作","product":true,"gear":50,"exp":201,"inputs":[{"item":"高級布料","qty":4},{"item":"合金鋼錠","qty":2}]},{"name":"合金鋼錠","skill":"金屬加工","yield":3,"inputs":[{"item":"鋼錠","qty":3},{"item":"銅礦石","qty":15},{"item":"煤炭","qty":8}]},{"name":"高級木材","skill":"木材加工","yield":3,"inputs":[{"item":"木材+","qty":3},{"item":"高級原木","qty":15},{"item":"樹液","qty":8}]},{"name":"高級皮革","skill":"皮革加工","yield":3,"inputs":[{"item":"皮革+","qty":3},{"item":"高級生皮","qty":15},{"item":"單寧粉末","qty":8}]},{"name":"高級布料","skill":"布料加工","yield":3,"inputs":[{"item":"布料+","qty":3},{"item":"高級羊毛","qty":15},{"item":"羊毛","qty":8}]},{"name":"煎蛋","skill":"料理","product":true,"lv":1,"bench":1,"exp":5,"effect":"一定時間內體力提升 50%","inputs":[{"item":"雞蛋","qty":1},{"item":"鹽","qty":1}]},{"name":"蘋果汁","skill":"料理","product":true,"lv":1,"bench":1,"exp":6,"effect":"些微提升智力與幸運","inputs":[{"item":"蘋果","qty":4},{"item":"藥草","qty":2},{"item":"裝水的瓶子","qty":1},{"item":"糖","qty":2}]},{"name":"烤整顆馬鈴薯","skill":"料理","product":true,"lv":1,"bench":1,"exp":6,"effect":"些微提升技巧與幸運","inputs":[{"item":"馬鈴薯","qty":4},{"item":"藥草","qty":2},{"item":"糖","qty":2}]},{"name":"炒蔬菜","skill":"料理","product":true,"lv":5,"bench":2,"exp":58,"effect":"提升技巧與幸運","inputs":[{"item":"馬鈴薯","qty":8},{"item":"洋蔥","qty":3},{"item":"高麗菜","qty":6},{"item":"藥草","qty":2}]},{"name":"蘋果舒芙蕾","skill":"料理","product":true,"lv":5,"bench":2,"exp":58,"effect":"提升智力與意志","inputs":[{"item":"蘋果","qty":8},{"item":"麵粉","qty":2},{"item":"雞蛋","qty":4},{"item":"糖","qty":4}]},{"name":"蒸蛤蜊","skill":"料理","product":true,"lv":10,"bench":3,"exp":165,"effect":"更加提升力量與幸運","inputs":[{"item":"貝類","qty":10},{"item":"裝水的瓶子","qty":5},{"item":"檸檬","qty":4},{"item":"藥草","qty":3}]},{"name":"奶油醬牛排","skill":"料理","product":true,"lv":10,"bench":3,"exp":165,"effect":"更加提升力量與意志","inputs":[{"item":"肉","qty":10},{"item":"鮮奶油","qty":2},{"item":"大蒜","qty":2},{"item":"胡椒","qty":3}]},{"name":"蘋果鮮奶油蛋糕","skill":"料理","product":true,"lv":10,"bench":3,"exp":165,"effect":"更加提升智力與意志","inputs":[{"item":"蘋果","qty":12},{"item":"鮮奶油","qty":2},{"item":"麵粉","qty":4},{"item":"糖","qty":9}]},{"name":"沙威瑪","skill":"料理","product":true,"lv":13,"bench":4,"exp":196,"effect":"更加提升力量與幸運","inputs":[{"item":"清淡的肉","qty":10},{"item":"黃豆","qty":12},{"item":"麵粉","qty":3},{"item":"高麗菜","qty":5},{"item":"檸檬","qty":2}]},{"name":"豆乳刨冰","skill":"料理","product":true,"lv":13,"bench":4,"exp":196,"effect":"更加提升智力與幸運","inputs":[{"item":"豆乳","qty":4},{"item":"冰","qty":10},{"item":"檸檬","qty":2},{"item":"糖","qty":6},{"item":"藥草","qty":3}]},{"name":"鱸魚辣魚湯","skill":"料理","product":true,"lv":20,"bench":4,"exp":250,"effect":"提升所有能力值","inputs":[{"item":"鱸魚","qty":6},{"item":"白蘿蔔","qty":4},{"item":"洋蔥","qty":6},{"item":"裝水的瓶子","qty":5},{"item":"辣椒粉","qty":4},{"item":"胡椒","qty":2}]}]}</script>
+
+<script type="application/json" id="materials">{"rev":1,"updated":"","items":{}}</script>
+
+<script id="app-script">
+(() => {
+  const CITIES = ['提爾克那', '杜巴頓', '庫漢', '班克爾'];
+  // Gathering life skills in the order the game's 生活技能 screen lists them; cooked items come last.
+  const METHOD_ORDER = ['日常採集', '伐木', '採礦', '採集藥草', '剪羊毛', '收割', '鋤地', '昆蟲採集', '釣魚', '料理'];
+  const P_KEY = 'mm-board-progress-v1';
+  const MAX_BUY = 3; // a character can buy at most 3 of each scroll per restock
+  const MAX_CHARS = 30;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (n) => Number(n || 0).toLocaleString('zh-TW');
+  const posInt = (v) => { const n = Math.floor(Number(v)); return n > 0 ? n : null; };
+
+  let CATALOG = { rev: 1, updated: '', quests: [] };
+  try { CATALOG = JSON.parse($('catalog').textContent); } catch (_) {}
+  if (!Array.isArray(CATALOG.quests)) CATALOG.quests = [];
+
+  /* ---------- per-viewer storage ---------- */
+  const readLS = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (_) { return null; } };
+  const writeLS = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} };
+  const blank = () => ({ chars: 1, buy: {}, have: {}, done: {}, bought: {}, handed: {}, qty: {}, custom: [] });
+  let P = Object.assign(blank(), readLS(P_KEY) || {});
+  for (const k of ['buy', 'have', 'done', 'bought', 'handed', 'qty']) if (!P[k] || typeof P[k] !== 'object') P[k] = {};
+  // Older saves kept a free scroll count per quest and per-scroll delivery; keep the count (capped at 3), drop the rest.
+  if (P.plan && typeof P.plan === 'object') for (const [id, v] of Object.entries(P.plan)) if (Number.isFinite(v) && v < MAX_BUY) P.buy[id] = Math.max(0, v);
+  if (P.skip && typeof P.skip === 'object') for (const id of Object.keys(P.skip)) P.buy[id] = 0;
+  delete P.plan; delete P.delivered; delete P.skip; delete P.dchars;
+  if (!Array.isArray(P.custom)) P.custom = [];
+  const saveP = () => writeLS(P_KEY, P);
+
+  /* ---------- crafting tab: recipes and per-viewer progress ---------- */
+  // Recipe items: { name, skill, product?: true (listed as a card), yield?: n made per craft (default 1),
+  //   gear?: equipment level, lv?: skill level needed, bench?: workbench level needed, exp?: skill EXP per craft,
+  //   effect?: text or [text] (food and potions),
+  //   inputs: [{ item, qty }] }. Materials are listed exactly as the recipe names them; nothing is broken down further.
+  // A material that has its own recipe (e.g. 合金鋼錠 from 金屬加工) shows that recipe, scaled to the total, under its name.
+  // Two tabs share this machinery; each lists its own skills and totals only its own products.
+  const GROUPS = {
+    craft: { rows: [['鍛造技術', '木工', '魔法工藝'], ['重甲製作', '輕甲製作', '布衣製作']], unit: '件', ids: { badge: 'recipe-badge', tools: 'craft-tools', reset: 'craft-reset', need: 'craft-need', tabs: 'skill-tabs', panel: 'skill-panel' } },
+    cook: { rows: [['料理', '藥水製作']], unit: '個', ids: { badge: 'cook-badge', tools: 'cook-tools', reset: 'cook-reset', need: 'cook-need', tabs: 'cook-skill-tabs', panel: 'cook-skill-panel' } },
+  };
+  const ALL_SKILLS = Object.values(GROUPS).flatMap((g) => g.rows.flat());
+  const groupSkills = (g) => GROUPS[g].rows.flat();
+  const MAKE_PRESETS = [0, 10, 20, 30];
+  const C_KEY = 'mm-craft-progress-v1';
+  const TAB_KEY = 'mm-tab-v1';
+  const RECIPES_RAW = (() => { const el = $('recipes'); return el ? el.textContent : '{"rev":1,"updated":"","items":[]}'; })();
+  let RECIPES = { rev: 1, updated: '', items: [] };
+  try { RECIPES = JSON.parse(RECIPES_RAW); } catch (_) {}
+  if (!Array.isArray(RECIPES.items)) RECIPES.items = [];
+  const RMAP = new Map(RECIPES.items.filter((r) => r && r.name).map((r) => [r.name, r]));
+  const yieldOf = (r) => Math.max(1, Math.floor(Number(r.yield)) || 1);
+  // How to get each material, keyed by its recipe name: { "雞蛋": "日常採集" } or several ways as an array.
+  const MATERIALS_RAW = (() => { const el = $('materials'); return el ? el.textContent : '{"rev":1,"updated":"","items":{}}'; })();
+  let MATERIALS = { rev: 1, updated: '', items: {} };
+  try { MATERIALS = JSON.parse(MATERIALS_RAW); } catch (_) {}
+  if (!MATERIALS.items || typeof MATERIALS.items !== 'object') MATERIALS.items = {};
+  const sourceOf = (name) => { const s = MATERIALS.items[name]; return (Array.isArray(s) ? s : [s]).filter((x) => typeof x === 'string' && x.trim()); };
+
+  const cblank = () => ({ make: {}, skills: [] });
+  let C = Object.assign(cblank(), readLS(C_KEY) || {});
+  if (!C.make || typeof C.make !== 'object') C.make = {};
+  // Skills are multi-select now; an older save kept a single picked skill.
+  if (!Array.isArray(C.skills)) C.skills = typeof C.skill === 'string' ? [C.skill] : [];
+  // 重甲 / 輕甲 were renamed to the game's official 重甲製作 / 輕甲製作.
+  C.skills = C.skills.map((s) => ({ 重甲: '重甲製作', 輕甲: '輕甲製作' }[s] || s));
+  C.skills = ALL_SKILLS.filter((s) => C.skills.includes(s));
+  delete C.have; delete C.done; delete C.skill;
+  const saveC = () => writeLS(C_KEY, C);
+
+  // Total the materials each picked product's recipe lists (crafts = quantity ÷ yield, rounded up). One level only.
+  function craftNeeds(g) {
+    const skills = groupSkills(g);
+    const picked = Object.entries(C.make).filter(([k, n]) => n > 0 && RMAP.has(k) && skills.includes(RMAP.get(k).skill));
+    const need = new Map(), usedBy = new Map();
+    for (const [k, n] of picked) {
+      const r = RMAP.get(k), crafts = Math.ceil(n / yieldOf(r));
+      for (const i of r.inputs || []) {
+        need.set(i.item, (need.get(i.item) || 0) + (Number(i.qty) || 0) * crafts);
+        if (!usedBy.has(i.item)) usedBy.set(i.item, []);
+        usedBy.get(i.item).push(k);
+      }
+    }
+    const list = [...need].filter(([, n]) => n > 0).map(([name, n]) => ({ name, need: n, users: usedBy.get(name) || [] }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'zh-Hant'));
+    return { picked, list, totalMake: picked.reduce((n, [, v]) => n + v, 0) };
+  }
+
+  // Per-viewer layout preference (which towns are expanded); not progress, so it lives apart from P.
+  const UI_KEY = 'mm-ui-v1';
+  const UI = Object.assign({ open: {} }, readLS(UI_KEY) || {});
+  if (!UI.open || typeof UI.open !== 'object') UI.open = {};
+  const saveUI = () => writeLS(UI_KEY, UI);
+
+  const TABS = ['board', 'craft', 'cook'];
+  let TAB = (() => {
+    const h = (location.hash || '').slice(1);
+    if (TABS.includes(h)) return h;
+    try { const t = localStorage.getItem(TAB_KEY); if (TABS.includes(t)) return t; } catch (_) {}
+    return 'board';
+  })();
+
+  // Which delete button is waiting for its second click.
+  const ui = { confirm: null };
+
+  /* ---------- model ---------- */
+  function allQuests() {
+    return [
+      ...CATALOG.quests.map((q) => ({ ...q, src: 'cat' })),
+      ...P.custom.map((q) => ({ ...q, src: 'mine' })),
+    ];
+  }
+  function effQty(q) {
+    const own = posInt(q.qty);
+    if (own) return { qty: own, self: false };
+    if (q.src === 'cat') { const o = posInt(P.qty[q.id]); if (o) return { qty: o, self: true }; }
+    return { qty: null, self: false };
+  }
+  // Each character buys 0–3 of a scroll (usually 3). Handing in is all-at-once per town, so delivery is one flag per town.
+  const chars = () => Math.max(1, Math.min(MAX_CHARS, Math.floor(Number(P.chars)) || 1));
+  const perChar = (q) => { const v = P.buy[q.id]; return Number.isFinite(v) ? Math.max(0, Math.min(MAX_BUY, v)) : MAX_BUY; };
+  const total = (q) => perChar(q) * chars();
+  const delivered = (q) => (P.handed[q.city] ? total(q) : 0);
+  const matKey = (q) => (q.target || '').trim() || q.title || '未命名';
+  const shortTitle = (q) => { const t = q.title || ''; const i = t.indexOf('：'); return i >= 0 ? t.slice(i + 1) : t; };
+  const unitOf = (q) => q.unit || (q.kind === '討伐' ? '次' : '個');
+
+  function derive() {
+    const qs = allQuests();
+    const mats = new Map();
+    const hunts = [];
+    let scrollsLeft = 0, gold = 0, unknown = 0;
+    for (const q of qs) {
+      const s = total(q), left = s - delivered(q);
+      const { qty } = effQty(q);
+      scrollsLeft += left;
+      gold += (Number(q.price) || 0) * s;
+      if (!qty && left > 0) unknown++;
+      if (q.kind === '討伐') { hunts.push({ q, left, qty }); continue; }
+      const name = matKey(q);
+      let m = mats.get(name);
+      if (!m) { m = { name, unit: unitOf(q), method: q.method || (q.kind === '料理' ? '料理' : '其他'), kinds: new Set(), parts: [], need: 0, unknown: false }; mats.set(name, m); }
+      m.kinds.add(q.kind || '其他');
+      m.parts.push({ q, left, qty });
+      if (qty) m.need += qty * left; else if (left > 0) m.unknown = true;
+    }
+    const rank = { short: 0, unknown: 0, enough: 1, ready: 2, idle: 3 };
+    const list = [...mats.values()].map((m) => {
+      const have = Math.max(0, P.have[m.name] | 0);
+      const short = Math.max(0, m.need - have);
+      const done = !!P.done[m.name];
+      let st;
+      if (m.need === 0 && !m.unknown) st = 'idle';
+      else if (done) st = 'ready';
+      else if (m.need === 0 || (m.unknown && short === 0)) st = 'unknown';
+      else st = short > 0 ? 'short' : 'enough';
+      return { ...m, have, short, done, st };
+    }).sort((a, b) => rank[a.st] - rank[b.st] || a.name.localeCompare(b.name, 'zh-Hant'));
+    return { qs, mats: list, hunts, scrollsLeft, gold, unknown };
+  }
+
+  /* ---------- render ---------- */
+  function stepper(attrs, value, { min = 0, max = Infinity, input = false, key = '', label = '' } = {}) {
+    const cur = Number(String(value).split('/')[0]);
+    const mid = input
+      ? `<input type="number" min="0" inputmode="numeric" value="${value}" ${attrs} data-role="set" data-focus-key="${esc(key)}:set" aria-label="${esc(label)}">`
+      : `<output>${value}</output>`;
+    return `<span class="stepper"><button type="button" ${attrs} data-role="dec" data-focus-key="${esc(key)}:dec" aria-label="${esc(label)} 減少"${cur <= min ? ' disabled' : ''}>−</button>${mid}<button type="button" ${attrs} data-role="inc" data-focus-key="${esc(key)}:inc" aria-label="${esc(label)} 增加"${cur >= max ? ' disabled' : ''}>+</button></span>`;
+  }
+
+  function renderHead() {
+    $('rev-badge').textContent = `共用清單 第 ${CATALOG.rev} 版${CATALOG.updated ? `・${CATALOG.updated} 更新` : ''}`;
+  }
+
+  function renderChars(d) {
+    const n = chars();
+    $('chars').innerHTML = `<span class="chars-label">角色數</span>${stepper('data-chars="1"', n, { min: 1, max: MAX_CHARS, input: true, key: 'chars', label: '角色數' })}<span class="chars-note">卷軸張數、材料需要量、討伐次數和金幣都會乘上 ${n}。</span><span class="chars-gold"><span class="lbl">卷軸總花費</span><b class="num">${fmt(d.gold)}</b> 金幣</span>`;
+  }
+
+  function renderStats(d) {
+    const active = d.mats.filter((m) => m.st !== 'idle');
+    const ready = active.filter((m) => m.done).length;
+    const h = $('unknown-hint');
+    h.hidden = !d.unknown;
+    h.textContent = d.unknown ? `還有 ${d.unknown} 種卷軸的數量待確認，總數會先少算這部分。` : '';
+    $('ready').hidden = !(active.length > 0 && ready === active.length);
+  }
+
+  function renderMats(d) {
+    const el = $('mats');
+    if (!d.mats.length) { el.innerHTML = '<p class="empty">目前沒有需要交材料的卷軸。在上方「各城佈告欄」把卷軸的張數選回 1 到 3，這裡就會自動加總。</p>'; return; }
+    // One group per gathering life skill, in the game's own order, so each skill can be done in one go.
+    // Within a group, list materials town by town (提爾克那 → 杜巴頓 → 庫漢 → 班克爾), then in board order.
+    const townIdx = (m) => Math.min(...m.parts.map((p) => { const i = CITIES.indexOf(p.q.city); return i < 0 ? 99 : i; }));
+    const boardIdx = (m) => Math.min(...m.parts.map((p) => Number(p.q.order) || 0));
+    const byTown = (a, b) => townIdx(a) - townIdx(b) || boardIdx(a) - boardIdx(b) || a.name.localeCompare(b.name, 'zh-Hant');
+    const groups = METHOD_ORDER.map((name) => ({ name, mats: d.mats.filter((m) => m.method === name).sort(byTown) }))
+      .concat([{ name: '其他', mats: d.mats.filter((m) => !METHOD_ORDER.includes(m.method)).sort(byTown) }])
+      .filter((g) => g.mats.length);
+    el.innerHTML = `<div class="mat-groups">${groups.map((g) => {
+      const active = g.mats.filter((m) => m.st !== 'idle');
+      const ticked = active.filter((m) => m.done).length;
+      const meta = `${g.mats.length} 種${active.length ? `・已打勾 ${ticked}／${active.length}` : '・已全部交付'}${g.name === '料理' ? '・要自己做' : ''}`;
+      return `<div class="mat-group"><div class="g-head"><h3>${esc(g.name)}</h3><span class="g-meta num">${meta}</span></div>${ledgerRows(g.mats)}${g.name === '料理' ? cookIngredients(g.mats, d) : ''}</div>`;
+    }).join('')}</div>`;
+  }
+
+  // Ingredients for the dishes still to be made (needed minus already held; ticked dishes count as done).
+  // Kept under their own 食材: keys so holding eggs for cooking never mixes with eggs handed in raw.
+  function cookIngredients(dishes, d) {
+    const COOK = CATALOG.cook || {};
+    const need = new Map(), usedBy = new Map(), missing = [];
+    for (const m of dishes) {
+      const left = m.done ? 0 : Math.max(0, m.need - m.have);
+      if (!left) continue;
+      const recipe = COOK[m.name];
+      if (!recipe) { missing.push(m.name); continue; }
+      for (const r of recipe) {
+        need.set(r.item, (need.get(r.item) || 0) + (Number(r.qty) || 0) * left);
+        if (!usedBy.has(r.item)) usedBy.set(r.item, []);
+        usedBy.get(r.item).push(m.name);
+      }
+    }
+    const rows = [...need].map(([name, n]) => {
+      const key = '食材:' + name, have = Math.max(0, P.have[key] | 0), done = !!P.done[key];
+      const short = Math.max(0, n - have);
+      const st = done ? 'ready' : short > 0 ? 'short' : 'enough';
+      const status = done ? '已收齊' : short > 0 ? `還差 ${fmt(short)}` : '數量夠了';
+      const k = esc(key), item = esc(name);
+      return `<li class="mat st-${st}">
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${item} 已收齊" data-role="tick" data-item="${k}" data-focus-key="tick:${k}"></button><div><strong>${item}</strong><span class="mat-src num">用於 ${usedBy.get(name).map(esc).join('、')}</span></div></div>
+        <div class="mat-need"><span class="lbl">需要</span><b>${fmt(n)}</b> <span class="unit">個</span></div>
+        <div class="mat-have"><span class="lbl">目前持有</span>${stepper(`data-item="${k}"`, have, { input: true, key: 'inv:' + key, label: name + ' 持有數量' })}</div>
+        <span class="status">${status}</span>
+        <div class="bar" aria-hidden="true"><span style="width:${Math.min(100, Math.round((have / n) * 100))}%"></span></div>
+      </li>`;
+    });
+    const note = missing.length ? `<p class="hint">${missing.map(esc).join('、')}的配方還沒有，食材先不計算。</p>` : '';
+    if (!rows.length && !note) return '';
+    // This list is independent of the gathering list above: its own counts, gathered separately.
+    const warn = rows.length ? '<p class="cook-warn">這是獨立的清單：料理食材要<b>另外採集</b>，不包含在上面的採集總表內。</p>' : '';
+    return `<div class="cook-sub"><div class="g-head"><h4>料理食材</h4><span class="g-meta">額外採集・不含在總表內</span></div>${warn}${rows.length ? `<ul class="ledger">${rows.join('')}</ul>` : ''}${note}</div>`;
+  }
+
+  function ledgerRows(list) {
+    return `<ul class="ledger">${list.map((m) => {
+      // Town shown as a tag; the line below reads "10個 × 3張卷" (per town when a material comes from several).
+      const open = m.parts.filter((p) => p.left > 0);
+      const amount = (p) => `${p.qty ? p.qty : '?'}${esc(unitOf(p.q))} × ${p.left}張卷`;
+      const src = !open.length ? '已全部交付'
+        : open.length === 1 ? amount(open[0])
+        : open.map((p) => `${esc(p.q.city)} ${amount(p)}`).join('・');
+      const towns = [...new Set(m.parts.map((p) => p.q.city))].map((c) => `<span class="chip city">${esc(c)}</span>`).join('');
+      const pct = m.need > 0 ? Math.min(100, Math.round((m.have / m.need) * 100)) : (m.done ? 100 : 0);
+      const status = { short: `還差 ${fmt(m.short)}`, enough: '數量夠了', ready: '已收齊', unknown: '數量待確認', idle: '無待交付' }[m.st];
+      const item = esc(m.name);
+      return `<li class="mat st-${m.st}">
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${m.done}" aria-label="${item} 已收齊" data-role="tick" data-item="${item}" data-focus-key="tick:${item}"></button><div><strong>${item} ${towns}</strong><span class="mat-src num">${src}</span></div></div>
+        <div class="mat-need"><span class="lbl">需要</span><b>${m.need ? fmt(m.need) : m.unknown ? '?' : 0}</b> <span class="unit">${esc(m.unit)}</span>${m.unknown && m.need ? '<span class="lbl">＋待確認</span>' : ''}</div>
+        <div class="mat-have"><span class="lbl">目前持有</span>${stepper(`data-item="${item}"`, m.have, { input: true, key: 'inv:' + m.name, label: m.name + ' 持有數量' })}</div>
+        <span class="status">${status}</span>
+        <div class="bar" aria-hidden="true"><span style="width:${pct}%"></span></div>
+      </li>`;
+    }).join('')}</ul>`;
+  }
+
+  function renderHunts(d) {
+    const el = $('hunts');
+    if (!d.hunts.length) { el.innerHTML = '<p class="empty">目前沒有討伐卷軸。</p>'; return; }
+    el.innerHTML = `<ul class="ledger">${d.hunts.map(({ q, left, qty }) => {
+      const key = 'hunt:' + q.id;
+      const done = !!P.done[key];
+      const need = qty ? qty * left : null;
+      const st = left === 0 ? 'idle' : done ? 'ready' : need == null ? 'unknown' : 'short';
+      const status = left === 0 ? '已全部交付' : done ? '已完成' : need == null ? '次數待確認' : `共 ${need} 次`;
+      const name = esc(q.target || q.title);
+      return `<li class="mat st-${st}">
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${name} 討伐完成" data-role="tick" data-item="${esc(key)}" data-focus-key="tick:${esc(key)}"></button><div><strong>${name} <span class="chip k-討伐">討伐</span><span class="chip city">${esc(q.city)}</span></strong><span class="mat-src num">${left ? `${qty || '?'}次 × ${left}張卷` : '已全部交付'}</span></div></div>
+        <div class="mat-need"><span class="lbl">需要</span><b>${need ?? '?'}</b> <span class="unit">次</span></div>
+        <div class="mat-have"></div>
+        <span class="status">${status}</span>
+      </li>`;
+    }).join('')}</ul>`;
+  }
+
+  function renderBoards(d) {
+    const cities = [...CITIES];
+    for (const q of d.qs) if (q.city && !cities.includes(q.city)) cities.push(q.city);
+    const matBy = new Map(d.mats.map((m) => [m.name, m]));
+    const sum = { towns: 0, scrolls: 0, gold: 0, bought: 0, handed: 0 };
+    $('boards').innerHTML = cities.map((city) => {
+      const qs = d.qs.filter((q) => q.city === city).sort((a, b) => (a.src === b.src ? 0 : a.src === 'cat' ? -1 : 1) || (a.order ?? 0) - (b.order ?? 0));
+      const all = qs.reduce((n, q) => n + total(q), 0);
+      const gold = qs.reduce((n, q) => n + (Number(q.price) || 0) * total(q), 0);
+      const body = qs.length ? qs.map((q) => questCard(q, matBy)).join('')
+        : `<p class="empty">清單裡還沒有${esc(city)}的卷軸。</p>`;
+      let tools = '';
+      if (all > 0) {
+        sum.towns++; sum.scrolls += all; sum.gold += gold;
+        if (P.bought[city]) sum.bought++;
+        if (P.handed[city]) sum.handed++;
+        const c = esc(city);
+        const chk = (role, on, label) => `<span class="chk"><button type="button" class="tick small" role="checkbox" aria-checked="${on}" aria-label="${c} ${label}" data-role="${role}" data-city="${c}" data-focus-key="${role}:${c}"></button>${label}</span>`;
+        tools = `<div class="board-tools">${chk('buy', !!P.bought[city], '卷軸已買')}${chk('hand', !!P.handed[city], '已交付')}<span class="sum num">${fmt(all)} 張・<span class="gold">${fmt(gold)} 金幣</span></span></div>`;
+      }
+      // Collapsed towns keep their header and ticks; only the scroll cards fold away.
+      const open = !!UI.open[city], listId = `quests-${cities.indexOf(city)}`;
+      const changed = qs.filter((q) => perChar(q) !== MAX_BUY).length;
+      const summary = !qs.length ? '' : open ? `${qs.length} 種卷軸` : `${qs.length} 種卷軸・${changed ? `已調整 ${changed} 種` : `每角色各 ${MAX_BUY} 張`}`;
+      return `<div class="board"><div class="board-head"><h3><button type="button" class="board-toggle" aria-expanded="${open}" aria-controls="${listId}" data-role="toggle-city" data-city="${esc(city)}" data-focus-key="toggle:${esc(city)}"><span class="chev" aria-hidden="true"></span>${esc(city)}</button></h3><span class="num">${summary}</span></div>${tools}<div class="quests" id="${listId}"${open ? '' : ' hidden'}>${body}</div></div>`;
+    }).join('');
+    const allOpen = cities.every((c) => UI.open[c]);
+    const hide = !!UI.boardsHidden;
+    $('sec-boards').classList.toggle('is-folded', hide);
+    $('boards-fold-sum').innerHTML = sum.towns
+      ? [`${sum.towns} 城`, `${fmt(sum.scrolls)} 張`, `${fmt(sum.gold)} 金幣`, `已買 ${sum.bought}／${sum.towns}`, `已交付 ${sum.handed}／${sum.towns}`].map((t) => `<span>${t}</span>`).join('・')
+      : '這輪沒有要買的卷軸。';
+    $('boards-toggle-all').innerHTML = (hide ? '' : `<button type="button" class="link-btn strong" data-role="toggle-all-cities" data-open="${allOpen ? 0 : 1}">${allOpen ? '全部收合' : '全部展開'}</button>`)
+      + `<button type="button" class="link-btn${hide ? ' strong' : ''}" data-role="toggle-boards" aria-expanded="${!hide}" aria-controls="boards" data-focus-key="toggle-boards">${hide ? '顯示佈告欄' : '隱藏佈告欄'}</button>`;
+  }
+
+  function questCard(q, matBy) {
+    const per = perChar(q), s = total(q), left = s - delivered(q);
+    const { qty, self } = effQty(q);
+    const unit = unitOf(q);
+    const ref = `data-src="${q.src}" data-qid="${esc(q.id)}"`;
+    const k = `${q.src}:${q.id}`;
+    const verb = q.kind === '討伐' ? '完成' : '交';
+    let req;
+    if (qty) {
+      req = `<p class="req"${q.note ? ` title="${esc(q.note)}"` : ''}>${verb} <b>${esc(q.target)}</b> ${qty} ${unit}／張${per ? `・每角色 <b>${fmt(qty * per)}</b> ${unit}` : ''}${self ? ` <button type="button" class="link-btn" ${ref} data-role="qty-clear" data-focus-key="${esc(k)}:qc">（自填，改）</button>` : ''}</p>`;
+    } else {
+      req = `<p class="req">${verb} <b>${esc(q.target)}</b> <input type="number" min="1" inputmode="numeric" placeholder="?" ${ref} data-role="qty" data-focus-key="${esc(k)}:qty" aria-label="${esc(q.target)} 每張數量"> ${unit}／張 <span class="tbd">數量待確認</span></p>`;
+    }
+    let chip = '';
+    if (!per) chip = '<span class="chip done">不做</span>';
+    else if (left === 0) chip = '<span class="chip done">已交付</span>';
+    else if (q.kind !== '討伐') {
+      const m = matBy.get(matKey(q));
+      if (m && (m.done || (qty && m.have >= m.need))) chip = '<span class="chip ok">材料齊了</span>';
+    } else if (P.done['hunt:' + q.id]) chip = '<span class="chip ok">已討伐</span>';
+    const seg = [0, 1, 2, 3].map((n) => `<button type="button" role="radio" aria-checked="${n === per}" aria-label="每角色買 ${n} 張" ${ref} data-role="set-buy" data-n="${n}" data-focus-key="${esc(k)}:b${n}">${n}</button>`).join('');
+    const buyRow = `<div class="q-buy"><span>每角色買</span><span class="seg" role="radiogroup" aria-label="${esc(shortTitle(q))} 每角色買幾張">${seg}</span><span>張</span>${q.price ? `<span class="price">${fmt(q.price)} 金幣／張</span>` : ''}</div>`;
+    const mine = q.src === 'mine' ? '<span class="chip mine">我的</span>' : '';
+    // Players can only remove scrolls they added in an older version.
+    let actions = '';
+    if (q.src === 'mine') {
+      const del = ui.confirm === `del:${k}`
+        ? `<button type="button" class="link-btn danger" ${ref} data-role="del-yes">確定刪除</button><button type="button" class="link-btn" data-role="cancel-confirm">保留</button>`
+        : `<button type="button" class="link-btn" ${ref} data-role="del">刪除</button>`;
+      actions = `<span class="q-actions">${del}</span>`;
+    }
+    return `<article class="quest${!per || left === 0 ? ' is-done' : ''}">
+      <div class="q-top"><h4 title="${esc(q.title)}">${esc(shortTitle(q))}</h4><span class="chip k-${esc(q.kind || '其他')}">${esc(q.kind || '其他')}</span>${mine}${chip}</div>
+      ${req}
+      ${buyRow}
+      <div class="q-foot">
+        <span>${q.reward ? `獎勵 ${esc(q.reward)}` : ''}</span>
+        ${actions}
+      </div>
+    </article>`;
+  }
+
+  function renderMine() {
+    const has = ['have', 'done', 'bought', 'handed'].some((k) => Object.keys(P[k]).length > 0);
+    $('mine-tools').innerHTML = `<span>補貨後開新一輪就歸零</span><button type="button" class="btn" data-role="reset"${has ? '' : ' disabled'}>進度歸零</button>`;
+  }
+
+  const JUMPS = {
+    board: [['top', '頂部'], ['h-boards', '佈告欄'], ['h-mats', '採集總表']],
+    craft: [['top', '頂部'], ['h-skills', '製作台'], ['h-craft-need', '所需材料']],
+    cook: [['top', '頂部'], ['h-cook-skills', '生活技能'], ['h-cook-need', '所需材料']],
+  };
+  function renderQuickNav() {
+    $('quicknav').innerHTML = JUMPS[TAB].map(([to, label]) => `<button type="button" data-role="jump" data-to="${to}">${to === 'top' ? '↑ ' : ''}${label}</button>`).join('');
+  }
+
+  function renderTabs() {
+    for (const t of TABS) {
+      $('tab-' + t).hidden = t !== TAB;
+      const btn = $('tabbtn-' + t);
+      btn.setAttribute('aria-selected', String(t === TAB));
+      btn.tabIndex = t === TAB ? 0 : -1;
+    }
+  }
+
+  function renderCraft(g) {
+    const { ids, unit } = GROUPS[g];
+    const order = groupSkills(g);
+    const plan = craftNeeds(g);
+    const products = RECIPES.items.filter((r) => r.product && order.includes(r.skill));
+    $(ids.badge).textContent = products.length
+      ? `配方 ${products.length} 種產品${RECIPES.updated ? `・${RECIPES.updated} 更新` : ''}`
+      : '配方整理中';
+    $(ids.tools).innerHTML = plan.picked.length ? `<span>已選 ${plan.picked.length} 種產品，共要做 ${fmt(plan.totalMake)} ${unit}</span>` : '';
+    $(ids.reset).disabled = !plan.picked.length;
+
+    $(ids.need).innerHTML = !plan.list.length
+      ? `<p class="empty">${products.length ? '還沒選要做的產品。到上方技能點選每個產品要做幾個，這裡就會列出需要的材料。' : '配方還在整理中。整理好之後到上方技能點選要做幾個，這裡就會列出需要的材料。'}</p>`
+      : `<ul class="ledger">${plan.list.map((m) => {
+          const from = sourceOf(m.name), sub = RMAP.get(m.name), runs = sub ? Math.ceil(m.need / yieldOf(sub)) : 0;
+          const line = sub && (sub.inputs || []).length
+            ? `加工 ${fmt(runs)} 次：${sub.inputs.map((i) => `${esc(i.item)}×${fmt((Number(i.qty) || 0) * runs)}`).join('・')}`
+            : `用於 ${m.users.map(esc).join('、')}`;
+          return `<li class="mat need-row">
+          <div class="mat-name"><div><strong>${esc(m.name)}</strong>${from.length ? `<span class="mat-src from">取得：${from.map(esc).join('、')}</span>` : ''}<span class="mat-src">${line}</span></div></div>
+          <div class="mat-need"><b>${fmt(m.need)}</b></div>
+        </li>`;
+        }).join('')}</ul>`;
+
+    const pickedBySkill = (s) => plan.picked.filter(([k]) => (RMAP.get(k) || {}).skill === s).length;
+    $(ids.tabs).innerHTML = order.map((s) => {
+      const cnt = pickedBySkill(s);
+      return `<button type="button" aria-pressed="${C.skills.includes(s)}" data-role="skill" data-skill="${esc(s)}" data-focus-key="skill:${esc(s)}"><span>${esc(s)}</span>${cnt ? `<span class="cnt" aria-label="已選 ${cnt} 種">${cnt}</span>` : ''}</button>`;
+    }).join('');
+
+    // Products from every picked skill, in the skill buttons' order.
+    const picked = C.skills.filter((s) => order.includes(s));
+    const prods = products.filter((r) => picked.includes(r.skill)).sort((a, b) => order.indexOf(a.skill) - order.indexOf(b.skill));
+    const waiting = picked.filter((s) => !products.some((r) => r.skill === s));
+    const waitNote = waiting.length ? `<p class="hint">${waiting.map(esc).join('、')}的配方還在整理中。</p>` : '';
+    // Slots from the longest recipe in the whole tab (not just the picked skills), so heights hold while toggling.
+    const slots = Math.max(2, ...products.map((r) => (r.inputs || []).length));
+    const pad = slots + (slots % 2);
+    $(ids.panel).innerHTML = !picked.length
+      ? '<p class="empty">點選上方技能就會列出它的產品，可以多選。</p>'
+      : !prods.length ? `<p class="empty">${waiting.map(esc).join('、')}的配方還在整理中。</p>`
+      : `<div class="products">${prods.map((r) => {
+        const n = Math.max(0, C.make[r.name] | 0), y = yieldOf(r);
+        const ins = r.inputs || [];
+        const recipe = ins.map((i) => `<li><span title="${esc(i.item)}">${esc(i.item)}</span><b><small>×</small>${fmt(Number(i.qty) || 0)}</b></li>`).join('')
+          + Array.from({ length: pad - ins.length }, () => '<li class="blank" aria-hidden="true"></li>').join('');
+        const effect = (Array.isArray(r.effect) ? r.effect : [r.effect]).filter(Boolean).map(esc).join('・');
+        return `<article class="quest">
+          <div class="q-top stack"><h4>${esc(r.name)}</h4><span class="chip city">${esc(r.skill)}</span>${r.gear ?`<span class="chip city">${esc(r.gear)} 等裝備</span>` : ''}</div>
+          ${effect ? `<p class="effect"><b>效果</b>${effect}</p>` : ''}
+          <ul class="ingr" aria-label="${esc(r.name)} 材料">${recipe}</ul>
+          <div class="q-buy"><span>製作</span><span class="seg seg-wide" role="radiogroup" aria-label="${esc(r.name)} 製作數量">${MAKE_PRESETS.map((p) => `<button type="button" role="radio" aria-checked="${p === n}" aria-label="製作 ${p} 個" data-role="set-make" data-cmake="${esc(r.name)}" data-n="${p}" data-focus-key="cmake:${esc(r.name)}:${p}">${p}</button>`).join('')}</span><span>個</span></div>
+          <div class="q-foot"><span>${[r.lv ?`${esc(r.skill)} Lv.${r.lv}` : '', r.bench ? `製作台 Lv.${r.bench}` : '', r.exp ? `技能經驗 +${fmt(r.exp)}／次` : '', y > 1 ? `一次做 ${y} 個` : ''].filter(Boolean).join('・')}</span></div>
+        </article>`;
+      }).join('')}</div>${waitNote}`;
+  }
+
+  function render() {
+    const a = document.activeElement;
+    const fk = a && a.dataset ? a.dataset.focusKey : null;
+    const fv = fk && a.tagName === 'INPUT' ? a.value : null;
+    const d = derive();
+    renderTabs(); renderQuickNav();
+    renderHead(); renderChars(d); renderStats(d); renderMats(d); renderHunts(d); renderBoards(d); renderMine();
+    renderCraft('craft'); renderCraft('cook');
+    if (fk) {
+      const el = [...document.querySelectorAll('[data-focus-key]')].find((x) => x.dataset.focusKey === fk);
+      if (el) { if (fv != null) el.value = fv; if (!el.disabled) el.focus({ preventScroll: true }); }
+    }
+  }
+
+  /* ---------- actions ---------- */
+  function findQuest(src, id) {
+    if (src === 'mine') return P.custom.find((q) => q.id === id);
+    return CATALOG.quests.find((q) => q.id === id);
+  }
+  function setHave(item, n, { auto = true } = {}) {
+    n = Math.max(0, Math.floor(Number(n) || 0));
+    const before = P.have[item] | 0;
+    if (n) P.have[item] = n; else delete P.have[item];
+    if (auto && n > before) {
+      const m = derive().mats.find((x) => x.name === item);
+      if (m && m.need > 0 && !m.unknown && before < m.need && n >= m.need) P.done[item] = true;
+    }
+  }
+  function setMake(name, n) {
+    n = Math.max(0, Math.min(9999, Math.floor(Number(n) || 0)));
+    if (n) C.make[name] = n; else delete C.make[name];
+  }
+  function switchTab(t) {
+    if (!TABS.includes(t)) return;
+    TAB = t;
+    try { localStorage.setItem(TAB_KEY, t); } catch (_) {}
+    try { history.replaceState(null, '', '#' + t); } catch (_) {}
+    render();
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('hashchange', () => {
+    const h = (location.hash || '').slice(1);
+    if (TABS.includes(h) && h !== TAB) { TAB = h; render(); }
+  });
+
+  function updateMine(id, patch) { P.custom = P.custom.map((q) => (q.id === id ? { ...q, ...patch } : q)); }
+
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-role]');
+    if (!b) { if (ui.confirm) { ui.confirm = null; render(); } return; }
+    const role = b.dataset.role;
+    const src = b.dataset.src, id = b.dataset.qid;
+    const q = id ? findQuest(src, id) : null;
+
+    if (role === 'tab') { switchTab(b.dataset.tab); return; }
+    if (role === 'toggle-city') {
+      const c = b.dataset.city;
+      if (UI.open[c]) delete UI.open[c]; else UI.open[c] = true;
+      saveUI(); render(); return;
+    }
+    if (role === 'toggle-boards') {
+      if (UI.boardsHidden) delete UI.boardsHidden; else UI.boardsHidden = true;
+      saveUI(); render(); return;
+    }
+    if (role === 'toggle-all-cities') {
+      UI.open = {};
+      if (b.dataset.open === '1') for (const c of new Set([...CITIES, ...allQuests().map((q) => q.city)])) UI.open[c] = true;
+      saveUI(); render(); return;
+    }
+    if (role === 'jump') {
+      const smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (b.dataset.to === 'top') window.scrollTo({ top: 0, behavior: smooth ? 'smooth' : 'auto' });
+      else { const el = $(b.dataset.to); if (el) el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }); }
+      return;
+    }
+    if (role === 'skill') {
+      const s = b.dataset.skill;
+      C.skills = C.skills.includes(s) ? C.skills.filter((x) => x !== s) : ALL_SKILLS.filter((x) => x === s || C.skills.includes(x));
+      saveC(); render(); return;
+    }
+    if (role === 'set-make' && b.dataset.cmake != null) {
+      setMake(b.dataset.cmake, Number(b.dataset.n) || 0);
+      saveC(); render(); return;
+    }
+    if (role === 'c-reset') {
+      // Each tab clears only its own products.
+      const skills = groupSkills(GROUPS[b.dataset.group] ? b.dataset.group : 'craft');
+      if (!confirm('確定要清空嗎？\n會清掉這一頁每個產品要做的數量。')) return;
+      for (const k of Object.keys(C.make)) if (skills.includes((RMAP.get(k) || {}).skill)) delete C.make[k];
+      saveC(); render(); return;
+    }
+
+    if (b.dataset.chars != null && (role === 'inc' || role === 'dec')) {
+      P.chars = Math.max(1, Math.min(MAX_CHARS, chars() + (role === 'inc' ? 1 : -1)));
+      saveP(); render(); return;
+    }
+    if (role === 'buy') {
+      const city = b.dataset.city;
+      if (P.bought[city]) delete P.bought[city]; else P.bought[city] = true;
+      saveP(); render(); return;
+    }
+    if (role === 'hand') {
+      // Handing in a town uses up the materials for all of its scrolls at once; unticking puts them back.
+      const city = b.dataset.city, on = !P.handed[city];
+      for (const x of allQuests().filter((x) => x.city === city)) {
+        const { qty } = effQty(x);
+        if (x.kind === '討伐' || !qty) continue;
+        const key = matKey(x);
+        setHave(key, (P.have[key] | 0) + (on ? -1 : 1) * qty * total(x), { auto: false });
+      }
+      if (on) P.handed[city] = true; else delete P.handed[city];
+      saveP(); render(); return;
+    }
+    if (role === 'set-buy' && q) {
+      const n = Math.max(0, Math.min(MAX_BUY, Number(b.dataset.n) | 0));
+      if (n === MAX_BUY) delete P.buy[q.id]; else P.buy[q.id] = n;
+      saveP(); render(); return;
+    }
+    if (role === 'tick') {
+      const item = b.dataset.item;
+      if (P.done[item]) delete P.done[item]; else P.done[item] = true;
+      saveP(); render(); return;
+    }
+    if (b.dataset.item != null && (role === 'inc' || role === 'dec')) {
+      const item = b.dataset.item;
+      setHave(item, (P.have[item] | 0) + (role === 'inc' ? 1 : -1));
+      saveP(); render(); return;
+    }
+    if (role === 'qty-clear' && q) { delete P.qty[q.id]; saveP(); render(); return; }
+    if (role === 'del' && q) { ui.confirm = `del:${src}:${id}`; render(); return; }
+    if (role === 'del-yes' && q && src === 'mine') {
+      ui.confirm = null;
+      P.custom = P.custom.filter((x) => x.id !== id);
+      for (const k of ['buy', 'qty']) delete P[k][id];
+      delete P.done['hunt:' + id];
+      saveP(); render(); return;
+    }
+    if (role === 'cancel-confirm') { ui.confirm = null; render(); return; }
+    if (role === 'reset') {
+      if (!confirm('確定要把進度歸零嗎？\n會清掉打勾、已買、已交付和持有數量。\n角色數和每張卷軸要買幾張會保留。')) return;
+      P.have = {}; P.done = {}; P.bought = {}; P.handed = {};
+      saveP(); render(); return;
+    }
+  });
+
+  document.addEventListener('change', (ev) => {
+    const t = ev.target;
+    if (!t.dataset) return;
+    if (t.dataset.role === 'set' && t.dataset.cmake != null) { setMake(t.dataset.cmake, t.value); saveC(); render(); return; }
+    if (t.dataset.role === 'set' && t.dataset.chars != null) {
+      P.chars = Math.max(1, Math.min(MAX_CHARS, Math.floor(Number(t.value)) || 1));
+      saveP(); render(); return;
+    }
+    if (t.dataset.role === 'set' && t.dataset.item != null) { setHave(t.dataset.item, t.value); saveP(); render(); return; }
+    if (t.dataset.role === 'qty' && t.dataset.qid) {
+      const n = posInt(t.value); if (!n) return;
+      const { src, qid } = t.dataset;
+      if (src === 'mine') updateMine(qid, { qty: n });
+      else P.qty[qid] = n;
+      t.blur(); saveP(); render();
+    }
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' && ev.target.matches && ev.target.matches('input[data-role="qty"], input[data-role="set"]')) ev.target.blur();
+  });
+
+  /* ---------- boot ---------- */
+  render();
+})();
+</script>
+</body>
+</html>
