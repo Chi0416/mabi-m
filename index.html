@@ -259,7 +259,8 @@ button.chip.use:hover { text-decoration: underline; }
 .ingr li > b small { font-size: 11px; font-weight: 400; color: var(--muted); margin-right: 1px; }
 .ingr li.blank { background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .5; }
 
-.products { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 10px; grid-auto-rows: 1fr; }
+/* 320px min keeps two ingredient columns wide enough for names like 高級魔法榴彈部件 (three cards a row on desktop). */
+.products { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; grid-auto-rows: 1fr; }
 /* A product with a make count picked gets an accent outline; the ring is a box-shadow so the card doesn't shift. */
 .products .quest:has(.seg button[aria-checked="true"]:not([data-n="0"])) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
@@ -419,6 +420,14 @@ h2[id] { scroll-margin-top: 16px; }
       <div id="barter-list"></div>
     </section>
 
+    <section aria-labelledby="h-barter-need">
+      <div class="sec-head">
+        <h2 id="h-barter-need">換滿要準備</h2>
+        <p>還沒打勾的兌換全部換滿，總共要交的東西。</p>
+      </div>
+      <div id="barter-need"></div>
+    </section>
+
     <footer class="source">
       <p>兌換項目取自玩家整理的〈以物易物〉文件（<a href="https://docs.google.com/document/d/1D-b67ZfaH6-tBgyVRAn1QTvGsCC8lf87UQojor62-kY/edit" target="_blank" rel="noopener">原文連結</a>，26.09.12 版），只收錄其中標紅（推薦優先）和標綠（建議）的項目。</p>
     </footer>
@@ -503,11 +512,12 @@ h2[id] { scroll-margin-top: 16px; }
     .map((t, i) => ({ ...t, key: `${t.npc}|${t.give.item}|${t.get.item}`, anchor: `trade-${i}` }));
   const B_KEY = 'mm-barter-v1';
   const gameDay = () => Math.floor((Date.now() + (8 - (Number(BARTER.reset) || 0)) * 3600e3) / 864e5);
-  let B = Object.assign({ day: 0, done: {} }, readLS(B_KEY) || {});
+  let B = Object.assign({ day: 0, done: {}, ready: {} }, readLS(B_KEY) || {});
   if (!B.done || typeof B.done !== 'object') B.done = {};
+  if (!B.ready || typeof B.ready !== 'object') B.ready = {};
   const saveB = () => writeLS(B_KEY, B);
   // Returns true when a new game day started and the ticks were cleared.
-  const rollBarter = () => { const d = gameDay(); if (B.day === d) return false; B.day = d; B.done = {}; saveB(); return true; };
+  const rollBarter = () => { const d = gameDay(); if (B.day === d) return false; B.day = d; B.done = {}; B.ready = {}; saveB(); return true; };
   rollBarter();
 
   // Ways to get a material: its gathering skill from the board's scrolls, the #materials notes, then trades that give it.
@@ -834,7 +844,7 @@ h2[id] { scroll-margin-top: 16px; }
     board: [['top', '頂部'], ['h-boards', '佈告欄'], ['h-mats', '採集總表']],
     craft: [['top', '頂部'], ['h-skills', '製作台'], ['h-craft-need', '所需材料']],
     cook: [['top', '頂部'], ['h-cook-skills', '製作台'], ['h-cook-need', '所需材料']],
-    barter: [['top', '頂部'], ['h-barter', '今日兌換']],
+    barter: [['top', '頂部'], ['h-barter', '今日兌換'], ['h-barter-need', '換滿要準備']],
   };
   function renderQuickNav() {
     $('quicknav').innerHTML = JUMPS[TAB].map(([to, label]) => `<button type="button" data-role="jump" data-to="${to}">${to === 'top' ? '↑ ' : ''}${label}</button>`).join('');
@@ -900,10 +910,15 @@ h2[id] { scroll-margin-top: 16px; }
     // Slots from the longest recipe in the whole tab (not just the picked skills), so heights hold while toggling.
     const slots = Math.max(2, ...products.map((r) => (r.inputs || []).length));
     const pad = slots + (slots % 2);
-    // Use tags: a 佈告欄 scroll asks for this dish, or a trade takes it (the tag jumps to that trade).
+    // Use tags: one 佈告欄 tag when a scroll asks for this dish, one 以物易物 tag when a trade takes it (jumps to the first
+    // such trade). The towns / NPCs go in the tooltip to keep the tags short.
     const boardTowns = (name) => [...new Set(allQuests().filter((q) => q.kind === '料理' && matKey(q) === name).map((q) => q.city))];
-    const useTags = (name) => boardTowns(name).map((c) => `<span class="chip use">佈告欄・${esc(c)}</span>`).join('')
-      + BARTER.items.filter((t) => t.give.item === name).map((t) => `<button type="button" class="chip use" data-role="goto-trade" data-to="${t.anchor}" aria-label="以物易物：拿 ${esc(name)} 找${esc(t.npc)}換${esc(t.get.item)}">以物易物・${esc(t.npc)}</button>`).join('');
+    const useTags = (name) => {
+      const towns = boardTowns(name), trades = BARTER.items.filter((t) => t.give.item === name);
+      const tradeTip = trades.map((t) => `拿 ${name} 找${t.npc}換${t.get.item}`).join('；');
+      return (towns.length ? `<span class="chip use" title="${esc(`佈告欄：${towns.join('、')}`)}">佈告欄</span>` : '')
+        + (trades.length ? `<button type="button" class="chip use" data-role="goto-trade" data-to="${trades[0].anchor}" title="${esc(tradeTip)}" aria-label="${esc(`以物易物：${tradeTip}`)}">以物易物</button>` : '');
+    };
     $(ids.panel).innerHTML = !shown.length
       ? `<p class="empty">${gears.length > 1 ? '點選上方技能或裝備等級就會列出產品，可以多選。' : '點選上方技能就會列出它的產品，可以多選。'}</p>`
       : !prods.length ? `<p class="empty">${waiting.length ? `${waiting.map(esc).join('、')}的配方還在整理中。` : '選的技能還沒有這個等級的配方。'}</p>`
@@ -928,9 +943,30 @@ h2[id] { scroll-margin-top: 16px; }
     const doneN = items.filter((t) => B.done[t.key]).length;
     $('barter-badge').textContent = items.length ? `兌換 ${items.length} 筆${BARTER.updated ? `・${BARTER.updated} 更新` : ''}` : '兌換整理中';
     $('barter-tools').innerHTML = items.length
-      ? `<span class="num">每天 ${Number(BARTER.reset) || 0} 點重置・今天已換 ${doneN}／${items.length}</span><button type="button" class="link-btn" data-role="barter-clear"${doneN ? '' : ' disabled'}>取消全部勾選</button>`
+      ? `<span class="num">每天 ${Number(BARTER.reset) || 0} 點重置・今天已換 ${doneN}／${items.length}</span><button type="button" class="link-btn" data-role="barter-clear"${doneN || Object.keys(B.ready).length ? '' : ' disabled'}>取消全部勾選</button>`
       : '';
-    if (!items.length) { $('barter-list').innerHTML = '<p class="empty">兌換項目還在整理中。</p>'; return; }
+    if (!items.length) { $('barter-list').innerHTML = '<p class="empty">兌換項目還在整理中。</p>'; $('barter-need').innerHTML = ''; return; }
+
+    // What to bring to max out every trade not ticked yet. Items another trade hands out (already done or still open)
+    // are counted off, e.g. 凱琳's 全麥麵包 toward 安黛莉 and 梅文.
+    const lim = (t) => Math.max(1, Number(t.limit) || 1);
+    const need = new Map();
+    for (const t of items.filter((x) => !B.done[x.key])) {
+      const m = need.get(t.give.item) || { total: 0, npcs: new Set() };
+      m.total += (Number(t.give.qty) || 1) * lim(t); m.npcs.add(t.npc);
+      need.set(t.give.item, m);
+    }
+    $('barter-need').innerHTML = !need.size ? '<p class="empty">今天的兌換都換完了。</p>' : `<ul class="ledger">${[...need].map(([name, m]) => {
+      const from = items.filter((t) => t.get.item === name);
+      const got = Math.min(m.total, from.reduce((n, t) => n + (Number(t.get.qty) || 1) * lim(t), 0));
+      const src = sourceOf(name);
+      const line = `交給 ${[...m.npcs].map(esc).join('、')}${got ? `・共 ${fmt(m.total)}，其中 ${fmt(got)} 可向${[...new Set(from.map((t) => t.npc))].map(esc).join('、')}換到` : ''}`;
+      const ready = !!B.ready[name], k = esc(name);
+      return `<li class="mat need-row${ready ? ' st-ready' : ''}">
+          <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${ready}" aria-label="${k} 準備好了" data-role="barter-ready" data-item="${k}" data-focus-key="br:${k}"></button><div><strong>${esc(name)}</strong>${src.length ? `<span class="mat-src from">取得：${src.map(esc).join('、')}</span>` : ''}<span class="mat-src">${line}</span></div></div>
+          <div class="mat-need"><b>${fmt(m.total - got)}</b></div>
+        </li>`;
+    }).join('')}</ul>`;
     // Towns in the board's order, then other places (corridors, hunting grounds) as listed; 優先 before 建議 within a place.
     const places = [...new Set([...CITIES.filter((c) => items.some((t) => t.place === c)), ...items.map((t) => t.place)])];
     const rank = (t) => (t.pick === '優先' ? 0 : 1);
@@ -1053,7 +1089,13 @@ h2[id] { scroll-margin-top: 16px; }
       if (B.done[k]) delete B.done[k]; else B.done[k] = true;
       saveB(); render(); return;
     }
-    if (role === 'barter-clear') { B.done = {}; saveB(); render(); return; }
+    if (role === 'barter-ready') {
+      rollBarter();
+      const k = b.dataset.item;
+      if (B.ready[k]) delete B.ready[k]; else B.ready[k] = true;
+      saveB(); render(); return;
+    }
+    if (role === 'barter-clear') { B.done = {}; B.ready = {}; saveB(); render(); return; }
     if (role === 'goto-trade') {
       const to = b.dataset.to;
       switchTab('barter');
