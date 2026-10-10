@@ -847,7 +847,7 @@ h2[id] { scroll-margin-top: 16px; }
       `以物易物・${esc(t.npc)}（${esc(t.place)}）・每日 ${Math.max(1, Number(t.limit) || 1)} 次`) + go('goto-trade', t.anchor);
     const quest = (q) => {
       const { qty } = effQty(q);
-      return row(`${esc(q.city)}・${esc(q.kind || '其他')}卷軸`, qty ? `每張 ${fmt(qty)} ${esc(unitOf(q))}` : '每張數量待確認') + go('goto-quest', questAnchor(q), q.city);
+      return row(`佈告欄・${esc(q.city)}`, qty ? `每張 ${fmt(qty)} ${esc(unitOf(q))}` : '每張數量待確認') + go('goto-quest', questAnchor(q), q.city);
     };
     const effect = r ? (Array.isArray(r.effect) ? r.effect : [r.effect]).filter(Boolean).map(esc).join('・') : '';
     const y = r ? yieldOf(r) : 1;
