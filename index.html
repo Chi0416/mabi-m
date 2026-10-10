@@ -356,6 +356,7 @@ h2[id] { scroll-margin-top: 16px; }
     <button type="button" role="tab" id="tabbtn-craft" aria-controls="tab-craft" aria-selected="false" data-role="tab" data-tab="craft"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h3.5l9.5 9.5-3.5 3.5L4 7.5z"/><path d="M12 19.5l7.5-7.5M16.5 16.5l3.5 3.5"/></svg>武器・防具</button>
     <button type="button" role="tab" id="tabbtn-cook" aria-controls="tab-cook" aria-selected="false" data-role="tab" data-tab="cook"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5M10.5 3v5.5l-5 8.3A2.8 2.8 0 0 0 7.9 21h8.2a2.8 2.8 0 0 0 2.4-4.2l-5-8.3V3"/><path d="M7.2 14.5h9.6"/></svg>食物・道具</button>
     <button type="button" role="tab" id="tabbtn-barter" aria-controls="tab-barter" aria-selected="false" data-role="tab" data-tab="barter"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg>以物易物</button>
+    <button type="button" role="tab" id="tabbtn-items" aria-controls="tab-items" aria-selected="false" data-role="tab" data-tab="items"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H18v14H6.5A1.5 1.5 0 0 0 5 19.5z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H18v-3"/><path d="M9 8h5M9 11.5h5"/></svg>道具大全</button>
   </nav>
 
   <div class="tabpanel" id="tab-board" role="tabpanel" aria-labelledby="tabbtn-board">
@@ -493,6 +494,26 @@ h2[id] { scroll-margin-top: 16px; }
     <footer class="source">
       <p>兌換項目取自玩家整理的〈以物易物〉文件（<a href="https://docs.google.com/document/d/1D-b67ZfaH6-tBgyVRAn1QTvGsCC8lf87UQojor62-kY/edit" target="_blank" rel="noopener">原文連結</a>，26.09.12 版），只收錄其中標紅（推薦優先）和標綠（建議）的項目。</p>
     </footer>
+  </div>
+
+  <div class="tabpanel" id="tab-items" role="tabpanel" aria-labelledby="tabbtn-items" hidden>
+    <header class="mast">
+      <div class="mast-row"><span class="badge num" id="items-badge">道具整理中</span></div>
+      <p>網站上出現過的每個道具。點一下看它的配方、取得方式和用途。</p>
+    </header>
+
+    <section aria-labelledby="h-items">
+      <div class="sec-head">
+        <h2 id="h-items">道具大全</h2>
+        <div class="mine-tools" id="items-tools"></div>
+      </div>
+      <div class="filter-bar">
+        <button type="button" class="search-btn" data-role="search-toggle" data-group="items" aria-label="搜尋道具" aria-expanded="false" aria-controls="items-search" data-focus-key="search-toggle:items"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg></button>
+        <div class="skill-tabs" id="items-cats" role="radiogroup" aria-label="道具分類"></div>
+      </div>
+      <div class="search-box" id="items-search" hidden><input type="search" data-role="search" data-group="items" placeholder="搜尋道具名稱或取得地點" aria-label="搜尋道具名稱或取得地點" enterkeyhint="search" autocomplete="off"><button type="button" class="link-btn" data-role="search-clear" data-group="items">清除</button></div>
+      <div id="items-list"></div>
+    </section>
   </div>
 
   <nav class="quicknav" id="quicknav" aria-label="快速跳轉"></nav>
@@ -638,7 +659,7 @@ h2[id] { scroll-margin-top: 16px; }
   // 所需材料 ticked as gathered, by material name (shared by both crafting tabs).
   if (!C.ready || typeof C.ready !== 'object') C.ready = {};
   // Per-tab search text; not saved, a reload starts with no search.
-  const SEARCH = { craft: '', cook: '' };
+  const SEARCH = { craft: '', cook: '', items: '' };
   delete C.have; delete C.done; delete C.skill; delete C.skills;
   const saveC = () => writeLS(C_KEY, C);
 
@@ -668,7 +689,7 @@ h2[id] { scroll-margin-top: 16px; }
   delete UI.boardsHidden;
   const saveUI = () => writeLS(UI_KEY, UI);
 
-  const TABS = ['board', 'craft', 'cook', 'barter'];
+  const TABS = ['board', 'craft', 'cook', 'barter', 'items'];
   let TAB = (() => {
     const h = (location.hash || '').slice(1);
     if (TABS.includes(h)) return h;
@@ -1005,6 +1026,7 @@ h2[id] { scroll-margin-top: 16px; }
     craft: [['top', '頂部'], ['h-skills', '製作台'], ['h-craft-need', '所需材料']],
     cook: [['top', '頂部'], ['h-cook-skills', '製作台'], ['h-cook-need', '所需材料']],
     barter: [['top', '頂部'], ['h-barter', '今日兌換'], ['h-barter-need', '換滿要準備']],
+    items: [['top', '頂部'], ['h-items', '道具大全']],
   };
   function renderQuickNav() {
     $('quicknav').innerHTML = JUMPS[TAB].map(([to, label]) => `<button type="button" data-role="jump" data-to="${to}">${to === 'top' ? '↑ ' : ''}${label}</button>`).join('');
@@ -1096,6 +1118,51 @@ h2[id] { scroll-margin-top: 16px; }
       : `<ul class="ledger">${prods.map(card).join('')}</ul>`;
   }
 
+  // 道具大全: every item the index knows, each row opening its sheet. One kind at a time (全部 lists them all under kind
+  // headings); 待補 lists the items with no way to get them recorded yet. A search matches names and ways to get.
+  const ITEM_KINDS = ['原料', '加工材料', '料理', '藥水・消耗品', '裝備', '其他'];
+  const PROCESSED = /^(金屬|木材|皮革|布料)?加工/;
+  function itemKind(it) {
+    const r = it.recipe;
+    if (r && r.product) return r.skill === '料理' ? '料理' : groupSkills('craft').includes(r.skill) ? '裝備' : '藥水・消耗品';
+    if (r || it.sources.some((s) => PROCESSED.test(s))) return '加工材料';
+    // Only ever handed out by a trade and needed nowhere: a reward, not a material.
+    if (!it.sources.length && !it.usedIn.length && !it.quests.length && !it.gives.length) return '其他';
+    return '原料';
+  }
+  const itemMissing = (it) => !it.recipe && !it.sources.length && !it.gets.length;
+  // The key line: a product's effect or level, a processed material's skill and inputs, otherwise the ways to get it.
+  function itemSub(it) {
+    const r = it.recipe;
+    if (r && r.product) return [esc(prodSub(r)), ''];
+    if (r) return [`${esc(r.lvSkill || r.skill)}・${names((r.inputs || []).map((i) => i.item))}`, ''];
+    const get = [...it.sources, ...it.gets.map((t) => `以物易物・${t.npc}（${t.place}）`)];
+    return get.length ? [names(get), ''] : ['取得方式待補', 'is-tbd'];
+  }
+  function renderItems() {
+    const all = [...ITEMS.values()].map((it) => ({ it, kind: itemKind(it), missing: itemMissing(it) }));
+    const missingN = all.filter((x) => x.missing).length;
+    $('items-badge').textContent = `${all.length} 種道具・取得方式待補 ${missingN}`;
+    const kinds = ITEM_KINDS.filter((k) => all.some((x) => x.kind === k));
+    const cat = kinds.includes(UI.itemCat) || (UI.itemCat === '待補' && missingN) ? UI.itemCat : '全部';
+    const opt = (k, cnt) => `<button type="button" role="radio" aria-checked="${cat === k}" data-role="item-cat" data-cat="${esc(k)}" data-focus-key="item-cat:${esc(k)}"><span>${esc(k)}</span>${cnt ? `<span class="cnt">${cnt}</span>` : ''}</button>`;
+    $('items-cats').innerHTML = opt('全部') + kinds.map((k) => opt(k)).join('') + (missingN ? opt('待補', missingN) : '');
+
+    const q = SEARCH.items.trim();
+    const hit = ({ it }) => !q || it.name.includes(q) || it.sources.some((s) => s.includes(q)) || it.gets.some((t) => `${t.npc}${t.place}`.includes(q));
+    // Kinds in ITEM_KINDS order; products keep the recipes' (the game's) order, everything else goes by name.
+    const recipeAt = new Map(RECIPES.items.map((r, i) => [r.name, i]));
+    const list = all.filter((x) => (cat === '全部' || (cat === '待補' ? x.missing : x.kind === cat)) && hit(x))
+      .sort((a, b) => ITEM_KINDS.indexOf(a.kind) - ITEM_KINDS.indexOf(b.kind)
+        || (recipeAt.get(a.it.name) ?? 1e9) - (recipeAt.get(b.it.name) ?? 1e9) || a.it.name.localeCompare(b.it.name, 'zh-Hant'));
+    $('items-tools').innerHTML = `<span class="num">共 ${list.length} 種</span>`;
+    const row = ({ it }) => { const [sub, subCls] = itemSub(it); return listRow({ title: itemLink(it.name), sub, subCls, open: it.name }); };
+    const groups = [];
+    for (const x of list) { const last = groups[groups.length - 1]; if (last && last.kind === x.kind) last.list.push(x); else groups.push({ kind: x.kind, list: [x] }); }
+    $('items-list').innerHTML = !list.length ? `<p class="empty">${q ? `找不到符合「${esc(q)}」的道具。` : '這個分類還沒有道具。'}</p>`
+      : groups.map((g) => `<section class="prod-group"><h3>${esc(g.kind)}</h3><ul class="ledger">${g.list.map(row).join('')}</ul></section>`).join('');
+  }
+
   function renderBarter() {
     const items = BARTER.items;
     const doneN = items.filter((t) => B.done[t.key]).length;
@@ -1151,7 +1218,7 @@ h2[id] { scroll-margin-top: 16px; }
     ITEMS = itemIndex(d.qs);
     renderTabs(); renderQuickNav();
     renderHead(); renderChars(d); renderStats(d); renderMats(d); renderHunts(d); renderBoards(d); renderMine();
-    renderCraft('craft'); renderCraft('cook'); renderBarter();
+    renderCraft('craft'); renderCraft('cook'); renderBarter(); renderItems();
     if ($('item-sheet').open && SHEET.stack.length) drawSheet(true);
     if (fk) {
       const el = [...document.querySelectorAll('[data-focus-key]')].find((x) => x.dataset.focusKey === fk);
@@ -1236,6 +1303,7 @@ h2[id] { scroll-margin-top: 16px; }
       return;
     }
     if (role === 'gear-all') { C.gears = []; saveC(); render(); return; }
+    if (role === 'item-cat') { UI.itemCat = b.dataset.cat; saveUI(); render(); return; }
     if (role === 'sec-all') { delete C.secs[b.dataset.skill]; saveC(); render(); return; }
     if (role === 'gear') {
       const lv = Number(b.dataset.gear);
