@@ -308,8 +308,9 @@ section { display: grid; gap: 14px; }
 .skill-tabs .cnt { min-width: 18px; font-size: 12px; line-height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--accent-fg); text-align: center; font-variant-numeric: tabular-nums; }
 .skill-tabs button:is([aria-pressed="true"], [aria-checked="true"]) .cnt { background: var(--accent-fg); color: var(--accent); }
 /* Filter bar under the skills, after the game's tab row: 🔍 at the far left, then 全部 and the levels / sections. */
-.filter-bar { display: flex; align-items: flex-start; gap: 6px; }
-.filter-bar > .skill-tabs, .sec-rows { flex: 1; min-width: 0; }
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+/* The level / section buttons join 🔍 in one wrapping row, so a second line starts at the left edge, not under 全部. */
+.filter-bar > .skill-tabs, .sec-rows, .sec-rows > .skill-tabs { display: contents; }
 .search-btn { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--fg); }
 .search-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 @media (pointer: fine) { .search-btn { width: 32px; height: 32px; } .search-btn svg { width: 15px; height: 15px; } }
@@ -960,12 +961,13 @@ h2[id] { scroll-margin-top: 16px; }
       // Town shown as a tag; the 數量 line reads "10個 × 3張卷" (per town when a material comes from several).
       const open = m.parts.filter((p) => p.left > 0);
       const amount = (p) => `${p.qty ? p.qty : '?'}${esc(unitOf(p.q))} × ${p.left}張卷`;
-      const src = !open.length ? '已全部交付'
+      // Nothing left either because every scroll was handed in, or because every scroll was set to 0 this round.
+      const src = !open.length ? (m.parts.every((p) => !total(p.q)) ? '這輪不做' : '已全部交付')
         : open.length === 1 ? amount(open[0])
         : open.map((p) => `${esc(p.q.city)} ${amount(p)}`).join('・');
       const towns = [...new Set(m.parts.map((p) => p.q.city))].map((c) => `<span class="chip place">${esc(c)}</span>`).join('');
       const pct = m.need > 0 ? Math.min(100, Math.round((m.have / m.need) * 100)) : (m.done ? 100 : 0);
-      const status = { short: `還差 ${fmt(m.short)}`, enough: '數量夠了', ready: '已收齊', unknown: '數量待確認', idle: '無待交付' }[m.st];
+      const status = { short: `還差 ${fmt(m.short)}`, enough: '數量夠了', ready: '已收齊', unknown: '數量待確認', idle: src === '這輪不做' ? '不做' : '無待交付' }[m.st];
       const item = esc(m.name);
       return `<li class="mat st-${m.st}">
         <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${m.done}" aria-label="${item} 已收齊" data-role="tick" data-item="${item}" data-focus-key="tick:${item}"></button><div><strong>${itemLink(m.name)} ${towns}</strong>${itemFacts(m.name, { need: [['數量', src]], skip: [m.method] })}</div></div>
@@ -985,10 +987,11 @@ h2[id] { scroll-margin-top: 16px; }
       const done = !!P.done[key];
       const need = qty ? qty * left : null;
       const st = left === 0 ? 'idle' : done ? 'ready' : need == null ? 'unknown' : 'short';
-      const status = left === 0 ? '已全部交付' : done ? '已完成' : need == null ? '次數待確認' : `共 ${need} 次`;
+      const skip = !total(q);
+      const status = skip ? '不做' : left === 0 ? '已全部交付' : done ? '已完成' : need == null ? '次數待確認' : `共 ${need} 次`;
       const name = esc(q.target || q.title);
       return `<li class="mat st-${st}">
-        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${name} 討伐完成" data-role="tick" data-item="${esc(key)}" data-focus-key="tick:${esc(key)}"></button><div><strong>${name} <span class="chip k-討伐">討伐</span><span class="chip place">${esc(q.city)}</span></strong>${facts([['數量', left ? `${qty || '?'}次 × ${left}張卷` : '已全部交付']])}</div></div>
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${name} 討伐完成" data-role="tick" data-item="${esc(key)}" data-focus-key="tick:${esc(key)}"></button><div><strong>${name} <span class="chip k-討伐">討伐</span><span class="chip place">${esc(q.city)}</span></strong>${facts([['數量', left ? `${qty || '?'}次 × ${left}張卷` : skip ? '這輪不做' : '已全部交付']])}</div></div>
         <div class="mat-need"><span class="lbl">需要</span><b>${need ?? '?'}</b> <span class="unit">次</span></div>
         <div class="mat-have"></div>
         <span class="status">${status}</span>
