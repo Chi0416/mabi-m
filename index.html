@@ -299,15 +299,25 @@ section { display: grid; gap: 14px; }
 .effect { margin: 0; padding: 6px 10px; border-radius: 8px; background: var(--info-soft); color: var(--info); font-size: 13px; }
 .effect b { font-weight: 700; margin-right: 4px; }
 .mat-src.from { color: var(--fg); }
-/* Recipe inputs: two-column slots. 701px+ pads them to the tab's longest recipe so cards side by side line up;
+/* Recipe inputs. Phones: one wrapping line, 「材料 鋼錠 ×2・皮革+ ×2」 (the tab's total list is further down).
+   701px+: two-column slots padded to the tab's longest recipe so cards side by side line up;
    phones stack cards in one column, so the padding (and equal card heights) would only waste space. */
-.ingr { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 26px; gap: 4px 6px; font-size: 13px; }
-.ingr li { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; padding: 0 8px; border-radius: 6px; background: var(--surface-2); }
-.ingr li > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ingr { list-style: none; margin: 0; padding: 0 0 0 34px; display: flex; flex-wrap: wrap; align-items: baseline; font-size: 13px; }
+/* The label hangs in the left padding so a wrapped second line lines up with the first ingredient. */
+.ingr::before { content: "材料"; flex: none; width: 34px; margin-left: -34px; font-weight: 700; }
+.ingr li { display: flex; align-items: baseline; white-space: nowrap; }
+.ingr li + li::before { content: "・"; color: var(--muted); }
+.ingr li > span { min-width: 0; margin-right: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ingr li > b { flex: none; font-variant-numeric: tabular-nums; }
 .ingr li > b small { font-size: 11px; font-weight: 400; color: var(--muted); margin-right: 1px; }
 .ingr li.blank { display: none; background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .5; }
-@media (min-width: 701px) { .ingr li.blank { display: flex; } }
+@media (min-width: 701px) {
+  .ingr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 26px; gap: 4px 6px; align-items: stretch; padding: 0; }
+  .ingr::before, .ingr li + li::before { content: none; }
+  .ingr li { align-items: center; justify-content: space-between; gap: 6px; min-width: 0; padding: 0 8px; border-radius: 6px; background: var(--surface-2); white-space: normal; }
+  .ingr li > span { margin-right: 0; }
+  .ingr li.blank { display: flex; }
+}
 
 /* 320px min keeps two ingredient columns wide enough for names like 高級魔法榴彈部件 (three cards a row on desktop). */
 .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 10px; }
