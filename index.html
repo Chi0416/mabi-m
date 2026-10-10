@@ -151,6 +151,11 @@ section { display: grid; gap: 14px; }
 .bar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
 .st-ready .bar span { background: var(--good); }
 .st-ready .mat-name strong { text-decoration: line-through; text-decoration-color: var(--muted); text-decoration-thickness: 1px; }
+/* Item names are buttons that open the item sheet; a dotted underline marks them. A button doesn't inherit its row's
+   strike-through, so ticked / traded rows strike the name themselves. */
+.item-link { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: inherit; text-decoration: underline dotted var(--muted); text-decoration-thickness: 1px; text-underline-offset: .25em; }
+@media (hover: hover) { .item-link:hover { color: var(--accent); text-decoration-color: currentColor; } }
+:is(.st-ready, .trade.is-done) .item-link { text-decoration: line-through var(--muted) 1px; }
 .st-idle { opacity: .55; }
 .status { justify-self: end; font-size: 13px; font-weight: 500; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
 .st-short .status { background: var(--warn-soft); color: var(--warn); }
@@ -309,7 +314,7 @@ section { display: grid; gap: 14px; }
 .ingr::before { content: "材料"; flex: none; width: 34px; margin-left: -34px; font-weight: 700; }
 .ingr li { display: flex; align-items: baseline; white-space: nowrap; }
 .ingr li + li::before { content: "・"; color: var(--muted); }
-.ingr li > span { min-width: 0; margin-right: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ingr li > .item-link { min-width: 0; margin-right: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ingr li > b { flex: none; font-variant-numeric: tabular-nums; }
 .ingr li > b small { font-size: 11px; font-weight: 400; color: var(--muted); margin-right: 1px; }
 .ingr li.blank { display: none; background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .5; }
@@ -317,7 +322,7 @@ section { display: grid; gap: 14px; }
   .ingr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 26px; gap: 4px 6px; align-items: stretch; padding: 0; }
   .ingr::before, .ingr li + li::before { content: none; }
   .ingr li { align-items: center; justify-content: space-between; gap: 6px; min-width: 0; padding: 0 8px; border-radius: 6px; background: var(--surface-2); white-space: normal; }
-  .ingr li > span { margin-right: 0; }
+  .ingr li > .item-link { margin-right: 0; }
   .ingr li.blank { display: flex; }
 }
 
@@ -344,6 +349,32 @@ section { display: grid; gap: 14px; }
 .quest { scroll-margin: 80px; }
 @media (prefers-reduced-motion: no-preference) { .flash { animation: jump-flash 1.6s ease-out; } }
 @keyframes jump-flash { from { background: var(--good-soft); } }
+
+/* Item sheet: phones get a sheet up from the bottom, 701px+ a panel in the middle. The head stays put while the body scrolls. */
+.sheet { width: 100%; max-width: none; max-height: 85vh; max-height: 85dvh; margin: auto 0 0; padding: 0; border: 0; border-radius: 16px 16px 0 0; background: var(--surface); color: var(--fg); box-shadow: 0 -8px 30px rgba(0,0,0,.2); overscroll-behavior: contain; }
+.sheet::backdrop { background: rgba(10, 16, 13, .45); }
+html:has(.sheet[open]) { overflow: hidden; }
+@media (min-width: 701px) { .sheet { width: min(560px, calc(100% - 48px)); max-height: min(80dvh, 720px); margin: auto; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.25); } }
+@media (prefers-reduced-motion: no-preference) { .sheet[open] { animation: sheet-in .2s ease-out; } }
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } }
+.sheet-head { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 12px var(--gutter-r) 10px var(--gutter-l); background: var(--surface); border-bottom: 1px solid var(--line); }
+.sheet-head h2 { flex: 1 1 auto; min-width: 0; font-size: 22px; }
+.sheet-head h2:focus { outline: none; }
+.sheet-tags { order: 1; flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+.sheet-btn { flex: none; width: 40px; height: 40px; border: 0; border-radius: 999px; background: var(--surface-2); color: var(--fg); font-size: 22px; line-height: 1; padding: 0; }
+@media (pointer: fine) { .sheet-btn { width: 32px; height: 32px; font-size: 18px; } }
+@media (hover: hover) { .sheet-btn:hover { background: var(--line); } }
+.sheet-body { display: grid; gap: 16px; padding: 14px var(--gutter-r) calc(24px + env(safe-area-inset-bottom, 0px)) var(--gutter-l); }
+.sheet-sec { display: grid; gap: 6px; }
+.sheet-sec h3 { font-family: var(--font-body); font-size: 13px; color: var(--muted); letter-spacing: .06em; }
+.sheet-meta { margin: 0; font-size: 13px; color: var(--muted); }
+.sheet-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+/* One row per way to get it or use it: the fact on the left (main line, grey detail below), 前往 pinned on the right. */
+.sheet-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 4px 6px 12px; min-height: 40px; border-radius: 8px; background: var(--bg); font-size: 14px; }
+.sheet-main, .sheet-sub { display: block; }
+.sheet-sub { font-size: 12px; color: var(--muted); }
+/* Recipe inputs and the recipes that take it: one wrapping line of names, like a product card's 材料. */
+.sheet-inline { margin: 0; display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 15px; }
 
 /* Quick-jump bar: a pill just above the tab bar on phones, at the bottom edge on tablets, right edge on wide screens */
 .quicknav { position: fixed; z-index: 6; right: 50%; translate: 50% 0; bottom: calc(var(--tabbar) + 10px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; padding: 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(0,0,0,.16); }
@@ -503,6 +534,7 @@ h2[id] { scroll-margin-top: 16px; }
   </div>
 
   <nav class="quicknav" id="quicknav" aria-label="快速跳轉"></nav>
+  <dialog class="sheet" id="item-sheet" aria-labelledby="sheet-title"></dialog>
 </div>
 
 <script type="application/json" id="catalog">{"rev":4,"updated":"2026-10-09","quests":[{"id":"t-1","city":"提爾克那","kind":"料理","target":"煎蛋","qty":5,"title":"料理卷軸：煎蛋","reward":"料理經驗 171・禮盒","price":300,"order":1,"method":"料理"},{"id":"t-2","city":"提爾克那","kind":"採集","target":"蜘蛛網","qty":10,"title":"採集卷軸：蜘蛛絲","reward":"技能經驗 171・禮盒","price":300,"order":2,"note":"卷軸名稱是蜘蛛絲，實際要交蜘蛛網","method":"日常採集"},{"id":"t-3","city":"提爾克那","kind":"採集","target":"羊毛","qty":20,"title":"採集卷軸：羊毛","reward":"技能經驗 225・禮盒","price":300,"order":3,"method":"剪羊毛"},{"id":"t-4","city":"提爾克那","kind":"採集","target":"血紅藥草","qty":20,"title":"採集卷軸：血紅藥草","reward":"技能經驗 171・禮盒","price":300,"order":4,"method":"採集藥草"},{"id":"t-5","city":"提爾克那","kind":"討伐","target":"狼之森林","qty":4,"title":"討伐卷軸：狼之森林","reward":"EXP 600・禮盒・金幣 1,110","price":300,"order":5},{"id":"t-6","city":"提爾克那","kind":"採集","target":"小麥","qty":10,"title":"採集卷軸：小麥","reward":"技能經驗 171・禮盒","price":300,"order":6,"method":"收割"},{"id":"t-7","city":"提爾克那","kind":"採集","target":"馬鈴薯","qty":10,"title":"採集卷軸：馬鈴薯","reward":"技能經驗 171・禮盒","price":300,"order":7,"method":"鋤地"},{"id":"dun-1","city":"杜巴頓","kind":"討伐","target":"女神庭園","qty":4,"title":"討伐卷軸：女神庭園","reward":"EXP 1,730・禮盒・金幣 1,610","price":480,"order":1},{"id":"dun-2","city":"杜巴頓","kind":"料理","target":"蘋果汁","qty":5,"title":"料理卷軸：蘋果汁","reward":"料理經驗 225・禮盒","price":480,"order":2,"method":"料理"},{"id":"dun-3","city":"杜巴頓","kind":"採集","target":"咻咻蘑菇","qty":20,"title":"採集卷軸：咻咻蘑菇","reward":"技能經驗 225・禮盒","price":480,"order":3,"method":"採集藥草"},{"id":"dun-4","city":"杜巴頓","kind":"採集","target":"牛奶","qty":10,"title":"採集卷軸：牛奶","reward":"技能經驗 225・禮盒","price":480,"order":4,"unit":"瓶","method":"日常採集"},{"id":"dun-5","city":"杜巴頓","kind":"採礦","target":"鐵礦石","qty":20,"title":"採礦卷軸：鐵礦石","reward":"採礦經驗 171・禮盒","price":480,"order":5,"method":"採礦"},{"id":"dun-6","city":"杜巴頓","kind":"採集","target":"玉米","qty":10,"title":"採集卷軸：玉米","reward":"技能經驗 171・禮盒","price":480,"order":6,"method":"收割"},{"id":"dun-7","city":"杜巴頓","kind":"採集","target":"洋蔥","qty":10,"title":"採集卷軸：洋蔥","reward":"技能經驗 171・禮盒","price":480,"order":7,"method":"鋤地"},{"id":"kuh-1","city":"庫漢","kind":"討伐","target":"冰霜峽谷","qty":4,"title":"討伐卷軸：冰霜峽谷","reward":"EXP 9,680・禮盒・金幣 2,700","price":900,"order":1},{"id":"kuh-2","city":"庫漢","kind":"料理","target":"蒸蛤蜊","qty":5,"title":"料理卷軸：蒸蛤蜊","reward":"料理經驗 281・禮盒","price":900,"order":2,"method":"料理"},{"id":"kuh-3","city":"庫漢","kind":"採集","target":"箭花","qty":20,"title":"採集卷軸：箭花","reward":"技能經驗 171・禮盒","price":900,"order":3,"method":"採集藥草"},{"id":"kuh-4","city":"庫漢","kind":"採集","target":"雞蛋","qty":10,"title":"採集卷軸：雞蛋","reward":"技能經驗 171・禮盒","price":900,"order":4,"method":"日常採集"},{"id":"kuh-5","city":"庫漢","kind":"採集","target":"高級原木+","qty":20,"title":"採集卷軸：高級原木+","reward":"技能經驗 281・禮盒","price":900,"order":5,"method":"伐木"},{"id":"kuh-6","city":"庫漢","kind":"採集","target":"貝類","qty":10,"title":"採集卷軸：貝類","reward":"技能經驗 171・禮盒","price":900,"order":6,"method":"鋤地"},{"id":"ban-1","city":"班克爾","kind":"採集","target":"黃豆","qty":10,"title":"採集卷軸：黃豆","reward":"技能經驗 198・禮盒","price":1000,"order":1,"method":"收割"},{"id":"ban-2","city":"班克爾","kind":"採集","target":"防風草","qty":10,"title":"採集卷軸：防風草","reward":"技能經驗 198・禮盒","price":1000,"order":2,"method":"鋤地"},{"id":"ban-3","city":"班克爾","kind":"料理","target":"烤整顆馬鈴薯","qty":5,"title":"料理卷軸：烤整顆馬鈴薯","reward":"料理經驗 225・禮盒","price":1000,"order":3,"method":"料理"},{"id":"ban-4","city":"班克爾","kind":"討伐","target":"雲海曠野","qty":4,"title":"討伐卷軸：雲海曠野","reward":"EXP 1.8萬・禮盒・金幣 3,460","price":1000,"order":4}]}</script>
@@ -590,8 +622,8 @@ h2[id] { scroll-margin-top: 16px; }
   rollBarter();
 
   // One record per item, gathered from #catalog, #recipes, #materials and #barter so every tab reads the same facts:
-  // { name, recipe: its #recipes entry or null, sources: ways to get it (gathering skill from the board's scrolls,
-  //   then the #materials notes, then trades that hand it out), usedIn: names of recipes that take it,
+  // { name, recipe: its #recipes entry or null, sources: ways to get it besides crafting and trading (gathering skill
+  //   from the board's scrolls, then the #materials notes), usedIn: names of recipes that take it,
   //   quests: board scrolls asking for it, gives: trades that take it, gets: trades that hand it out }.
   // Rebuilt on every render, since the board's scrolls include the viewer's own older ones.
   let ITEMS = new Map();
@@ -613,7 +645,6 @@ h2[id] { scroll-margin-top: 16px; }
     for (const t of BARTER.items) {
       at(t.give.item).gives.push(t);
       at(t.get.item).gets.push(t);
-      addSource(t.get.item, `以物易物・${t.npc}（${t.place}）`);
     }
     for (const r of RMAP.values()) {
       at(r.name);
@@ -779,10 +810,61 @@ h2[id] { scroll-margin-top: 16px; }
   // skill); `make` also names the skill that crafts it, for lists that don't spell out the recipe themselves.
   function itemLines(name, { skip = [], make = false, detail = '', use = [] } = {}) {
     const it = itemOf(name), r = make && it.recipe;
-    const get = [...new Set([...(r ? [r.lvSkill || r.skill] : []), ...it.sources])].filter((s) => !skip.includes(s));
+    const trades = it.gets.map((t) => `以物易物・${t.npc}（${t.place}）`);
+    const get = [...new Set([...(r ? [r.lvSkill || r.skill] : []), ...it.sources, ...trades])].filter((s) => !skip.includes(s));
     return (get.length ? `<span class="mat-src from">取得：${get.map(esc).join('、')}</span>` : '')
       + detail
       + (use.length ? `<span class="mat-src">用於 ${[...new Set(use)].map(esc).join('、')}</span>` : '');
+  }
+
+  // Every item name on the page is one of these; it opens the item sheet below.
+  const itemLink = (name) => `<button type="button" class="item-link" data-role="item" data-name="${esc(name)}" aria-haspopup="dialog">${esc(name)}</button>`;
+
+  // The item sheet: everything the item index knows about one item — how it is made, other ways to get it, and what
+  // takes it (recipes, board scrolls, trades). Scrolls and trades have a 前往 button that jumps there; other items in
+  // the sheet open their own sheet, with 上一個 to step back.
+  const SHEET = { stack: [] };
+  function itemSheet(name, canBack) {
+    const it = itemOf(name), r = it.recipe;
+    const link = (n) => (n === name ? `<b>${esc(n)}</b>` : itemLink(n));
+    const go = (role, to, city) => `<button type="button" class="link-btn strong" data-role="${role}" data-to="${esc(to)}"${city ? ` data-city="${esc(city)}"` : ''}>前往</button>`;
+    const sec = (title, body) => (body ? `<section class="sheet-sec"><h3>${title}</h3>${body}</section>` : '');
+    const list = (rows) => (rows.length ? `<ul class="sheet-list">${rows.map((x) => `<li>${x}</li>`).join('')}</ul>` : '');
+    const row = (main, sub) => `<span><span class="sheet-main">${main}</span>${sub ? `<span class="sheet-sub">${sub}</span>` : ''}</span>`;
+    const inline = (parts) => (parts.length ? `<p class="sheet-inline">${parts.join('')}</p>` : '');
+    const trade = (t) => row(`${link(t.give.item)} ×${fmt(Number(t.give.qty) || 1)} → ${link(t.get.item)} ×${fmt(Number(t.get.qty) || 1)}`,
+      `以物易物・${esc(t.npc)}（${esc(t.place)}）・每日 ${Math.max(1, Number(t.limit) || 1)} 次`) + go('goto-trade', t.anchor);
+    const quest = (q) => {
+      const { qty } = effQty(q);
+      return row(`${esc(q.city)}・${esc(q.kind || '其他')}卷軸`, qty ? `每張 ${fmt(qty)} ${esc(unitOf(q))}` : '每張數量待確認') + go('goto-quest', questAnchor(q), q.city);
+    };
+    const effect = r ? (Array.isArray(r.effect) ? r.effect : [r.effect]).filter(Boolean).map(esc).join('・') : '';
+    const y = r ? yieldOf(r) : 1;
+    const meta = r ? [`${esc(r.lvSkill || r.skill)}${r.lv ? ` Lv.${r.lv}` : ''}`, r.bench ? `製作台 Lv.${r.bench}` : '', y > 1 ? `一次做 ${y} 個` : '', r.exp ? `技能經驗 +${fmt(r.exp)}／次` : ''].filter(Boolean).join('・') : '';
+    const made = r ? `<p class="sheet-meta">${meta}</p>${inline((r.inputs || []).map((i) => `<span>${link(i.item)} ×${fmt(Number(i.qty) || 0)}</span>`))}` : '';
+    const get = list([...it.sources.map((s) => row(esc(s))), ...it.gets.map(trade)]);
+    const use = inline(it.usedIn.map(link)) + list([...it.quests.map(quest), ...it.gives.map(trade)]);
+    const body = (effect ? `<p class="effect"><b>效果</b>${effect}</p>` : '')
+      + sec(r && !r.product ? '加工' : '製作', made) + sec('取得', get) + sec('用於', use);
+    const tags = r ? `<span class="chip skill">${esc(r.skill)}</span>${r.gear ? `<span class="chip gear">${esc(r.gear)} 等裝備</span>` : ''}` : '';
+    return `<div class="sheet-head">
+        ${canBack ? '<button type="button" class="sheet-btn" data-role="sheet-back" aria-label="上一個">‹</button>' : ''}
+        <h2 id="sheet-title" tabindex="-1">${esc(name)}</h2>${tags ? `<div class="sheet-tags">${tags}</div>` : ''}
+        <button type="button" class="sheet-btn" data-role="sheet-close" aria-label="關閉">×</button>
+      </div>
+      <div class="sheet-body">${body || '<p class="empty">還沒有這個道具的資料。</p>'}</div>`;
+  }
+  function drawSheet() {
+    const d = $('item-sheet'), s = SHEET.stack;
+    d.innerHTML = itemSheet(s[s.length - 1], s.length > 1);
+    d.scrollTop = 0;
+    $('sheet-title').focus({ preventScroll: true });
+  }
+  function openItem(name, push) {
+    const d = $('item-sheet');
+    SHEET.stack = push && d.open ? [...SHEET.stack, name] : [name];
+    if (!d.open) d.showModal();
+    drawSheet();
   }
 
   // Ingredients for the dishes still to be made (needed minus already held; ticked dishes count as done), from each
@@ -808,7 +890,7 @@ h2[id] { scroll-margin-top: 16px; }
       const status = done ? '已收齊' : short > 0 ? `還差 ${fmt(short)}` : '數量夠了';
       const k = esc(key), item = esc(name);
       return `<li class="mat st-${st}">
-        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${item} 已收齊" data-role="tick" data-item="${k}" data-focus-key="tick:${k}"></button><div><strong>${item}</strong>${itemLines(name, { make: true, use: usedBy.get(name) })}</div></div>
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${item} 已收齊" data-role="tick" data-item="${k}" data-focus-key="tick:${k}"></button><div><strong>${itemLink(name)}</strong>${itemLines(name, { make: true, use: usedBy.get(name) })}</div></div>
         <div class="mat-need"><span class="lbl">需要</span><b>${fmt(n)}</b> <span class="unit">個</span></div>
         <div class="mat-have"><span class="lbl">目前持有</span>${stepper(`data-item="${k}"`, have, { input: true, key: 'inv:' + key, label: name + ' 持有數量' })}</div>
         <span class="status">${status}</span>
@@ -835,7 +917,7 @@ h2[id] { scroll-margin-top: 16px; }
       const status = { short: `還差 ${fmt(m.short)}`, enough: '數量夠了', ready: '已收齊', unknown: '數量待確認', idle: '無待交付' }[m.st];
       const item = esc(m.name);
       return `<li class="mat st-${m.st}">
-        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${m.done}" aria-label="${item} 已收齊" data-role="tick" data-item="${item}" data-focus-key="tick:${item}"></button><div><strong>${item} ${towns}</strong>${itemLines(m.name, { skip: [m.method], detail: `<span class="mat-src num">${src}</span>` })}</div></div>
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${m.done}" aria-label="${item} 已收齊" data-role="tick" data-item="${item}" data-focus-key="tick:${item}"></button><div><strong>${itemLink(m.name)} ${towns}</strong>${itemLines(m.name, { skip: [m.method], detail: `<span class="mat-src num">${src}</span>` })}</div></div>
         <div class="mat-need"><span class="lbl">需要</span><b>${m.need ? fmt(m.need) : m.unknown ? '?' : 0}</b> <span class="unit">${esc(m.unit)}</span>${m.unknown && m.need ? '<span class="lbl">＋待確認</span>' : ''}</div>
         <div class="mat-have"><span class="lbl">目前持有</span>${stepper(`data-item="${item}"`, m.have, { input: true, key: 'inv:' + m.name, label: m.name + ' 持有數量' })}</div>
         <span class="status">${status}</span>
@@ -906,11 +988,13 @@ h2[id] { scroll-margin-top: 16px; }
     const ref = `data-src="${q.src}" data-qid="${esc(q.id)}"`;
     const k = `${q.src}:${q.id}`;
     const verb = q.kind === '討伐' ? '完成' : '交';
+    // A hunt's target is a monster, not an item, so it has no sheet.
+    const target = q.kind === '討伐' || !(q.target || '').trim() ? esc(q.target) : itemLink(q.target.trim());
     let req;
     if (qty) {
-      req = `<p class="req"${q.note ? ` title="${esc(q.note)}"` : ''}>${verb} <b>${esc(q.target)}</b> ${qty} ${unit}／張${per ? `・每角色 <b>${fmt(qty * per)}</b> ${unit}` : ''}${self ? ` <button type="button" class="link-btn" ${ref} data-role="qty-clear" data-focus-key="${esc(k)}:qc">（自填，改）</button>` : ''}</p>`;
+      req = `<p class="req"${q.note ? ` title="${esc(q.note)}"` : ''}>${verb} <b>${target}</b> ${qty} ${unit}／張${per ? `・每角色 <b>${fmt(qty * per)}</b> ${unit}` : ''}${self ? ` <button type="button" class="link-btn" ${ref} data-role="qty-clear" data-focus-key="${esc(k)}:qc">（自填，改）</button>` : ''}</p>`;
     } else {
-      req = `<p class="req">${verb} <b>${esc(q.target)}</b> <input type="number" min="1" inputmode="numeric" placeholder="?" ${ref} data-role="qty" data-focus-key="${esc(k)}:qty" aria-label="${esc(q.target)} 每張數量"> ${unit}／張 <span class="tbd">數量待確認</span></p>`;
+      req = `<p class="req">${verb} <b>${target}</b> <input type="number" min="1" inputmode="numeric" placeholder="?" ${ref} data-role="qty" data-focus-key="${esc(k)}:qty" aria-label="${esc(q.target)} 每張數量"> ${unit}／張 <span class="tbd">數量待確認</span></p>`;
     }
     let chip = '';
     if (!per) chip = '<span class="chip done">不做</span>';
@@ -983,7 +1067,7 @@ h2[id] { scroll-margin-top: 16px; }
           const line = sub && (sub.inputs || []).length
             ? `<span class="mat-src">加工 ${fmt(runs)} 次：${sub.inputs.map((i) => `${esc(i.item)}×${fmt((Number(i.qty) || 0) * runs)}`).join('・')}</span>` : '';
           return `<li class="mat need-row">
-          <div class="mat-name"><div><strong>${esc(m.name)}</strong>${itemLines(m.name, { detail: line, use: m.users })}</div></div>
+          <div class="mat-name"><div><strong>${itemLink(m.name)}</strong>${itemLines(m.name, { detail: line, use: m.users })}</div></div>
           <div class="mat-need"><b>${fmt(m.need)}</b></div>
         </li>`;
         }).join('')}</ul>`;
@@ -1031,11 +1115,11 @@ h2[id] { scroll-margin-top: 16px; }
       : `<div class="products">${prods.map((r) => {
         const n = Math.max(0, C.make[r.name] | 0), y = yieldOf(r);
         const ins = r.inputs || [];
-        const recipe = ins.map((i) => `<li><span title="${esc(i.item)}">${esc(i.item)}</span><b><small>×</small>${fmt(Number(i.qty) || 0)}</b></li>`).join('')
+        const recipe = ins.map((i) => `<li>${itemLink(i.item)}<b><small>×</small>${fmt(Number(i.qty) || 0)}</b></li>`).join('')
           + Array.from({ length: pad - ins.length }, () => '<li class="blank" aria-hidden="true"></li>').join('');
         const effect = (Array.isArray(r.effect) ? r.effect : [r.effect]).filter(Boolean).map(esc).join('・');
         return `<article class="quest">
-          <div class="q-top stack"><h4>${esc(r.name)}</h4><span class="chip skill">${esc(r.skill)}</span>${r.gear ?`<span class="chip gear">${esc(r.gear)} 等裝備</span>` : ''}${useTags(r.name)}</div>
+          <div class="q-top stack"><h4>${itemLink(r.name)}</h4><span class="chip skill">${esc(r.skill)}</span>${r.gear ?`<span class="chip gear">${esc(r.gear)} 等裝備</span>` : ''}${useTags(r.name)}</div>
           ${effect ? `<p class="effect"><b>效果</b>${effect}</p>` : ''}
           <ul class="ingr" aria-label="${esc(r.name)} 材料">${recipe}</ul>
           <div class="q-buy"><span>製作</span><span class="seg seg-wide" role="radiogroup" aria-label="${esc(r.name)} 製作數量">${MAKE_PRESETS.map((p) => `<button type="button" role="radio" aria-checked="${p === n}" aria-label="製作 ${p} 個" data-role="set-make" data-cmake="${esc(r.name)}" data-n="${p}" data-focus-key="cmake:${esc(r.name)}:${p}">${p}</button>`).join('')}</span><span>個</span></div>
@@ -1068,7 +1152,7 @@ h2[id] { scroll-margin-top: 16px; }
       const line = `交給 ${[...m.npcs].map(esc).join('、')}${got ? `・共 ${fmt(m.total)}，其中 ${fmt(got)} 可向${[...new Set(from.map((t) => t.npc))].map(esc).join('、')}換到` : ''}`;
       const ready = !!B.ready[name], k = esc(name);
       return `<li class="mat need-row${ready ? ' st-ready' : ''}">
-          <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${ready}" aria-label="${k} 準備好了" data-role="barter-ready" data-item="${k}" data-focus-key="br:${k}"></button><div><strong>${esc(name)}</strong>${itemLines(name, { make: true, detail: `<span class="mat-src">${line}</span>` })}</div></div>
+          <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${ready}" aria-label="${k} 準備好了" data-role="barter-ready" data-item="${k}" data-focus-key="br:${k}"></button><div><strong>${itemLink(name)}</strong>${itemLines(name, { make: true, detail: `<span class="mat-src">${line}</span>` })}</div></div>
           <div class="mat-need"><b>${fmt(m.total - got)}</b></div>
         </li>`;
     }).join('')}</ul>`;
@@ -1088,7 +1172,7 @@ h2[id] { scroll-margin-top: 16px; }
         return `<li class="trade${done ? ' is-done' : ''}" id="${t.anchor}">
           <button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${esc(t.npc)}：${esc(t.give.item)}換${esc(t.get.item)}，今天換了" data-role="barter-tick" data-key="${k}" data-focus-key="bt:${k}"></button>
           <div class="trade-body">
-            <p class="trade-main"><span>交 <b>${esc(t.give.item)}</b> ×${fmt(gq)}</span><span class="arrow" aria-hidden="true">→</span><span>換 <b>${esc(t.get.item)}</b> ×${fmt(rq)}</span></p>
+            <p class="trade-main"><span>交 <b>${itemLink(t.give.item)}</b> ×${fmt(gq)}</span><span class="arrow" aria-hidden="true">→</span><span>換 <b>${itemLink(t.get.item)}</b> ×${fmt(rq)}</span></p>
             <p class="mat-src num">${meta}</p>
             ${t.note ? `<p class="mat-src">${esc(t.note)}</p>` : ''}
             ${next.length ? `<p class="mat-src chain">可再拿去${next.join('、')}</p>` : ''}
@@ -1147,7 +1231,10 @@ h2[id] { scroll-margin-top: 16px; }
 
   function updateMine(id, patch) { P.custom = P.custom.map((q) => (q.id === id ? { ...q, ...patch } : q)); }
 
+  $('item-sheet').addEventListener('close', () => { SHEET.stack = []; });
   document.addEventListener('click', (ev) => {
+    // The sheet's content fills the dialog, so a click landing on the dialog itself is on the backdrop.
+    if (ev.target === $('item-sheet')) { $('item-sheet').close(); return; }
     const b = ev.target.closest('button[data-role]');
     if (!b) { if (ui.confirm) { ui.confirm = null; render(); } return; }
     const role = b.dataset.role;
@@ -1206,9 +1293,13 @@ h2[id] { scroll-margin-top: 16px; }
       saveB(); render(); return;
     }
     if (role === 'barter-clear') { B.done = {}; B.ready = {}; saveB(); render(); return; }
+    if (role === 'item') { openItem(b.dataset.name, !!b.closest('#item-sheet')); return; }
+    if (role === 'sheet-back') { SHEET.stack.pop(); drawSheet(); return; }
+    if (role === 'sheet-close') { $('item-sheet').close(); return; }
     if (role === 'goto-trade' || role === 'goto-quest') {
-      // A product's use tag: open the other tab at that trade / scroll and flash it. A scroll's town and the boards
-      // section are opened first, since both start folded.
+      // A product's use tag or a sheet's 前往: open the other tab at that trade / scroll and flash it. A scroll's town
+      // and the boards section are opened first, since both start folded.
+      if ($('item-sheet').open) $('item-sheet').close();
       if (role === 'goto-quest') { UI.boardsShown = true; UI.open[b.dataset.city] = true; saveUI(); }
       switchTab(role === 'goto-trade' ? 'barter' : 'board');
       const el = $(b.dataset.to);
