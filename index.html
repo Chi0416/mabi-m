@@ -305,7 +305,12 @@ section { display: grid; gap: 14px; }
 #skill-panel, #cook-skill-panel { display: grid; gap: 10px; }
 .effect { margin: 0; padding: 6px 10px; border-radius: 8px; background: var(--info-soft); color: var(--info); font-size: 13px; }
 .effect b { font-weight: 700; margin-right: 4px; }
-.mat-src.from { color: var(--fg); }
+/* Facts under an item's name in every list: a two-character label (用於, 取得, 加工…) in its own column, so wrapped
+   text lines up under the text, like a product card's 材料. */
+.facts { margin: 0; display: grid; gap: 2px; font-size: 13px; }
+.facts > div { display: grid; grid-template-columns: 34px minmax(0, 1fr); }
+.facts dt { color: var(--muted); font-weight: 700; }
+.facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 /* Recipe inputs. Phones: one wrapping line, 「材料 鋼錠 ×2・皮革+ ×2」 (the tab's total list is further down).
    701px+: two-column slots padded to the tab's longest recipe so cards side by side line up;
    phones stack cards in one column, so the padding (and equal card heights) would only waste space. */
@@ -805,16 +810,20 @@ h2[id] { scroll-margin-top: 16px; }
     }).join('')}</div>`;
   }
 
-  // The lines under an item's name, the same in every list: 取得 (ways to get it, from the item index), the list's own
-  // detail line, then 用於 (what the list needs it for). `skip` drops ways the list's heading already says (its gathering
-  // skill); `make` also names the skill that crafts it, for lists that don't spell out the recipe themselves.
-  function itemLines(name, { skip = [], make = false, detail = '', use = [] } = {}) {
-    const it = itemOf(name), r = make && it.recipe;
+  // The facts under an item's name, laid out the same in every list: a two-character label, then its text. Order: why
+  // the list needs it (`need` rows: 用於, 交給, 數量), then 取得 (ways to get it, from the item index), then how to make
+  // it (`make` rows: 加工). Rows are [label, html]. `skip` drops ways the list's heading already says (its gathering
+  // skill); `craft` also names the skill that crafts it, for lists that don't spell out the recipe themselves.
+  const names = (list) => [...new Set(list)].map(esc).join('、');
+  const facts = (rows) => {
+    rows = rows.filter(([, v]) => v);
+    return rows.length ? `<dl class="facts">${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>` : '';
+  };
+  function itemFacts(name, { need = [], skip = [], craft = false, make = [] } = {}) {
+    const it = itemOf(name), r = craft && it.recipe;
     const trades = it.gets.map((t) => `以物易物・${t.npc}（${t.place}）`);
     const get = [...new Set([...(r ? [r.lvSkill || r.skill] : []), ...it.sources, ...trades])].filter((s) => !skip.includes(s));
-    return (get.length ? `<span class="mat-src from">取得：${get.map(esc).join('、')}</span>` : '')
-      + detail
-      + (use.length ? `<span class="mat-src">用於 ${[...new Set(use)].map(esc).join('、')}</span>` : '');
+    return facts([...need, ['取得', names(get)], ...make]);
   }
 
   // Every item name on the page is one of these; it opens the item sheet below.
@@ -890,7 +899,7 @@ h2[id] { scroll-margin-top: 16px; }
       const status = done ? '已收齊' : short > 0 ? `還差 ${fmt(short)}` : '數量夠了';
       const k = esc(key), item = esc(name);
       return `<li class="mat st-${st}">
-        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${item} 已收齊" data-role="tick" data-item="${k}" data-focus-key="tick:${k}"></button><div><strong>${itemLink(name)}</strong>${itemLines(name, { make: true, use: usedBy.get(name) })}</div></div>
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${item} 已收齊" data-role="tick" data-item="${k}" data-focus-key="tick:${k}"></button><div><strong>${itemLink(name)}</strong>${itemFacts(name, { need: [['用於', names(usedBy.get(name))]], craft: true })}</div></div>
         <div class="mat-need"><span class="lbl">需要</span><b>${fmt(n)}</b> <span class="unit">個</span></div>
         <div class="mat-have"><span class="lbl">目前持有</span>${stepper(`data-item="${k}"`, have, { input: true, key: 'inv:' + key, label: name + ' 持有數量' })}</div>
         <span class="status">${status}</span>
@@ -906,7 +915,7 @@ h2[id] { scroll-margin-top: 16px; }
 
   function ledgerRows(list) {
     return `<ul class="ledger">${list.map((m) => {
-      // Town shown as a tag; the line below reads "10個 × 3張卷" (per town when a material comes from several).
+      // Town shown as a tag; the 數量 line reads "10個 × 3張卷" (per town when a material comes from several).
       const open = m.parts.filter((p) => p.left > 0);
       const amount = (p) => `${p.qty ? p.qty : '?'}${esc(unitOf(p.q))} × ${p.left}張卷`;
       const src = !open.length ? '已全部交付'
@@ -917,7 +926,7 @@ h2[id] { scroll-margin-top: 16px; }
       const status = { short: `還差 ${fmt(m.short)}`, enough: '數量夠了', ready: '已收齊', unknown: '數量待確認', idle: '無待交付' }[m.st];
       const item = esc(m.name);
       return `<li class="mat st-${m.st}">
-        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${m.done}" aria-label="${item} 已收齊" data-role="tick" data-item="${item}" data-focus-key="tick:${item}"></button><div><strong>${itemLink(m.name)} ${towns}</strong>${itemLines(m.name, { skip: [m.method], detail: `<span class="mat-src num">${src}</span>` })}</div></div>
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${m.done}" aria-label="${item} 已收齊" data-role="tick" data-item="${item}" data-focus-key="tick:${item}"></button><div><strong>${itemLink(m.name)} ${towns}</strong>${itemFacts(m.name, { need: [['數量', src]], skip: [m.method] })}</div></div>
         <div class="mat-need"><span class="lbl">需要</span><b>${m.need ? fmt(m.need) : m.unknown ? '?' : 0}</b> <span class="unit">${esc(m.unit)}</span>${m.unknown && m.need ? '<span class="lbl">＋待確認</span>' : ''}</div>
         <div class="mat-have"><span class="lbl">目前持有</span>${stepper(`data-item="${item}"`, m.have, { input: true, key: 'inv:' + m.name, label: m.name + ' 持有數量' })}</div>
         <span class="status">${status}</span>
@@ -937,7 +946,7 @@ h2[id] { scroll-margin-top: 16px; }
       const status = left === 0 ? '已全部交付' : done ? '已完成' : need == null ? '次數待確認' : `共 ${need} 次`;
       const name = esc(q.target || q.title);
       return `<li class="mat st-${st}">
-        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${name} 討伐完成" data-role="tick" data-item="${esc(key)}" data-focus-key="tick:${esc(key)}"></button><div><strong>${name} <span class="chip k-討伐">討伐</span><span class="chip place">${esc(q.city)}</span></strong><span class="mat-src num">${left ? `${qty || '?'}次 × ${left}張卷` : '已全部交付'}</span></div></div>
+        <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${done}" aria-label="${name} 討伐完成" data-role="tick" data-item="${esc(key)}" data-focus-key="tick:${esc(key)}"></button><div><strong>${name} <span class="chip k-討伐">討伐</span><span class="chip place">${esc(q.city)}</span></strong>${facts([['數量', left ? `${qty || '?'}次 × ${left}張卷` : '已全部交付']])}</div></div>
         <div class="mat-need"><span class="lbl">需要</span><b>${need ?? '?'}</b> <span class="unit">次</span></div>
         <div class="mat-have"></div>
         <span class="status">${status}</span>
@@ -1064,10 +1073,10 @@ h2[id] { scroll-margin-top: 16px; }
       ? `<p class="empty">${products.length ? '還沒選要做的產品。到上方技能點選每個產品要做幾個，這裡就會列出需要的材料。' : '配方還在整理中。整理好之後到上方技能點選要做幾個，這裡就會列出需要的材料。'}</p>`
       : `<ul class="ledger">${plan.list.map((m) => {
           const sub = itemOf(m.name).recipe, runs = sub ? Math.ceil(m.need / yieldOf(sub)) : 0;
-          const line = sub && (sub.inputs || []).length
-            ? `<span class="mat-src">加工 ${fmt(runs)} 次：${sub.inputs.map((i) => `${esc(i.item)}×${fmt((Number(i.qty) || 0) * runs)}`).join('・')}</span>` : '';
+          const make = sub && (sub.inputs || []).length
+            ? [['加工', `${fmt(runs)} 次：${sub.inputs.map((i) => `${esc(i.item)} ×${fmt((Number(i.qty) || 0) * runs)}`).join('・')}`]] : [];
           return `<li class="mat need-row">
-          <div class="mat-name"><div><strong>${itemLink(m.name)}</strong>${itemLines(m.name, { detail: line, use: m.users })}</div></div>
+          <div class="mat-name"><div><strong>${itemLink(m.name)}</strong>${itemFacts(m.name, { need: [['用於', names(m.users)]], make })}</div></div>
           <div class="mat-need"><b>${fmt(m.need)}</b></div>
         </li>`;
         }).join('')}</ul>`;
@@ -1149,10 +1158,10 @@ h2[id] { scroll-margin-top: 16px; }
     $('barter-need').innerHTML = !need.size ? '<p class="empty">今天的兌換都換完了。</p>' : `<ul class="ledger">${[...need].map(([name, m]) => {
       const from = itemOf(name).gets;
       const got = Math.min(m.total, from.reduce((n, t) => n + (Number(t.get.qty) || 1) * lim(t), 0));
-      const line = `交給 ${[...m.npcs].map(esc).join('、')}${got ? `・共 ${fmt(m.total)}，其中 ${fmt(got)} 可向${[...new Set(from.map((t) => t.npc))].map(esc).join('、')}換到` : ''}`;
+      const to = `${names(m.npcs)}${got ?`・共 ${fmt(m.total)}，其中 ${fmt(got)} 可向${[...new Set(from.map((t) => t.npc))].map(esc).join('、')}換到` : ''}`;
       const ready = !!B.ready[name], k = esc(name);
       return `<li class="mat need-row${ready ? ' st-ready' : ''}">
-          <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${ready}" aria-label="${k} 準備好了" data-role="barter-ready" data-item="${k}" data-focus-key="br:${k}"></button><div><strong>${itemLink(name)}</strong>${itemLines(name, { make: true, detail: `<span class="mat-src">${line}</span>` })}</div></div>
+          <div class="mat-name"><button type="button" class="tick" role="checkbox" aria-checked="${ready}" aria-label="${k} 準備好了" data-role="barter-ready" data-item="${k}" data-focus-key="br:${k}"></button><div><strong>${itemLink(name)}</strong>${itemFacts(name, { need: [['交給', to]], craft: true })}</div></div>
           <div class="mat-need"><b>${fmt(m.total - got)}</b></div>
         </li>`;
     }).join('')}</ul>`;
