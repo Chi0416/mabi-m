@@ -69,7 +69,9 @@
   color-scheme: dark;
 }
 
-html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* scrollbar-gutter keeps the scrollbar's room even when a tab is too short to scroll (or the sheet locks scrolling),
+   so switching tabs on desktop doesn't nudge the centered page sideways. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; scrollbar-gutter: stable; }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
 /* One column at every width, like the phone layout; wide screens just get margins (about twice a phone's width). */
