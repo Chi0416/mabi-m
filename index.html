@@ -305,15 +305,12 @@ section { display: grid; gap: 14px; }
 .skill-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); font-size: 14px; font-weight: 500; white-space: nowrap; }
 @media (pointer: fine) { .skill-tabs button { padding: 5px 12px; } }
 @media (hover: hover) { .skill-tabs button:hover { border-color: var(--muted); } }
-.skill-tabs button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
+.skill-tabs button:is([aria-pressed="true"], [aria-checked="true"]) { border-color: var(--accent); background: var(--accent); color: var(--accent-fg); }
 .skill-tabs .cnt { min-width: 18px; font-size: 12px; line-height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: var(--accent-fg); text-align: center; font-variant-numeric: tabular-nums; }
-.skill-tabs button[aria-pressed="true"] .cnt { background: var(--accent-fg); color: var(--accent); }
-/* Filter bar under the skills, after the game's tab row: 🔍 at the far left, then 全部 and the levels / sections.
-   Several skills with sections stack one labelled row each beside the 🔍. */
+.skill-tabs button:is([aria-pressed="true"], [aria-checked="true"]) .cnt { background: var(--accent-fg); color: var(--accent); }
+/* Filter bar under the skills, after the game's tab row: 🔍 at the far left, then 全部 and the levels / sections. */
 .filter-bar { display: flex; align-items: flex-start; gap: 6px; }
 .filter-bar > .skill-tabs, .sec-rows { flex: 1; min-width: 0; }
-.sec-rows { display: grid; gap: 6px; }
-.sec-label { align-self: center; margin-right: 2px; font-size: 13px; font-weight: 700; color: var(--muted); }
 .search-btn { flex: none; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--fg); }
 .search-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
 @media (pointer: fine) { .search-btn { width: 32px; height: 32px; } .search-btn svg { width: 15px; height: 15px; } }
@@ -496,9 +493,9 @@ h2[id] { scroll-margin-top: 16px; }
     <section aria-labelledby="h-skills">
       <div class="sec-head">
         <h2 id="h-skills">製作台</h2>
-        <div class="mine-tools"><span>技能、等級可多選</span><button type="button" class="link-btn" id="craft-reset" data-role="c-reset" data-group="craft" disabled>清空數量</button></div>
+        <div class="mine-tools"><span>等級可多選</span><button type="button" class="link-btn" id="craft-reset" data-role="c-reset" data-group="craft" disabled>清空數量</button></div>
       </div>
-      <div class="skill-tabs" id="skill-tabs" role="group" aria-label="生活技能（可多選）"></div>
+      <div class="skill-tabs" id="skill-tabs" role="radiogroup" aria-label="生活技能"></div>
       <div class="filter-bar">
         <button type="button" class="search-btn" data-role="search-toggle" data-group="craft" aria-label="搜尋產品" aria-expanded="false" aria-controls="craft-search" data-focus-key="search-toggle:craft"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg></button>
         <div class="skill-tabs" id="gear-tabs" role="group" aria-label="裝備等級（可多選）"></div>
@@ -526,9 +523,9 @@ h2[id] { scroll-margin-top: 16px; }
     <section aria-labelledby="h-cook-skills">
       <div class="sec-head">
         <h2 id="h-cook-skills">製作台</h2>
-        <div class="mine-tools"><span>技能、分區可多選</span><button type="button" class="link-btn" id="cook-reset" data-role="c-reset" data-group="cook" disabled>清空數量</button></div>
+        <div class="mine-tools"><span>分區可多選</span><button type="button" class="link-btn" id="cook-reset" data-role="c-reset" data-group="cook" disabled>清空數量</button></div>
       </div>
-      <div class="skill-tabs" id="cook-skill-tabs" role="group" aria-label="生活技能（可多選）"></div>
+      <div class="skill-tabs" id="cook-skill-tabs" role="radiogroup" aria-label="生活技能"></div>
       <div class="filter-bar">
         <button type="button" class="search-btn" data-role="search-toggle" data-group="cook" aria-label="搜尋產品" aria-expanded="false" aria-controls="cook-search" data-focus-key="search-toggle:cook"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 20 20"/></svg></button>
         <div class="sec-rows" id="cook-sec-tabs"></div>
@@ -629,7 +626,6 @@ h2[id] { scroll-margin-top: 16px; }
     craft: { rows: [['鍛造技術', '木工', '魔法工藝'], ['重甲製作', '輕甲製作', '布衣製作']], unit: '件', ids: { badge: 'recipe-badge', tools: 'craft-tools', reset: 'craft-reset', need: 'craft-need', tabs: 'skill-tabs', gears: 'gear-tabs', panel: 'skill-panel' } },
     cook: { rows: [['料理', '藥水製作', '消耗品']], unit: '個', ids: { badge: 'cook-badge', tools: 'cook-tools', reset: 'cook-reset', need: 'cook-need', tabs: 'cook-skill-tabs', secs: 'cook-sec-tabs', panel: 'cook-skill-panel' } },
   };
-  const ALL_SKILLS = Object.values(GROUPS).flatMap((g) => g.rows.flat());
   const groupSkills = (g) => GROUPS[g].rows.flat();
   const MAKE_PRESETS = [0, 10, 20, 30];
   const C_KEY = 'mm-craft-progress-v1';
@@ -703,21 +699,20 @@ h2[id] { scroll-margin-top: 16px; }
     return map;
   }
 
-  const cblank = () => ({ make: {}, skills: [], gears: [], secs: {} });
+  const cblank = () => ({ make: {}, pick: {}, gears: [], secs: {} });
   let C = Object.assign(cblank(), readLS(C_KEY) || {});
   if (!C.make || typeof C.make !== 'object') C.make = {};
-  // Skills are multi-select now; an older save kept a single picked skill.
-  if (!Array.isArray(C.skills)) C.skills = typeof C.skill === 'string' ? [C.skill] : [];
-  // 重甲 / 輕甲 were renamed to the game's official 重甲製作 / 輕甲製作.
-  C.skills = C.skills.map((s) => ({ 重甲: '重甲製作', 輕甲: '輕甲製作' }[s] || s));
-  C.skills = ALL_SKILLS.filter((s) => C.skills.includes(s));
+  // One skill open per tab, like the game's workbenches ({ craft: '鍛造技術', cook: '料理' }); a tab opens on its first
+  // skill until another is picked. Older saves let several skills be picked at once (C.skills / C.skill); they start over.
+  if (!C.pick || typeof C.pick !== 'object') C.pick = {};
+  for (const g of Object.keys(GROUPS)) if (!groupSkills(g).includes(C.pick[g])) C.pick[g] = groupSkills(g)[0];
   if (!Array.isArray(C.gears)) C.gears = [];
   // Picked sections per skill ({ 料理: ['共享'] }); the first version kept one list, and only 料理 had sections then.
   if (Array.isArray(C.secs)) C.secs = C.secs.length ? { 料理: C.secs } : {};
   if (!C.secs || typeof C.secs !== 'object') C.secs = {};
   // Per-tab search text; not saved, a reload starts with no search.
   const SEARCH = { craft: '', cook: '' };
-  delete C.have; delete C.done; delete C.skill;
+  delete C.have; delete C.done; delete C.skill; delete C.skills;
   const saveC = () => writeLS(C_KEY, C);
 
   // Total the materials each picked product's recipe lists (crafts = quantity ÷ yield, rounded up). One level only.
@@ -1132,10 +1127,12 @@ h2[id] { scroll-margin-top: 16px; }
         </li>`;
         }).join('')}</ul>`;
 
+    // One skill open at a time, like the game's workbenches; the count is how many of its products have a make count.
+    const cur = C.pick[g];
     const pickedBySkill = (s) => plan.picked.filter(([k]) => (RMAP.get(k) || {}).skill === s).length;
     $(ids.tabs).innerHTML = order.map((s) => {
       const cnt = pickedBySkill(s);
-      return `<button type="button" aria-pressed="${C.skills.includes(s)}" data-role="skill" data-skill="${esc(s)}" data-focus-key="skill:${esc(s)}"><span>${esc(s)}</span>${cnt ? `<span class="cnt" aria-label="已選 ${cnt} 種">${cnt}</span>` : ''}</button>`;
+      return `<button type="button" role="radio" aria-checked="${s === cur}" data-role="skill" data-group="${g}" data-skill="${esc(s)}" data-focus-key="skill:${esc(s)}"><span>${esc(s)}</span>${cnt ? `<span class="cnt" aria-label="已選 ${cnt} 種">${cnt}</span>` : ''}</button>`;
     }).join('');
 
     // The filter bar under the skills copies the game's tab row: 🔍 (static, before these), 全部, then the choices.
@@ -1149,30 +1146,25 @@ h2[id] { scroll-margin-top: 16px; }
         + gears.map((lv) => pill(`data-role="gear" data-gear="${esc(lv)}"`, pickedGears.includes(lv), `${esc(lv)} 等`, pickedByGear(lv), `gear:${lv}`)).join('');
     }
 
-    // Each picked skill with the game's own sections (料理: 簡便, 力量特化…) gets a row of them: 全部, then the sections in
-    // the recipes' order. A skill's picked sections narrow only that skill's products; unpicking the skill clears them.
-    const picked = C.skills.filter((s) => order.includes(s));
-    const secsOf = (s) => [...new Set(products.filter((r) => r.skill === s).map((r) => r.section).filter(Boolean))];
-    const pickedSecsOf = (s) => (picked.includes(s) ? (C.secs[s] || []).filter((x) => secsOf(s).includes(x)) : []);
+    // When the open skill has the game's own sections (料理: 簡便, 力量特化…), they follow: 全部, then the sections in the
+    // recipes' order. Switching to another skill clears them.
+    const own = products.filter((r) => r.skill === cur);
+    const secs = [...new Set(own.map((r) => r.section).filter(Boolean))];
+    const pickedSecs = (C.secs[cur] || []).filter((x) => secs.includes(x));
     if (ids.secs) {
-      const rows = picked.filter((s) => secsOf(s).length > 1);
-      const pickedBySec = (s, x) => plan.picked.filter(([k]) => { const r = RMAP.get(k) || {}; return r.skill === s && r.section === x; }).length;
-      $(ids.secs).innerHTML = rows.map((s) => `<div class="skill-tabs" role="group" aria-label="${esc(s)}分區（可多選）">${rows.length > 1 ? `<span class="sec-label">${esc(s)}</span>` : ''}`
-        + pill(`data-role="sec-all" data-skill="${esc(s)}"`, !pickedSecsOf(s).length, '全部', 0, `sec-all:${s}`)
-        + secsOf(s).map((x) => pill(`data-role="sec" data-skill="${esc(s)}" data-sec="${esc(x)}"`, pickedSecsOf(s).includes(x), esc(x), pickedBySec(s, x), `sec:${s}:${x}`)).join('')
-        + '</div>').join('');
+      const pickedBySec = (x) => plan.picked.filter(([k]) => { const r = RMAP.get(k) || {}; return r.skill === cur && r.section === x; }).length;
+      $(ids.secs).innerHTML = secs.length < 2 ? '' : `<div class="skill-tabs" role="group" aria-label="${esc(cur)}分區（可多選）">`
+        + pill(`data-role="sec-all" data-skill="${esc(cur)}"`, !pickedSecs.length, '全部', 0, 'sec-all')
+        + secs.map((x) => pill(`data-role="sec" data-skill="${esc(cur)}" data-sec="${esc(x)}"`, pickedSecs.includes(x), esc(x), pickedBySec(x), `sec:${x}`)).join('')
+        + '</div>';
     }
 
-    // Products from every picked skill (every skill when only a level is picked or a search is typed), in the skill buttons'
-    // order, then by level; within a skill the recipes keep the game's order. A search matches product or material names.
+    // The open skill's products, by level; within a level the recipes keep the game's order. A search looks inside the
+    // open skill (like the game's search on one workbench) and matches product or material names.
     const q = SEARCH[g].trim();
-    const shown = picked.length ? picked : pickedGears.length || q ? order : [];
-    const inSecs = (r) => { const p = pickedSecsOf(r.skill); return !p.length || p.includes(r.section); };
     const hit = (r) => !q || r.name.includes(q) || (r.inputs || []).some((i) => i.item.includes(q));
-    const prods = products.filter((r) => shown.includes(r.skill) && (!pickedGears.length || pickedGears.includes(r.gear)) && inSecs(r) && hit(r))
-      .sort((a, b) => order.indexOf(a.skill) - order.indexOf(b.skill) || (a.gear || 0) - (b.gear || 0));
-    const waiting = picked.filter((s) => !products.some((r) => r.skill === s));
-    const waitNote = waiting.length ? `<p class="hint">${waiting.map(esc).join('、')}的配方還在整理中。</p>` : '';
+    const prods = own.filter((r) => (!pickedGears.length || pickedGears.includes(r.gear)) && (!pickedSecs.length || pickedSecs.includes(r.section)) && hit(r))
+      .sort((a, b) => (a.gear || 0) - (b.gear || 0));
     // Slots from the longest recipe in the whole tab (not just the picked skills), so heights hold while toggling.
     const slots = Math.max(2, ...products.map((r) => (r.inputs || []).length));
     const pad = slots + (slots % 2);
@@ -1199,21 +1191,16 @@ h2[id] { scroll-margin-top: 16px; }
           <div class="q-foot"><span>${[r.lv ?`${esc(r.lvSkill || r.skill)} Lv.${r.lv}` : '', benchText(r), r.exp ? `技能經驗 +${fmt(r.exp)}／次` : '', y > 1 ? `一次做 ${y} 個` : ''].filter(Boolean).join('・')}</span></div>
         </article>`;
     };
-    // With sections, cards sit under the game's section headings, in its order; a skill without sections gets one heading.
-    // When two skills with sections are listed, each heading names its skill too (料理・簡便).
-    const twoWithSecs = new Set(prods.filter((r) => r.section).map((r) => r.skill)).size > 1;
+    // With sections, cards sit under the game's section headings, in its order.
     const groups = [];
     for (const r of prods) {
-      const key = `${r.skill}|${r.section || ''}`, last = groups[groups.length - 1];
-      const title = !r.section ? r.skill : twoWithSecs ? `${r.skill}・${r.section}` : r.section;
-      if (last && last.key === key) last.list.push(r); else groups.push({ key, title, list: [r] });
+      const last = groups[groups.length - 1];
+      if (last && last.title === r.section) last.list.push(r); else groups.push({ title: r.section, list: [r] });
     }
-    $(ids.panel).innerHTML = !shown.length
-      ? `<p class="empty">${gears.length > 1 ? '點選上方技能或裝備等級就會列出產品，可以多選；' : '點選上方技能就會列出它的產品，可以多選；'}也可以按放大鏡搜尋產品或材料。</p>`
-      : !prods.length ? `<p class="empty">${q ? `找不到符合「${esc(q)}」的產品或材料。` : waiting.length ? `${waiting.map(esc).join('、')}的配方還在整理中。` : '選的技能還沒有這個等級的配方。'}</p>`
-      : (prods.some((r) => r.section)
-        ? groups.map((x) => `<section class="prod-group"><h3>${esc(x.title)}</h3><div class="products">${x.list.map(card).join('')}</div></section>`).join('')
-        : `<div class="products">${prods.map(card).join('')}</div>`) + waitNote;
+    $(ids.panel).innerHTML = !own.length ? `<p class="empty">${esc(cur)}的配方還在整理中。</p>`
+      : !prods.length ? `<p class="empty">${q ? `${esc(cur)}裡找不到符合「${esc(q)}」的產品或材料。` : '這個等級還沒有配方。'}</p>`
+      : secs.length ? groups.map((x) => `<section class="prod-group"><h3>${esc(x.title)}</h3><div class="products">${x.list.map(card).join('')}</div></section>`).join('')
+      : `<div class="products">${prods.map(card).join('')}</div>`;
   }
 
   function renderBarter() {
@@ -1355,10 +1342,9 @@ h2[id] { scroll-margin-top: 16px; }
       return;
     }
     if (role === 'skill') {
-      const s = b.dataset.skill;
-      if (C.skills.includes(s)) { C.skills = C.skills.filter((x) => x !== s); delete C.secs[s]; }
-      else C.skills = ALL_SKILLS.filter((x) => x === s || C.skills.includes(x));
-      saveC(); render(); return;
+      const g = b.dataset.group, s = b.dataset.skill;
+      if (GROUPS[g] && C.pick[g] !== s) { delete C.secs[C.pick[g]]; C.pick[g] = s; saveC(); render(); }
+      return;
     }
     if (role === 'gear-all') { C.gears = []; saveC(); render(); return; }
     if (role === 'sec-all') { delete C.secs[b.dataset.skill]; saveC(); render(); return; }
