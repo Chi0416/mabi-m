@@ -293,8 +293,9 @@ section { display: grid; gap: 14px; }
 .prod-group { display: grid; gap: 8px; }
 .prod-group + .prod-group { margin-top: 10px; }
 .prod-group > h3 { font-size: 19px; }
-/* Make buttons on a product row are a little narrower than the sheet's, so the name keeps room on a phone. */
-.row .seg.seg-wide button { width: 38px; }
+/* Make buttons on a product row are a little narrower than the sheet's, so the name keeps room on a phone (five of
+   them: 0 1 10 20 30). */
+.row .seg.seg-wide button { width: 32px; }
 @media (pointer: fine) { .row .seg.seg-wide button { width: 36px; } }
 /* A scroll whose count per scroll isn't known yet: a small number box in its key line. */
 .qty-input { width: 56px; padding: 2px 6px; border: 1px solid var(--info); border-radius: 6px; background: var(--info-soft); text-align: center; font-variant-numeric: tabular-nums; }
@@ -576,7 +577,7 @@ h2[id] { scroll-margin-top: 16px; }
     cook: { rows: [['料理', '藥水製作', '消耗品']], unit: '個', ids: { badge: 'cook-badge', tools: 'cook-tools', reset: 'cook-reset', need: 'cook-need', tabs: 'cook-skill-tabs', secs: 'cook-sec-tabs', panel: 'cook-skill-panel' } },
   };
   const groupSkills = (g) => GROUPS[g].rows.flat();
-  const MAKE_PRESETS = [0, 10, 20, 30];
+  const MAKE_PRESETS = [0, 1, 10, 20, 30];
   const C_KEY = 'mm-craft-progress-v1';
   const TAB_KEY = 'mm-tab-v1';
   const RECIPES_RAW = (() => { const el = $('recipes'); return el ? el.textContent : '{"rev":1,"updated":"","items":[]}'; })();
@@ -663,7 +664,9 @@ h2[id] { scroll-margin-top: 16px; }
   if (!C.ready || typeof C.ready !== 'object') C.ready = {};
   // Per-tab search text; not saved, a reload starts with no search.
   const SEARCH = { craft: '', cook: '', items: '' };
-  delete C.have; delete C.done; delete C.skill; delete C.skills;
+  // 所需材料 held counts, by material name (shared by both crafting tabs, like C.ready); a row shows what is still short.
+  if (!C.have || typeof C.have !== 'object') C.have = {};
+  delete C.done; delete C.skill; delete C.skills;
   const saveC = () => writeLS(C_KEY, C);
 
   // Total the materials each picked product's recipe lists (crafts = quantity ÷ yield, rounded up). One level only.
@@ -824,7 +827,9 @@ h2[id] { scroll-margin-top: 16px; }
   const tickBtn = (on, label, attrs, key) => `<button type="button" class="tick" role="checkbox" aria-checked="${!!on}" aria-label="${esc(label)}" ${attrs} data-focus-key="${esc(key)}"></button>`;
   // A row that counts what is held against what is needed (採集總表, 料理食材): tick for 已收齊, the gap as its key line,
   // the held count's stepper at the end. `key` is the P.have / P.done key; `off` is the line for a row with nothing to do.
-  function stockRow({ key, name, tags = '', st, done, need, have, short, unit, more = '', off = '' }) {
+  // 所需材料 passes its own `tickAttrs` and stepper `ref` (C.ready / C.have) and keeps `key` only for focus.
+  function stockRow({ key, name, tags = '', st, done, need, have, short, unit, more = '', off = '',
+    tickAttrs = `data-role="tick" data-item="${esc(key)}"`, ref = `data-item="${esc(key)}"` }) {
     const sub = {
       short: [`還差 ${fmt(short)}／需要 ${fmt(need)} ${esc(unit)}${more}`, 'is-short'],
       enough: [`數量夠了・需要 ${fmt(need)} ${esc(unit)}${more}`, 'is-ok'],
@@ -832,8 +837,8 @@ h2[id] { scroll-margin-top: 16px; }
       idle: [off, ''], ready: ['', ''],
     }[st];
     const end = st === 'ready' ? '<span class="status">已收齊</span>' : st === 'idle' ? ''
-      : stepper(`data-item="${esc(key)}"`, have, { input: true, key: 'inv:' + key, label: name + ' 持有數量' });
-    return listRow({ tick: tickBtn(done, `${name} 已收齊`, `data-role="tick" data-item="${esc(key)}"`, `tick:${key}`),
+      : stepper(ref, have, { input: true, key: 'inv:' + key, label: name + ' 持有數量' });
+    return listRow({ tick: tickBtn(done, `${name} 已收齊`, tickAttrs, `tick:${key}`),
       title: itemLink(name) + tags, sub: sub[0], subCls: sub[1], end, cls: st === 'ready' ? 'is-done' : st === 'idle' ? 'is-off' : '', open: name });
   }
 
@@ -841,7 +846,7 @@ h2[id] { scroll-margin-top: 16px; }
   // takes it (recipes, board scrolls, trades). Scrolls and trades have a 前往 button that jumps there; other items in
   // the sheet open their own sheet, with 上一個 to step back.
   const SHEET = { stack: [] };
-  // A product's make count (0 / 10 / 20 / 30), on its row and in its sheet; `key` keeps the two apart for focus.
+  // A product's make count (0 / 1 / 10 / 20 / 30), on its row and in its sheet; `key` keeps the two apart for focus.
   const makeSeg = (name, key) => {
     const n = Math.max(0, C.make[name] | 0);
     return `<span class="seg seg-wide" role="radiogroup" aria-label="${esc(name)} 製作數量">${MAKE_PRESETS.map((p) => `<button type="button" role="radio" aria-checked="${p === n}" aria-label="製作 ${p} 個" data-role="set-make" data-cmake="${esc(name)}" data-n="${p}" data-focus-key="${key}:${esc(name)}:${p}">${p}</button>`).join('')}</span>`;
@@ -1060,16 +1065,17 @@ h2[id] { scroll-margin-top: 16px; }
     $(ids.tools).innerHTML = plan.picked.length ? `<span>已選 ${plan.picked.length} 種產品，共要做 ${fmt(plan.totalMake)} ${unit}・已打勾 ${readyN}／${plan.list.length}</span>` : '';
     $(ids.reset).disabled = !plan.picked.length;
 
-    // The materials to gather before crafting, as a checklist: what each is for (and how many times a material with
-    // its own recipe has to be processed) as the key line, the total at the end.
+    // The materials to gather before crafting, as 採集總表-style rows: the held count's stepper at the end and what is
+    // still short as the key line, with what each is for (and how many times a material with its own recipe still has
+    // to be processed) after it. Reaching the total ticks the row.
     $(ids.need).innerHTML = !plan.list.length
       ? `<p class="empty">${products.length ? '還沒選要做的產品。到上方技能點選每個產品要做幾個，這裡就會列出需要的材料。' : '配方還在整理中。整理好之後到上方技能點選要做幾個，這裡就會列出需要的材料。'}</p>`
       : `<ul class="ledger">${plan.list.map((m) => {
-          const sub = itemOf(m.name).recipe, runs = sub && (sub.inputs || []).length ? Math.ceil(m.need / yieldOf(sub)) : 0;
-          const ready = !!C.ready[m.name];
-          return listRow({ tick: tickBtn(ready, `${m.name} 準備好了`, `data-role="need-tick" data-item="${esc(m.name)}"`, `need:${g}:${m.name}`),
-            title: itemLink(m.name), sub: `用於 ${names(m.users)}${runs ? `・加工 ${fmt(runs)} 次` : ''}`,
-            end: `<span class="row-num">${fmt(m.need)}</span>`, cls: ready ? 'is-done' : '', open: m.name });
+          const have = C.have[m.name] | 0, short = Math.max(0, m.need - have), ready = !!C.ready[m.name];
+          const sub = itemOf(m.name).recipe, runs = sub && (sub.inputs || []).length ? Math.ceil(short / yieldOf(sub)) : 0;
+          return stockRow({ key: `need:${g}:${m.name}`, name: m.name, st: ready ? 'ready' : short ? 'short' : 'enough', done: ready,
+            need: m.need, have, short, unit: '個', more: `・用於 ${names(m.users)}${runs ? `・加工 ${fmt(runs)} 次` : ''}`,
+            tickAttrs: `data-role="need-tick" data-item="${esc(m.name)}"`, ref: `data-need="${esc(m.name)}" data-total="${m.need}"` });
         }).join('')}</ul>`;
 
     // One skill open at a time, like the game's workbenches; the count is how many of its products have a make count.
@@ -1247,6 +1253,13 @@ h2[id] { scroll-margin-top: 16px; }
       if (m && m.need > 0 && !m.unknown && before < m.need && n >= m.need) P.done[item] = true;
     }
   }
+  // A 所需材料 held count; reaching the row's total ticks it, as setHave does on the board.
+  function setNeedHave(name, n, need) {
+    n = Math.max(0, Math.floor(Number(n) || 0));
+    const before = C.have[name] | 0;
+    if (n) C.have[name] = n; else delete C.have[name];
+    if (need > 0 && before < need && n >= need) C.ready[name] = true;
+  }
   function setMake(name, n) {
     n = Math.max(0, Math.min(9999, Math.floor(Number(n) || 0)));
     if (n) C.make[name] = n; else delete C.make[name];
@@ -1369,16 +1382,21 @@ h2[id] { scroll-margin-top: 16px; }
       return;
     }
     if (role === 'c-reset') {
-      // Each tab clears only its own products, and the ticks on its 所需材料.
+      // Each tab clears only its own products, and the ticks and held counts on its 所需材料.
       // No confirmation: it clears on the first click.
       const grp = GROUPS[b.dataset.group] ? b.dataset.group : 'craft', skills = groupSkills(grp);
-      for (const m of craftNeeds(grp).list) delete C.ready[m.name];
+      for (const m of craftNeeds(grp).list) { delete C.ready[m.name]; delete C.have[m.name]; }
       for (const k of Object.keys(C.make)) if (skills.includes((RMAP.get(k) || {}).skill)) delete C.make[k];
       saveC(); render(); return;
     }
     if (role === 'need-tick') {
       const k = b.dataset.item;
       if (C.ready[k]) delete C.ready[k]; else C.ready[k] = true;
+      saveC(); render(); return;
+    }
+    if (b.dataset.need != null && (role === 'inc' || role === 'dec')) {
+      const k = b.dataset.need;
+      setNeedHave(k, (C.have[k] | 0) + (role === 'inc' ? 1 : -1), Number(b.dataset.total) || 0);
       saveC(); render(); return;
     }
 
@@ -1440,6 +1458,7 @@ h2[id] { scroll-margin-top: 16px; }
     const t = ev.target;
     if (!t.dataset) return;
     if (t.dataset.role === 'set' && t.dataset.cmake != null) { setMake(t.dataset.cmake, t.value); saveC(); render(); return; }
+    if (t.dataset.role === 'set' && t.dataset.need != null) { setNeedHave(t.dataset.need, t.value, Number(t.dataset.total) || 0); saveC(); render(); return; }
     if (t.dataset.role === 'set' && t.dataset.chars != null) {
       P.chars = Math.max(1, Math.min(MAX_CHARS, Math.floor(Number(t.value)) || 1));
       saveP(); render(); return;
