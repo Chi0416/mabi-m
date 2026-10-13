@@ -247,8 +247,10 @@ section { display: grid; gap: 14px; }
 .btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2); font-weight: 500; }
 @media (hover: hover) { .btn:hover:not(:disabled) { border-color: var(--muted); } }
 .btn:disabled { opacity: .5; cursor: default; }
+.btn.danger { color: var(--danger); border-color: var(--danger); }
 
 .mine-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 14px; color: var(--muted); }
+.mine-tools .ask { display: flex; align-items: center; gap: 8px; }
 /* Feature tabs: on phones an app-style bar fixed to the bottom (icon over label, the open tab's icon in a pill);
    701px+ a row of text tabs above the content. */
 .apptabs { position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); height: calc(var(--tabbar) + env(safe-area-inset-bottom, 0px)); padding: 0 max(4px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(4px, env(safe-area-inset-left, 0px)); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -4px 16px rgba(0,0,0,.06); }
@@ -420,7 +422,7 @@ h2[id] { scroll-margin-top: 16px; }
     <section aria-labelledby="h-skills">
       <div class="sec-head">
         <h2 id="h-skills">製作台</h2>
-        <div class="mine-tools"><span>等級可多選</span><button type="button" class="link-btn" id="craft-reset" data-role="c-reset" data-group="craft" disabled>清空數量</button></div>
+        <div class="mine-tools"><span>等級可多選</span><button type="button" class="link-btn" id="craft-reset" data-role="c-reset" data-group="craft" disabled>清空數量</button><button type="button" class="link-btn" id="craft-keep" data-role="cancel-confirm" hidden>保留</button></div>
       </div>
       <div class="skill-tabs" id="skill-tabs" role="radiogroup" aria-label="生活技能"></div>
       <div class="filter-bar">
@@ -450,7 +452,7 @@ h2[id] { scroll-margin-top: 16px; }
     <section aria-labelledby="h-cook-skills">
       <div class="sec-head">
         <h2 id="h-cook-skills">製作台</h2>
-        <div class="mine-tools"><span>分區可多選</span><button type="button" class="link-btn" id="cook-reset" data-role="c-reset" data-group="cook" disabled>清空數量</button></div>
+        <div class="mine-tools"><span>分區可多選</span><button type="button" class="link-btn" id="cook-reset" data-role="c-reset" data-group="cook" disabled>清空數量</button><button type="button" class="link-btn" id="cook-keep" data-role="cancel-confirm" hidden>保留</button></div>
       </div>
       <div class="skill-tabs" id="cook-skill-tabs" role="radiogroup" aria-label="生活技能"></div>
       <div class="filter-bar">
@@ -570,8 +572,8 @@ h2[id] { scroll-margin-top: 16px; }
   // A material that has its own recipe (e.g. 合金鋼錠 from 金屬加工) shows that recipe, scaled to the total, under its name.
   // Two tabs share this machinery; each lists its own skills and totals only its own products.
   const GROUPS = {
-    craft: { rows: [['鍛造技術', '木工', '魔法工藝'], ['重甲製作', '輕甲製作', '布衣製作']], unit: '件', ids: { badge: 'recipe-badge', tools: 'craft-tools', reset: 'craft-reset', need: 'craft-need', tabs: 'skill-tabs', gears: 'gear-tabs', panel: 'skill-panel' } },
-    cook: { rows: [['料理', '藥水製作', '消耗品']], unit: '個', ids: { badge: 'cook-badge', tools: 'cook-tools', reset: 'cook-reset', need: 'cook-need', tabs: 'cook-skill-tabs', secs: 'cook-sec-tabs', panel: 'cook-skill-panel' } },
+    craft: { rows: [['鍛造技術', '木工', '魔法工藝'], ['重甲製作', '輕甲製作', '布衣製作']], unit: '件', ids: { badge: 'recipe-badge', tools: 'craft-tools', reset: 'craft-reset', keep: 'craft-keep', need: 'craft-need', tabs: 'skill-tabs', gears: 'gear-tabs', panel: 'skill-panel' } },
+    cook: { rows: [['料理', '藥水製作', '消耗品']], unit: '個', ids: { badge: 'cook-badge', tools: 'cook-tools', reset: 'cook-reset', keep: 'cook-keep', need: 'cook-need', tabs: 'cook-skill-tabs', secs: 'cook-sec-tabs', panel: 'cook-skill-panel' } },
   };
   const groupSkills = (g) => GROUPS[g].rows.flat();
   const MAKE_PRESETS = [0, 10, 20, 30];
@@ -698,7 +700,8 @@ h2[id] { scroll-margin-top: 16px; }
     return 'board';
   })();
 
-  // Which delete button is waiting for its second click.
+  // Which button (刪除, 清空數量, 進度歸零) is waiting for its second click. Asked on the page, not with confirm(),
+  // which in-app browsers (LINE…) silently answer "no".
   const ui = { confirm: null };
 
   /* ---------- model ---------- */
@@ -1019,7 +1022,10 @@ h2[id] { scroll-margin-top: 16px; }
 
   function renderMine() {
     const has = ['have', 'done', 'bought', 'handed'].some((k) => Object.keys(P[k]).length > 0);
-    $('mine-tools').innerHTML = `<span>補貨後開新一輪就歸零</span><button type="button" class="btn" data-role="reset"${has ? '' : ' disabled'}>進度歸零</button>`;
+    if (!has && ui.confirm === 'reset') ui.confirm = null;
+    $('mine-tools').innerHTML = ui.confirm === 'reset'
+      ? `<span>會清掉打勾、已買、已交付和持有數量，角色數和要買幾張不變。</span><span class="ask"><button type="button" class="btn danger" data-role="reset" data-focus-key="reset">確定歸零</button><button type="button" class="link-btn" data-role="cancel-confirm">保留</button></span>`
+      : `<span>補貨後開新一輪就歸零</span><button type="button" class="btn" data-role="reset" data-focus-key="reset"${has ? '' : ' disabled'}>進度歸零</button>`;
   }
 
   const JUMPS = {
@@ -1052,7 +1058,14 @@ h2[id] { scroll-margin-top: 16px; }
       : '配方整理中';
     const readyN = plan.list.filter((m) => C.ready[m.name]).length;
     $(ids.tools).innerHTML = plan.picked.length ? `<span>已選 ${plan.picked.length} 種產品，共要做 ${fmt(plan.totalMake)} ${unit}・已打勾 ${readyN}／${plan.list.length}</span>` : '';
+    // A first click on 清空數量 turns it into 確定清空, with 保留 beside it.
+    if (!plan.picked.length && ui.confirm === `c-reset:${g}`) ui.confirm = null;
+    const asking = ui.confirm === `c-reset:${g}`;
     $(ids.reset).disabled = !plan.picked.length;
+    $(ids.reset).textContent = asking ? '確定清空' : '清空數量';
+    $(ids.reset).title = asking ? '會清掉這一頁每個產品要做的數量和所需材料的打勾' : '';
+    $(ids.reset).classList.toggle('danger', asking);
+    $(ids.keep).hidden = !asking;
 
     // The materials to gather before crafting, as a checklist: what each is for (and how many times a material with
     // its own recipe has to be processed) as the key line, the total at the end.
@@ -1365,7 +1378,8 @@ h2[id] { scroll-margin-top: 16px; }
     if (role === 'c-reset') {
       // Each tab clears only its own products, and the ticks on its 所需材料.
       const grp = GROUPS[b.dataset.group] ? b.dataset.group : 'craft', skills = groupSkills(grp);
-      if (!confirm('確定要清空嗎？\n會清掉這一頁每個產品要做的數量和所需材料的打勾。')) return;
+      if (ui.confirm !== `c-reset:${grp}`) { ui.confirm = `c-reset:${grp}`; render(); return; }
+      ui.confirm = null;
       for (const m of craftNeeds(grp).list) delete C.ready[m.name];
       for (const k of Object.keys(C.make)) if (skills.includes((RMAP.get(k) || {}).skill)) delete C.make[k];
       saveC(); render(); return;
@@ -1423,7 +1437,8 @@ h2[id] { scroll-margin-top: 16px; }
     }
     if (role === 'cancel-confirm') { ui.confirm = null; render(); return; }
     if (role === 'reset') {
-      if (!confirm('確定要把進度歸零嗎？\n會清掉打勾、已買、已交付和持有數量。\n角色數和每張卷軸要買幾張會保留。')) return;
+      if (ui.confirm !== 'reset') { ui.confirm = 'reset'; render(); return; }
+      ui.confirm = null;
       P.have = {}; P.done = {}; P.bought = {}; P.handed = {};
       saveP(); render(); return;
     }
