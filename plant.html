@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>廠區</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6fde'/%3E%3Cpath d='M12 50V28l12 8v-8l12 8v-8l12 8V14h6v36z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
+<style>
+/* Plant map: the week's plan drawn as a factory floor seen at an angle, flow left to right — suppliers outside the
+   fence, then 進料倉, the stations, assembly and 成品倉. Light palette only; status colours are the andon lights'. */
+:root {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --panel-2: #f5f7f9;
+  --ink: #1f2933;
+  --muted: #5f6b7a;
+  --line: #d5dbe1;
+  --accent: #2f6fde;
+  --accent-soft: #e3ecfc;
+  --ok: #2e9b5b;   --ok-soft: #dff3e7;
+  --wait: #c98a0c; --wait-soft: #fbf0d6;
+  --bad: #d64545;  --bad-soft: #fbe3e3;
+  --done: #3b7ddd; --done-soft: #e0ebfb;
+  --idle: #8a96a3; --idle-soft: #eceff2;
+  --grade-green: #2a7a3b; --grade-blue: #2560b0; --grade-purple: #7840c0; --grade-pink: #b0307a; --grade-orange: #a8530c;
+  --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --r: 10px;
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; scrollbar-gutter: stable; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.55; }
+a { color: var(--accent); }
+h1, h2, h3 { margin: 0; line-height: 1.3; }
+.grade-綠 { color: var(--grade-green); } .grade-藍 { color: var(--grade-blue); } .grade-紫 { color: var(--grade-purple); }
+.grade-粉 { color: var(--grade-pink); } .grade-橙 { color: var(--grade-orange); }
+.muted { color: var(--muted); }
+
+.top { background: #1f2933; color: #fff; }
+.top-in { max-width: 1440px; margin: 0 auto; padding: 10px var(--gutter-r) 10px var(--gutter-l); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.top h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.top h1 small { font-size: 13px; font-weight: 400; color: #b7c2cd; }
+.top nav { margin-left: auto; display: flex; gap: 6px; }
+.top nav a { color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 8px; background: rgba(255, 255, 255, .1); font-size: 14px; }
+.top nav a:hover { background: rgba(255, 255, 255, .2); }
+
+main { max-width: 1440px; margin: 0 auto; padding: 16px var(--gutter-r) 48px var(--gutter-l); }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
+.summary { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 12px; margin-bottom: 16px; }
+.sum { font: inherit; color: inherit; text-align: left; display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; background: none; }
+button.sum { cursor: pointer; }
+button.sum:hover { background: var(--accent-soft); border-color: rgba(47, 111, 222, .3); }
+button.sum:hover b { color: var(--accent); }
+.sum b { font-size: 18px; }
+.sum .k { font-size: 13px; color: var(--muted); }
+.sum.bad b { color: var(--bad); }
+.sum.edit { align-items: center; margin-left: auto; }
+.sum-hint { flex: 1 1 100%; margin: 0 10px; font-size: 12px; color: var(--muted); }
+
+/* the map */
+.map-card { overflow: hidden; }
+.map-scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.map-scroll svg { display: block; width: 100%; min-width: 680px; height: auto; background: linear-gradient(#f4f6f8, #e9edf1); }
+.map-hint { display: none; margin: 0; padding: 6px 12px 0; font-size: 13px; color: var(--muted); }
+.view-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.view-bar h2 { font-size: 18px; }
+.view-bar .tabs { margin-left: auto; display: inline-flex; gap: 4px; }
+.view-bar .btn { min-height: 32px; padding: 3px 12px; }
+/* blocks: one column per stage, flow left to right */
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 14px; background: var(--panel-2); }
+.stage { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.stage h3 { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; display: flex; align-items: center; gap: 6px; }
+.stage + .stage h3::before { content: "→"; color: var(--idle); }
+.blk { font: inherit; color: var(--ink); text-align: left; display: grid; gap: 3px; width: 100%; padding: 9px 10px 10px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--idle); border-radius: 8px; cursor: pointer; }
+.blk.ok { border-left-color: var(--ok); } .blk.wait { border-left-color: var(--wait); } .blk.bad { border-left-color: var(--bad); background: #fff8f8; }
+.blk:hover { border-color: rgba(47, 111, 222, .45); }
+.blk.sel { outline: 3px solid var(--accent); outline-offset: 1px; }
+.blk-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 2px; }
+.blk-name { font-weight: 700; font-size: 15px; }
+.blk .badge { padding: 0 8px; font-size: 12px; }
+.blk .ln { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 1.5; }
+.blk .ln span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; }
+.blk .ln.bad { color: var(--bad); }
+.blk .foot { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
+svg text { font-family: var(--font); }
+.node { cursor: pointer; outline: none; }
+.node .ring { fill: transparent; stroke: transparent; stroke-width: 3; }
+.node:hover .ring { fill: rgba(47, 111, 222, .06); stroke: rgba(47, 111, 222, .4); }
+.node.sel .ring, .node:focus-visible .ring { fill: rgba(47, 111, 222, .1); stroke: var(--accent); }
+.node .title { font-size: 18px; font-weight: 700; fill: var(--ink); paint-order: stroke; stroke: rgba(255, 255, 255, .9); stroke-width: 4px; }
+.node .pill text { font-size: 14px; font-weight: 700; }
+.lamp { transition: fill .2s; }
+.btn { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
+.btn:hover { background: #e9edf1; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover { background: #2a62c6; }
+.btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 14px 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* wish list and materials */
+.wish { padding: 12px 16px 14px; margin-bottom: 16px; }
+.wish-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-bottom: 4px; }
+.wish-head h2 { font-size: 18px; }
+.wish-head .muted { font-size: 13px; }
+.wish-head .chars { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
+.wish-row { display: grid; grid-template-columns: 28px minmax(180px, 250px) auto minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.wish-n { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+select { font: inherit; font-size: 15px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 38px; min-width: 0; width: 100%; }
+.stepper { display: inline-flex; align-items: stretch; }
+.stepper .btn { border-radius: 0; min-width: 44px; padding: 4px 8px; }
+.stepper .btn:first-child { border-radius: 8px 0 0 8px; }
+.stepper .btn:last-child { border-radius: 0 8px 8px 0; }
+.stepper input { width: 64px; font: inherit; font-size: 15px; text-align: center; border: 1px solid var(--line); border-left: 0; border-right: 0; border-radius: 0; color: var(--ink); }
+.wish-res { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 14px; color: var(--muted); }
+.wish-res b { color: var(--ink); font-size: 16px; }
+.wish-res.cut, .wish-res.cut b { color: var(--bad); }
+.btn.small { min-height: 30px; padding: 2px 10px; font-size: 13px; }
+.wish-act { display: inline-flex; gap: 4px; }
+.wish-act .btn { min-height: 34px; padding: 2px 10px; }
+#add-order { margin-top: 10px; }
+.left { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
+.mats { padding: 12px 16px 16px; }
+.mats-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 8px; }
+.mats-head h2 { font-size: 18px; }
+.mats-head .muted { font-size: 13px; }
+.mats h3 { font-size: 15px; margin: 16px 0 6px; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
+thead th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--panel-2); }
+thead th.r { text-align: right; }
+tbody th { font-weight: 400; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+td.num small { font-weight: 400; color: var(--muted); }
+td.num .bar { min-width: 90px; }
+td.src { white-space: normal; min-width: 160px; font-size: 13px; color: var(--muted); }
+input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+
+/* completion list */
+.week-list { padding: 12px 16px 14px; margin-bottom: 16px; }
+.done-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.done-head h2 { font-size: 18px; }
+.done-head .muted { font-size: 13px; }
+.done-total { margin-left: auto; font-size: 14px; color: var(--muted); }
+.done-total b { font-size: 18px; color: var(--ink); }
+.week-list > .bar { margin: 8px 0 4px; height: 8px; }
+.done-part h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 14px 0 4px; }
+.done-part h3 small { font-size: 13px; font-weight: 400; color: var(--muted); }
+.done-part .no { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; background: var(--idle-soft); color: var(--muted); }
+.done-part .no.all { background: var(--ok); color: #fff; }
+.done-where { margin: 8px 0 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+.done-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: 4px 12px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.done-row .chk { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; }
+.done-row.is-done .chk { background: var(--ok); border-color: var(--ok); }
+.done-row.is-done .what b { color: var(--muted); text-decoration: line-through; }
+.done-row.is-locked { opacity: .7; }
+.done-row .what small { display: block; font-size: 12px; color: var(--muted); }
+.panel .done-row { grid-template-columns: 22px minmax(0, 1fr) auto; }
+.panel .done-row .plan, .panel .done-row .act { grid-column: 2; }
+.done-row .what em { display: block; font-style: normal; font-size: 12px; color: var(--wait); }
+.done-row .what em.go-on { color: var(--ok); }
+.done-row .plan { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.done-row .act { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+@media (max-width: 640px) {
+  .done-row { grid-template-columns: 22px minmax(0, 1fr) auto; }
+  .done-row .plan { grid-column: 2; }
+  .done-row .act { grid-column: 2; }
+}
+
+/* the side panel */
+.panel { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+.panel-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.panel-head .kind { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.panel-head h2 { font-size: 20px; margin-top: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.panel-head .back { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; }
+.sec { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.sec:last-child { border-bottom: 0; }
+.sec h3 { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 8px; letter-spacing: .04em; }
+.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: 999px; }
+.badge.ok { color: var(--ok); background: var(--ok-soft); } .badge.wait { color: var(--wait); background: var(--wait-soft); }
+.badge.bad { color: var(--bad); background: var(--bad-soft); } .badge.done { color: var(--done); background: var(--done-soft); }
+.badge.idle { color: var(--idle); background: var(--idle-soft); }
+.rows { list-style: none; margin: 0; padding: 0; }
+.rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.rows li:last-child { border-bottom: 0; }
+.rows .num { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
+.rows .sub { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
+.bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--idle-soft); overflow: hidden; margin-top: 4px; }
+.bar i { display: block; height: 100%; background: var(--ok); }
+.bar.full i { background: var(--bad); } .bar.cap i { background: var(--wait); } .bar.done i { background: var(--done); }
+.go { font: inherit; text-align: left; width: 100%; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
+.go:hover b { color: var(--accent); text-decoration: underline; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-weight: 500; }
+.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+.sec.alert { background: var(--bad-soft); }
+.sec.alert h3 { color: var(--bad); }
+.sec h4 { font-size: 13px; margin: 12px 0 4px; }
+.bad-text { color: var(--bad); font-weight: 700; }
+.tips { margin: 0; padding-left: 18px; font-size: 14px; }
+.tips li { margin: 3px 0; }
+.loading, .fail { padding: 24px 16px; }
+
+@media (max-width: 1000px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .panel { position: static; max-height: none; }
+  .map-hint { display: block; }
+}
+@media (max-width: 760px) {
+  .wish-row { grid-template-columns: 28px minmax(0, 1fr); }
+  .wish-row > .stepper, .wish-row > .wish-res, .wish-row > .wish-act { grid-column: 2; }
+  .wish-head .chars { margin-left: 0; }
+}
+
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <h1>廠區 <small id="week-line"></small></h1>
+    <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a></nav>
+  </div>
+</header>
+<main id="app"><div class="card loading">讀取資料中…</div></main>
+
+<script src="line-core.js"></script>
+<script id="plant-script">
+(() => {
+  // The plant page: the planner's week (same wish list, holdings and characters) as a factory floor. Click a point to
+  // see what it needs and how it stands. The plant is shown as blocks, one column per stage, or as a still map.
+  const {
+    SHOP, S, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, charsFromBoard, held, readLS, writeLS,
+    allocate, makePlan, makeSchedule, loginPlan, progress, yieldOf, dishOptions, wireList,
+  } = window.LineCore;
+  const $ = (id) => document.getElementById(id);
+
+  // One look for one kind of plant. The plan underneath doesn't change between themes, so a car or wafer plant only
+  // needs its own words, colours and drawings here.
+  const THEME = {
+    words: {
+      outside: '廠外', shop: '供應商', field: '自有採集', unknown: '來源待補', warehouse: '進料倉', machine: '加工站',
+      assembly: '組裝站', fg: '成品倉',
+    },
+    colors: {
+      ground: '#dfe6d8', groundEdge: '#c9d3c0', road: '#b9c1c9', roadLine: '#f4f6f8', floor: '#e4e8ec', floorEdge: '#c3cad2',
+      grid: '#d6dce2', aisle: '#d2d8de', aisleEdge: '#e0b028', fence: '#7d8894', mark: '#e0b028', edge: 'rgba(31, 41, 51, .35)',
+      shop: ['#fbfaf6', '#efe9dd', '#e2d9c8'], awning: ['#d64545', '#ffffff'], field: ['#c7d99a', '#9fbc63'],
+      unknown: ['#f3e3e3', '#e6c9c9', '#d6b1b1'], warehouse: ['#e3e8ee', '#cfd6de', '#bcc5cf'], machine: ['#d5dde5', '#b8c4d0', '#a3b1bf'],
+      assembly: ['#e8e1d6', '#d8cdbd', '#c6b8a4'], fg: ['#e9e3da', '#d7cdc0', '#c4b8a8'], panel: '#2b3640', screen: '#9fd3ff',
+    },
+    status: { ok: '#2e9b5b', wait: '#e0a526', bad: '#d64545', idle: '#9aa5b1' },
+  };
+  const C = THEME.colors, W = THEME.words;
+  const STATUS_TEXT = { ok: '完成', wait: '進行中・可以做了', bad: '異常', idle: '還沒開始' };
+
+  /* ---------- projection: floor (x right, z toward the viewer), y up, seen from the front and a little left ---------- */
+  const U = 20;
+  const pj = (x, z, y = 0) => [(x + z * 0.38) * U, (z * 0.66 - y) * U];
+  const pts = (list) => list.map((p) => p.map((v) => v.toFixed(1)).join(',')).join(' ');
+  const poly = (list, fill, extra = '') => `<polygon points="${pts(list)}" fill="${fill}" stroke="${C.edge}" stroke-width="1" stroke-linejoin="round"${extra}/>`;
+  const flat = (x, z, w, d, y, fill, extra = '') => poly([pj(x, z, y), pj(x + w, z, y), pj(x + w, z + d, y), pj(x, z + d, y)], fill, extra);
+  // A block: top, front (facing the viewer) and left faces; c = [top, front, left].
+  function block(x, z, w, d, h, c) {
+    return poly([pj(x, z, 0), pj(x, z + d, 0), pj(x, z + d, h), pj(x, z, h)], c[2])
+      + poly([pj(x, z + d, 0), pj(x + w, z + d, 0), pj(x + w, z + d, h), pj(x, z + d, h)], c[1])
+      + flat(x, z, w, d, h, c[0]);
+  }
+  // A rectangle painted on the front face, from (u, v) along its width and height, size (du, dv).
+  const onFront = (n, u, v, du, dv, fill, extra = '') => poly([pj(n.x + u, n.z + n.d, v), pj(n.x + u + du, n.z + n.d, v), pj(n.x + u + du, n.z + n.d, v + dv), pj(n.x + u, n.z + n.d, v + dv)], fill, extra);
+
+  /* ---------- the plan and its points ---------- */
+  let A, P, SCH, LP, PR, NODES = [], BY = new Map(), G = null, sel = null;
+  const rawColor = new Map();
+  const RAW_COLORS = ['#d64545', '#e0a526', '#8a96a3', '#7b5cc4', '#2e9b5b', '#e07a9a', '#b07440', '#3b7ddd'];
+
+  function plan() {
+    A = allocate();
+    P = makePlan(A);
+    SCH = makeSchedule(P);
+    LP = loginPlan(P);
+    PR = progress(A, P);
+    A.mats.forEach((m, i) => rawColor.set(m.name, RAW_COLORS[i % RAW_COLORS.length]));
+    const out = [];
+    // Outside the fence: every shop selling something the wish list wants (even one whose share came to nothing, so a
+    // shortage still shows where to buy), then gathering, then materials with no known source.
+    const shops = new Map(), fields = new Map(), unknown = [];
+    for (const m of A.mats) {
+      if (!m.need && !m.want) continue;
+      for (const sh of m.s.shops) {
+        const key = `${sh.who}|${sh.town || sh.note}`;
+        if (!shops.has(key)) shops.set(key, { id: `shop:${key}`, kind: 'shop', title: sh.town ? `${sh.who}（${sh.town}）` : sh.who, sign: sh.who, town: sh.town, items: [] });
+        const got = m.shops.find((x) => x.who === sh.who && x.town === sh.town);
+        shops.get(key).items.push({ name: m.name, qty: got ? got.qty : 0, mat: m });
+      }
+      if (!m.get) continue;
+      if (m.s.gather) {
+        const g = m.s.src.find((x) => x.kind === 'gather').text;
+        if (!fields.has(g)) fields.set(g, { id: `field:${g}`, kind: 'field', title: g, items: [] });
+        fields.get(g).items.push({ name: m.name, qty: m.get, mat: m });
+      } else unknown.push({ name: m.name, qty: m.get, mat: m });
+    }
+    out.push(...[...shops.values()].sort((a, b) => townRank(a.town) - townRank(b.town)), ...fields.values());
+    if (unknown.length) out.push({ id: 'unknown', kind: 'unknown', title: W.unknown, items: unknown });
+    out.forEach((n) => { n.zone = 'out'; });
+    // Inside: 進料倉, the stations from the raw side, assembly, 成品倉.
+    out.push({ id: 'wh', kind: 'warehouse', title: W.warehouse, zone: 'in' });
+    for (const L of SCH.lanes) {
+      const asm = L.steps.every(quick);
+      out.push({ id: `lane:${L.name}`, kind: asm ? 'assembly' : 'machine', title: L.equip || '設備待補', todo: !L.equip, lane: L, zone: 'in' });
+    }
+    out.push({ id: 'fg', kind: 'fg', title: W.fg, zone: 'in' });
+    NODES = out;
+    BY = new Map(NODES.map((n) => [n.id, n]));
+    layout();
+  }
+
+  const SIZE = { shop: [6, 3, 2.6], field: [6, 3, 0.25], unknown: [6, 3, 1.8], warehouse: [7, 5, 3.4], machine: [5, 4, 2.6], assembly: [5, 4, 1.4], fg: [7, 5, 3.4] };
+  function layout() {
+    const outside = NODES.filter((n) => n.zone === 'out'), inside = NODES.filter((n) => n.zone === 'in');
+    const ROW = 7.6;
+    outside.forEach((n, k) => { [n.w, n.d, n.h] = SIZE[n.kind]; n.x = 0.6; n.z = 1.2 + k * ROW; });
+    const outDepth = outside.length ? 1.2 + outside.length * ROW : 6;
+    const zRow = Math.max(1.5, outDepth / 2 - 3.5);
+    let x = 13;
+    for (const n of inside) {
+      [n.w, n.d, n.h] = SIZE[n.kind];
+      n.x = x;
+      n.z = zRow + (5 - n.d) / 2;
+      x += n.w + 4.2;
+    }
+    const zA = zRow + 7;
+    G = { fenceX: 10.4, roadX: 8.4, zA, width: x - 1.5, depth: Math.max(outDepth, zA + 2.6) };
+  }
+  const door = (n) => [n.x + n.w / 2, n.z + n.d];
+  // Carrier routes: outside along the road to the gate, inside along the aisle in front of the stations.
+  function route(a, b) {
+    const [ax, az] = door(a), [bx, bz] = door(b);
+    if (a.zone === 'out') return [[ax, az], [ax, az + 0.7], [G.roadX, az + 0.7], [G.roadX, G.zA], [bx, G.zA], [bx, bz]];
+    return [[ax, az], [ax, G.zA], [bx, G.zA], [bx, bz]];
+  }
+
+  /* ---------- statuses ---------- */
+  const VERB = { bought: '已買', gathered: '已採', processed: '已完成', assembled: '已組裝' };
+  // The progress lines a point answers for.
+  function rowsOf(n) {
+    if (n.kind === 'shop') return PR.buy.filter((r) => `shop:${r.shop.who}|${r.shop.town || r.shop.note}` === n.id);
+    if (n.kind === 'field' || n.kind === 'unknown') return PR.gather.filter((r) => n.items.some((i) => i.name === r.item));
+    if (n.kind === 'machine') return PR.process.filter((r) => r.step.lane === n.lane.name);
+    if (n.kind === 'assembly' || n.kind === 'fg') return PR.assemble;
+    return [];
+  }
+  const tally = (rows) => [rows.reduce((t, r) => t + Math.min(r.done, r.plan), 0), rows.reduce((t, r) => t + r.plan, 0)];
+  // [colour key, short text] for a point: red for a shortage or missing data, otherwise how far this week's actuals
+  // have got — grey not started, yellow under way or ready to do, green done.
+  function statusOf(n) {
+    if (n.kind === 'shop' && n.items.some((i) => i.mat.short)) {
+      const [d, p] = tally(rowsOf(n));
+      return ['bad', p && d >= p ? '買齊仍缺' : '異常'];
+    }
+    if (n.kind === 'machine' && n.lane.steps.some((s) => s.secs == null)) return ['bad', '時間待補'];
+    if (n.kind === 'warehouse') {
+      const mats = A.mats.filter((m) => m.need), ok = mats.filter((m) => (PR.inHand.get(m.name) || 0) >= m.need).length;
+      if (!mats.length) return ['idle', '沒有進料'];
+      // the week's plan stocked is 齊料 even when the wish list wants more than the limits allow
+      if (ok < mats.length && A.mats.some((m) => m.short)) return ['bad', '缺料'];
+      return ok === mats.length ? ['ok', '齊料'] : ok ? ['wait', `齊 ${ok}/${mats.length} 樣`] : ['idle', '待進料'];
+    }
+    const rows = rowsOf(n);
+    if (!rows.length) return ['idle', n.kind === 'fg' ? '沒有需求' : '—'];
+    const [d, p] = tally(rows);
+    if (d >= p) return ['ok', { shop: '已買齊', field: '已採齊', unknown: '已取得', machine: '加工完成', assembly: '組裝完成' }[n.kind] || `完成 ${fmt(d)}`];
+    if (n.kind === 'unknown') return ['bad', '來源待補'];
+    if (d > 0) return ['wait', `${n.kind === 'fg' ? '入庫' : VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
+    if (n.kind === 'machine') return rows.some((r) => r.waiting.length) ? ['idle', '等料'] : ['wait', '可開始'];
+    if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : ['idle', '等加工'];
+    return ['idle', { shop: '未買', field: '未採', fg: `0/${fmt(p)}` }[n.kind] || '未開始'];
+  }
+
+  /* ---------- drawing ---------- */
+  function groundSVG() {
+    const { fenceX, roadX, zA, width, depth } = G;
+    let s = '';
+    // outside ground and the road
+    s += flat(-0.5, -0.5, fenceX + 0.5, depth + 1, 0, C.ground);
+    s += flat(roadX - 0.9, -0.5, 1.8, depth + 1, 0, C.road);
+    for (let z = 0; z < depth; z += 2) s += `<line x1="${pj(roadX, z)[0]}" y1="${pj(roadX, z)[1]}" x2="${pj(roadX, z + 1)[0]}" y2="${pj(roadX, z + 1)[1]}" stroke="${C.roadLine}" stroke-width="2"/>`;
+    // plant floor: a slab with a visible front edge, a 2 m grid, the aisle with yellow edges
+    s += poly([pj(fenceX, depth + 0.5, 0), pj(width, depth + 0.5, 0), pj(width, depth + 0.5, -0.5), pj(fenceX, depth + 0.5, -0.5)], C.floorEdge);
+    s += flat(fenceX, -0.5, width - fenceX, depth + 1, 0, C.floor);
+    for (let x = Math.ceil(fenceX / 2) * 2; x < width; x += 2) s += `<line x1="${pj(x, -0.5)[0]}" y1="${pj(x, -0.5)[1]}" x2="${pj(x, depth + 0.5)[0]}" y2="${pj(x, depth + 0.5)[1]}" stroke="${C.grid}" stroke-width="1"/>`;
+    for (let z = 0; z <= depth; z += 2) s += `<line x1="${pj(fenceX, z)[0]}" y1="${pj(fenceX, z)[1]}" x2="${pj(width, z)[0]}" y2="${pj(width, z)[1]}" stroke="${C.grid}" stroke-width="1"/>`;
+    s += flat(fenceX, zA - 0.9, width - fenceX, 1.8, 0, C.aisle, ' stroke="none"');
+    for (const e of [zA - 0.9, zA + 0.9]) s += `<line x1="${pj(fenceX, e)[0]}" y1="${pj(fenceX, e)[1]}" x2="${pj(width, e)[0]}" y2="${pj(width, e)[1]}" stroke="${C.aisleEdge}" stroke-width="2.5"/>`;
+    for (let x = fenceX + 3; x < width - 1; x += 6) {
+      const a = pj(x, zA), b = pj(x + 1.2, zA);
+      s += `<path d="M${a[0]},${a[1] - 5} L${b[0]},${b[1]} L${a[0]},${a[1] + 5}" fill="none" stroke="${C.mark}" stroke-width="2.5" stroke-linejoin="round"/>`;
+    }
+    // zone marks around the plant buildings
+    for (const n of NODES) if (n.zone === 'in') s += flat(n.x - 0.7, n.z - 0.7, n.w + 1.4, n.d + 1.4, 0, 'none', ` stroke="${C.mark}" stroke-width="2" stroke-dasharray="8 6"`);
+    // the fence, open at the gate where the road meets the aisle
+    const post = (z) => { const a = pj(fenceX, z, 0), b = pj(fenceX, z, 1.2); return `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${C.fence}" stroke-width="2"/>`; };
+    for (const [z0, z1] of [[-0.5, zA - 1.4], [zA + 1.4, depth + 0.5]]) {
+      if (z1 <= z0) continue;
+      const a = pj(fenceX, z0, 1.2), b = pj(fenceX, z1, 1.2), c = pj(fenceX, z0, 0.6), d = pj(fenceX, z1, 0.6);
+      s += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${C.fence}" stroke-width="2"/><line x1="${c[0]}" y1="${c[1]}" x2="${d[0]}" y2="${d[1]}" stroke="${C.fence}" stroke-width="1.5"/>`;
+      for (let z = z0; z <= z1 + 0.01; z += 1.5) s += post(z);
+    }
+    const gate = pj(fenceX + 0.2, zA - 1.6, 1.6);
+    s += `<text x="${gate[0]}" y="${gate[1]}" font-size="12" fill="${C.fence}" text-anchor="middle">收貨口</text>`;
+    const out = pj(1, -0.3, 0);
+    s += `<text x="${out[0]}" y="${out[1] - 6}" font-size="13" font-weight="700" fill="#6b7a5f">${esc(W.outside)}</text>`;
+    return s;
+  }
+
+  // Three-lamp andon tower on a station's back right corner; the lamps are lit by paintStatus().
+  function andon(n) {
+    const base = pj(n.x + n.w - 0.6, n.z + 0.6, n.h), top = pj(n.x + n.w - 0.6, n.z + 0.6, n.h + 2.3);
+    let s = `<line x1="${base[0]}" y1="${base[1]}" x2="${top[0]}" y2="${top[1]}" stroke="#4a5561" stroke-width="2.5"/>`;
+    ['bad', 'wait', 'ok'].forEach((k, i) => {
+      const p = pj(n.x + n.w - 0.6, n.z + 0.6, n.h + 2.3 - i * 0.62);
+      s += `<circle class="lamp" data-lamp="${esc(n.id)}|${k}" cx="${p[0]}" cy="${p[1]}" r="5.5" fill="#cfd5db" stroke="#4a5561" stroke-width="1"/>`;
+    });
+    return s;
+  }
+  function buildingSVG(n) {
+    const c = C[n.kind] || C.machine;
+    let s = flat(n.x - 0.4, n.z - 0.4, n.w + 0.8, n.d + 0.8, 0, 'transparent', ' class="ring"');
+    if (n.kind === 'field') {
+      s += block(n.x, n.z, n.w, n.d, n.h, [c[0], c[1], c[1]]);
+      for (let z = n.z + 0.5; z < n.z + n.d; z += 0.6) { const a = pj(n.x + 0.3, z, n.h), b = pj(n.x + n.w - 0.3, z, n.h); s += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="${c[1]}" stroke-width="2.5" stroke-linecap="round"/>`; }
+      return s;
+    }
+    s += block(n.x, n.z, n.w, n.d, n.h, c);
+    if (n.kind === 'shop') {
+      for (let k = 0; k < 6; k++) s += onFront(n, k, n.h - 0.7, 1, 0.7, C.awning[k % 2]);
+      s += onFront(n, n.w - 1.8, 0, 1.2, 1.5, '#6b7785');
+    } else if (n.kind === 'unknown') {
+      const p = pj(n.x + n.w / 2, n.z + n.d, n.h / 2 - 0.5);
+      s += `<text x="${p[0]}" y="${p[1]}" font-size="22" font-weight="700" fill="${THEME.status.bad}" text-anchor="middle">?</text>`;
+    } else if (n.kind === 'warehouse' || n.kind === 'fg') {
+      for (let k = 0; k < 2; k++) s += onFront(n, 0.8 + k * 3.2, 0, 2.4, 2.2, '#aeb8c3');
+      for (let k = 0; k < 2; k++) for (let v = 0.3; v < 2.2; v += 0.45) { const a = pj(n.x + 0.8 + k * 3.2, n.z + n.d, v), b = pj(n.x + 3.2 + k * 3.2, n.z + n.d, v); s += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#97a3af" stroke-width="1"/>`; }
+    } else if (n.kind === 'machine' || n.kind === 'assembly') {
+      s += onFront(n, 0.5, n.h * 0.35, 1.8, n.h * 0.5, C.panel);
+      s += onFront(n, 0.7, n.h * 0.55, 1.4, n.h * 0.24, C.screen);
+      if (n.kind === 'machine') {
+        // the queue: one cell per place, filled by paintStatus()
+        const q = Math.max(1, n.lane.queue || 1), cw = Math.min(0.42, 2.2 / q);
+        for (let k = 0; k < q; k++) s += onFront(n, 2.7 + k * (cw + 0.08), n.h * 0.4, cw, 0.42, '#eef1f4', ` data-q="${esc(n.id)}|${k}"`);
+      }
+      s += andon(n);
+    }
+    return s;
+  }
+  const pill = (n, p) => `<g class="pill" data-pill="${esc(n.id)}" transform="translate(${p[0].toFixed(1)},${p[1].toFixed(1)})"><rect x="-30" y="0" width="60" height="20" rx="10"/><text x="0" y="14.5" text-anchor="middle"></text></g>`;
+  // Outside, a shop's name is its sign and a field's is painted on it, with the status over the roof; inside, the
+  // name and status float above the building.
+  function labelSVG(n) {
+    if (n.zone === 'out') {
+      const sign = n.kind === 'field' ? pj(n.x + n.w / 2, n.z + n.d / 2, n.h) : pj(n.x + (n.kind === 'shop' ? (n.w - 2) / 2 : n.w / 2), n.z + n.d, n.h * 0.35);
+      const top = pj(n.x + n.w / 2, n.z + n.d / 2, n.h + 0.4);
+      return `<text class="title" x="${sign[0].toFixed(1)}" y="${(sign[1] + 6).toFixed(1)}" text-anchor="middle">${esc(n.sign || n.title)}</text>${pill(n, [top[0], top[1] - 24])}`;
+    }
+    const lift = n.kind === 'machine' || n.kind === 'assembly' ? n.h + 2.9 : n.h + 0.9;
+    const p = pj(n.x + n.w / 2, n.z + n.d / 2, lift);
+    return `<text class="title" x="${p[0].toFixed(1)}" y="${(p[1] - 22).toFixed(1)}" text-anchor="middle">${esc(n.title)}</text>${pill(n, [p[0], p[1] - 14])}`;
+  }
+  function mapSVG() {
+    // the ground's corners, and every building's top with room for its andon tower and label
+    const corners = [pj(-0.5, -0.5, 0), pj(G.width, -0.5, 0), pj(-0.5, G.depth + 0.5, -0.6), pj(G.width, G.depth + 0.5, -0.6),
+      ...NODES.map((n) => pj(n.x, n.z, n.h + (n.kind === 'machine' || n.kind === 'assembly' ? 4.4 : 2.4)))];
+    const xs = corners.map((p) => p[0]), ys = corners.map((p) => p[1]);
+    const pad = 24, vb = [Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) - Math.min(...xs) + pad * 2, Math.max(...ys) - Math.min(...ys) + pad * 2];
+    // back to front, so nearer buildings cover farther ones
+    const order = NODES.slice().sort((a, b) => a.z + a.d - (b.z + b.d) || a.x - b.x);
+    const nodes = order.map((n) => `<g class="node${sel === n.id ? ' sel' : ''}" data-node="${esc(n.id)}" tabindex="0" role="button" aria-label="${esc(`${W[n.kind]}：${n.title}`)}">${buildingSVG(n)}${labelSVG(n)}</g>`).join('');
+    return `<svg id="map" viewBox="${vb.map((v) => v.toFixed(0)).join(' ')}" role="group" aria-label="廠區地圖，點一個點看需求和狀態">
+      <g>${groundSVG()}</g><g>${nodes}</g></svg>`;
+  }
+
+  /* ---------- blocks: every point as a card, one column per stage ---------- */
+  const STAGES = [['out', W.outside], ['warehouse', W.warehouse], ['machine', '加工'], ['assembly', '組裝'], ['fg', W.fg]];
+  const stageOf = (n) => (n.zone === 'out' ? 'out' : n.kind);
+  // The few lines that say what a point needs this week and how far it has got; the panel has the rest.
+  function blockLines(n) {
+    const line = (name, v, cls = '') => `<span class="ln ${cls}"><span>${esc(name)}</span><span>${v}</span></span>`;
+    const dp = (r) => `${fmt(r.done)}／${fmt(r.plan)}`;
+    if (n.kind === 'shop') {
+      const short = (name) => (A.mats.find((m) => m.name === name) || {}).short || 0;
+      return rowsOf(n).map((r) => line(r.item, short(r.item) ? `${dp(r)}・缺 ${fmt(short(r.item))}` : dp(r), short(r.item) ? 'bad' : r.done >= r.plan ? 'ok' : '')).join('')
+        || n.items.map((i) => line(i.name, i.mat.short ? `缺 ${fmt(i.mat.short)}` : '0', i.mat.short ? 'bad' : '')).join('');
+    }
+    if (n.kind === 'field' || n.kind === 'unknown') return rowsOf(n).map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('');
+    if (n.kind === 'warehouse') return A.mats.filter((m) => m.need || m.short).map((m) => line(m.name, m.short ? `${fmt(m.need)}・缺 ${fmt(m.short)}` : `${fmt(Math.min(PR.inHand.get(m.name) || 0, m.need))}／${fmt(m.need)}`, m.short ? 'bad' : (PR.inHand.get(m.name) || 0) >= m.need ? 'ok' : '')).join('') || line('沒有進料', '');
+    if (n.kind === 'machine') {
+      const L = n.lane;
+      return rowsOf(n).map((r) => line(r.item, `${dp(r)} 批`, r.done >= r.plan ? 'ok' : '')).join('')
+        + `<span class="foot">${L.queue == null ? '排程上限待補' : `排程上限 ${L.queue}`}・每批 ${esc(L.steps.filter((s) => !quick(s)).map((s) => (s.secs == null ? '?' : fmtDur(s.secs))).join('／'))}</span>`;
+    }
+    if (n.kind === 'assembly') {
+      const made = new Set(P.steps.map((s) => s.name)), inputs = [...new Set(n.lane.steps.flatMap((s) => s.r.inputs.map((i) => i.item)))];
+      return PR.assemble.map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('')
+        + `<span class="foot">直接料 ${esc(inputs.filter((i) => !made.has(i)).join('、') || '—')}・加工料 ${esc(inputs.filter((i) => made.has(i)).join('、') || '—')}</span>`;
+    }
+    return A.rows.map((o) => { const r = PR.assemble.find((x) => x.item === o.dish); return line(o.dish, `${fmt(r ? r.done : 0)}／${fmt(o.n)}${o.n < o.qty ? `（想 ${fmt(o.qty)}）` : ''}`, o.n < o.qty ? 'bad' : r && r.done >= r.plan ? 'ok' : ''); }).join('') || line('沒有需求', '');
+  }
+  function blocksHTML() {
+    return `<div class="flow">${STAGES.map(([key, title]) => {
+      const list = NODES.filter((n) => stageOf(n) === key);
+      if (!list.length) return '';
+      return `<section class="stage"><h3>${esc(title)}</h3>${list.map((n) => {
+        const [k, text] = statusOf(n);
+        return `<button class="blk ${k}${sel === n.id ? ' sel' : ''}" type="button" data-go="${esc(n.id)}" data-blk="${esc(n.id)}">
+          <span class="blk-head"><span class="blk-name">${esc(n.title)}</span><span class="badge ${k}">${esc(text)}</span></span>
+          ${blockLines(n)}</button>`;
+      }).join('')}</section>`;
+    }).join('')}</div>`;
+  }
+
+  /* ---------- the side panel ---------- */
+  const badge = ([k, text]) => `<span class="badge ${k}"><i class="dot" style="background:${THEME.status[k]}"></i>${esc(text)}</span>`;
+  const barHTML = (f, cls = '') => `<div class="bar ${cls}"><i style="width:${Math.max(0, Math.min(100, f * 100)).toFixed(0)}%"></i></div>`;
+  const goHTML = (id, label, sub) => `<button class="go" type="button" data-go="${esc(id)}"><b>${label}</b>${sub ? `<div class="muted">${sub}</div>` : ''}</button>`;
+  const nodeOfMat = (name) => NODES.find((n) => n.items && n.items.some((i) => i.name === name));
+  const fixButton = (o) => (o.max < Infinity && o.max !== o.qty ? `<button class="btn small" type="button" data-oset="${o.i}|${o.max}">改成上限 ${fmt(o.max)}</button>` : '');
+
+  // Ways out of a shortage of a shop-only material, worked out from the numbers.
+  function remedies(m) {
+    const perChar = m.s.shops.length * SHOP.limit, toBuy = Math.max(0, m.want - held(m.name)), tips = [];
+    const need = Math.ceil(toBuy / perChar);
+    if (chars() < MAX_CHARS) tips.push(need <= MAX_CHARS ? `加到 ${need} 隻角色去買就夠（每多一隻，這樣東西本週多 ${fmt(perChar)} 個）。` : `角色加到上限 ${MAX_CHARS} 隻也只買得到 ${fmt(perChar * MAX_CHARS)} 個，還缺 ${fmt(toBuy - perChar * MAX_CHARS)}。`);
+    tips.push(`分週做：照現在 ${chars()} 隻角色，要 ${Math.ceil(toBuy / (perChar * chars()))} 週才買得齊；這週先做上限，剩的下週再排。`);
+    tips.push('把需求清單的數量改成上限，或把比較要緊的料理往上移，讓它先分到。');
+    const other = m.s.src.filter((x) => x.kind === 'barter' || x.kind === 'loot');
+    if (other.length) tips.push(`還有其他來源沒算進去：${other.map(sourceText).join('、')}。`);
+    tips.push('手上有庫存的話，在原物料表填「持有」。');
+    return tips;
+  }
+  function shortageHTML(m) {
+    const cut = A.rows.filter((o) => o.n < o.qty && o.stuck.includes(m.name));
+    return `<div class="sec alert"><h3>異常・${esc(m.name)}原物料不足</h3>
+      <dl class="kv">
+        <dt>需求要</dt><dd>${fmt(m.want)}</dd>
+        <dt>本週最多</dt><dd>${fmt(m.s.cap)}（${esc(m.s.shops.map((x) => x.who).join('＋'))}，每家每隻 ${SHOP.limit} 個 × ${chars()} 隻${m.have ? `，加持有 ${fmt(held(m.name))}` : ''}）</dd>
+        <dt>缺</dt><dd class="bad-text">${fmt(m.short)}</dd>
+      </dl>
+      ${cut.length ? `<h4>影響</h4><ul class="rows">${cut.map((o) => `<li><span>${nameHTML(o.dish)}<span class="muted">・想做 ${fmt(o.qty)}，只能做 ${fmt(o.n)}</span></span><span>${fixButton(o)}</span></li>`).join('')}</ul>` : ''}
+      <h4>可以怎麼做</h4><ul class="tips">${remedies(m).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+    </div>`;
+  }
+
+  function overviewHTML() {
+    const wk = shopWeek(), rows = A.rows;
+    const full = rows.filter((o) => o.n >= o.qty).length;
+    const alarms = A.mats.filter((m) => m.short).map((m) => { const n = nodeOfMat(m.name); return goHTML(n ? n.id : 'wh', `${esc(m.name)}原物料不足，缺 ${fmt(m.short)}`, `${esc(m.users.join('、'))}做不滿・點開看對策`); });
+    const issues = [];
+    if (BY.has('unknown')) issues.push(goHTML('unknown', '有原料來源待補', esc(BY.get('unknown').items.map((i) => i.name).join('、'))));
+    for (const n of NODES) if (n.kind === 'machine' && n.lane.steps.some((s) => s.secs == null)) issues.push(goHTML(n.id, `${esc(n.title)}的時間待補`, '補上才能排時間'));
+    for (const n of NODES) if (n.kind === 'machine' && n.lane.queue == null) issues.push(goHTML(n.id, `${esc(n.title)}的排程上限待補`, '先當一次排 1 批'));
+    return `<div class="panel-head"><div class="kind">總覽</div><h2>本週計畫</h2></div>
+      <div class="sec"><h3>本週進度</h3>${barHTML(PR.total ? PR.finished / PR.total : 0, 'done')}<p class="note">完成 ${fmt(PR.finished)}／${fmt(PR.total)} 項・<button class="go" type="button" data-jump="done" style="display:inline;width:auto"><b>到完成清單</b></button></p></div>
+      <div class="sec${alarms.length ? ' alert' : ''}"><h3>異常</h3>${alarms.length ? `<ul class="rows">${alarms.map((x) => `<li>${x}</li>`).join('')}</ul>` : '<p class="muted" style="margin:0">沒有異常，原物料都夠。</p>'}</div>
+      ${issues.length ? `<div class="sec"><h3>待補</h3><ul class="rows">${issues.map((x) => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+      <div class="sec"><dl class="kv">
+        <dt>本週</dt><dd>${esc(wk.range)}・還剩 ${esc(wk.left)}</dd>
+        <dt>角色</dt><dd>${chars()} 隻${charsFromBoard() ? '（照佈告欄）' : ''}，每隻每店每樣 ${SHOP.limit} 個／週</dd>
+        <dt>需求</dt><dd>${full}／${rows.length} 道做滿・共 ${fmt(P.qty)}／${fmt(rows.reduce((t, o) => t + o.qty, 0))} 個</dd>
+        <dt>加工</dt><dd>${LP.rounds.length ? `排 ${LP.rounds.length} 輪、上線 ${LP.logins} 次・${P.missing.length ? '時間待補' : `約 ${esc(fmtDur(LP.total))}`}` : '不用加工'}</dd>
+      </dl></div>`;
+  }
+
+  function nodeHTML(n) {
+    const st = statusOf(n);
+    const head = `<div class="panel-head"><button class="back" type="button" data-go="">◀ 總覽</button><div class="kind">${esc(W[n.kind])}</div><h2>${esc(n.title)} ${badge(st)}</h2></div>`;
+    const per = SHOP.limit * chars();
+    // The same actuals as the completion list, for just this point.
+    const mine = n.kind === 'fg' ? [] : rowsOf(n);
+    const actual = mine.length ? `<div class="sec"><h3>實績・本週</h3>${mine.map((r) => (r.kind === 'assembled'
+      ? doneRow(r, r.done >= r.plan ? '' : r.ready ? '<em class="go-on">可以組裝</em>' : `<em>等：${esc(r.waiting.join('、'))}</em>`, 'p', !r.ready && r.done < r.plan)
+      : doneRow(r, r.kind === 'processed' && r.waiting.length && r.done < r.plan ? `<em>等料：${esc(r.waiting.join('、'))}還沒齊</em>` : '', 'p'))).join('')}</div>` : '';
+    if (n.kind === 'shop') {
+      return head + n.items.filter((i) => i.mat.short).map((i) => shortageHTML(i.mat)).join('') + actual
+        + `<div class="sec"><h3>需求・本週建議買</h3><ul class="rows">${n.items.map((i) => `<li><span>${nameHTML(i.name)}</span><span class="num">${fmt(i.qty)}／${fmt(per)}</span>
+          <span class="sub">${i.mat.short ? `買滿也不夠，缺 ${fmt(i.mat.short)}` : i.qty >= per ? '買滿' : `還能多買 ${fmt(per - i.qty)}`}${i.mat.s.shops.length > 1 ? `・也在 ${esc(i.mat.s.shops.filter((x) => x.who !== n.sign).map((x) => x.who).join('、'))} 買` : ''}</span>${barHTML(i.qty / per, i.mat.short ? 'full' : i.qty >= per ? 'cap' : '')}</li>`).join('')}</ul></div>
+        <div class="sec"><h3>狀態</h3><dl class="kv"><dt>限購</dt><dd>每隻角色每樣 ${SHOP.limit} 個，${chars()} 隻共 ${fmt(per)}</dd><dt>重置</dt><dd>每週${'日一二三四五六'[SHOP.resetDay]} ${esc(SHOP.resetAt)}</dd></dl></div>`;
+    }
+    if (n.kind === 'field' || n.kind === 'unknown') {
+      return head + actual + `<div class="sec"><h3>需求・本週要${n.kind === 'field' ? '採' : '拿'}</h3><ul class="rows">${n.items.map((i) => `<li><span>${nameHTML(i.name)}</span><span class="num">${fmt(i.qty)}</span>
+          ${i.mat.s.src.length ? `<span class="sub">${esc(i.mat.s.src.map(sourceText).join('、'))}</span>` : ''}</li>`).join('')}</ul>
+        ${n.kind === 'unknown' ? '<p class="note">還不知道在哪拿，先當成不限量。截道具卡給我就能補上。</p>' : '<p class="note">採集不受限購，花的是你的時間。</p>'}</div>`;
+    }
+    if (n.kind === 'warehouse') {
+      return head + A.mats.filter((m) => m.short).map(shortageHTML).join('')
+        + `<div class="sec"><h3>需求・本週進料</h3><ul class="rows">${A.mats.filter((m) => m.need || m.want).map((m) => `<li><span>${nameHTML(m.name)}</span><span class="num">${fmt(m.need)}</span>
+            <span class="sub">${[m.have && `持有 ${fmt(m.have)}`, m.buy && `買 ${fmt(m.buy)}`, m.get && `${m.s.gather ? '採' : '待補'} ${fmt(m.get)}`, m.short && `缺 ${fmt(m.short)}`].filter(Boolean).join('・')}</span></li>`).join('')}</ul></div>`;
+    }
+    if (n.kind === 'machine') {
+      const L = n.lane;
+      const rounds = LP.rounds.map((r, k) => [k, r]).filter(([, r]) => r.lanes.has(L.name));
+      return head + actual + `<div class="sec"><h3>需求</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 批</span>
+          <span class="sub">每批 ${s.secs == null ? '時間待補' : esc(fmtDur(s.secs))}・一批 ${yieldOf(s.r)} 個・用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul></div>
+        <div class="sec"><h3>狀態</h3><dl class="kv">
+          <dt>排程上限</dt><dd>${L.queue == null ? '待補（先當 1）' : `${L.queue} 批，一次做一批`}</dd>
+          <dt>全部做完</dt><dd>${P.missing.length ? '時間待補' : esc(fmtDur(L.steps.reduce((t, s) => t + s.batches * (s.secs || 0), 0)))}</dd>
+        </dl></div>
+        ${rounds.length ? `<div class="sec"><h3>上線排程</h3><ul class="rows">${rounds.map(([k, r]) => `<li><span>第 ${k + 1} 輪・${k ? `開工後 ${esc(fmtDur(r.at))}` : '開工'}</span><span class="num">${P.missing.length ? '' : esc(fmtDur(r.lanes.get(L.name).secs))}</span>
+          <span class="sub">${esc([...r.lanes.get(L.name).counts].map(([name, c]) => `${name} ×${c}`).join('、'))}</span></li>`).join('')}</ul></div>` : ''}`;
+    }
+    if (n.kind === 'assembly') {
+      const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
+      for (const s of L.steps) for (const i of s.r.inputs) need.set(i.item, (need.get(i.item) || 0) + s.batches * i.qty);
+      return head + actual + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
+          <span class="sub">一個用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul><p class="note">組裝只要十幾秒，不計時。</p></div>
+        <div class="sec"><h3>要備齊的料</h3><ul class="rows">${[...need].map(([item, q]) => `<li><span>${nameHTML(item)}<span class="muted">${made.has(item) ? '・加工料，從加工站來' : '・直接料，先放這裡等'}</span></span><span class="num">${fmt(q)}</span></li>`).join('')}</ul></div>`;
+    }
+    // 成品倉
+    return head + `<div class="sec"><h3>需求清單・本週入庫</h3><ul class="rows">${A.rows.map((o) => {
+        const r = PR.assemble.find((x) => x.item === o.dish), done = r ? r.done : 0;
+        return `<li><span>${nameHTML(o.dish)}</span><span class="num">${fmt(done)}／${fmt(o.n)}</span>
+          <span class="sub">已組裝 ${fmt(done)}・計畫 ${fmt(o.n)}・想做 ${fmt(o.qty)}${o.n < o.qty ? `・卡在 ${esc(o.stuck.join('、'))} ${fixButton(o)}` : ''}</span>${barHTML(o.n ? done / o.n : 0, 'done')}</li>`;
+      }).join('') || '<li class="muted">清單是空的。</li>'}</ul><p class="note">成品倉就是需求清單的結果：組裝完成的會算進來。</p></div>`;
+  }
+
+  function renderPanel() {
+    const n = sel && BY.get(sel);
+    $('panel').innerHTML = n ? nodeHTML(n) : overviewHTML();
+  }
+
+  // Status pills, andon lamps and the queue cells (the first round lined up) on the map.
+  function paintStatus() {
+    for (const n of NODES) {
+      const [k, text] = statusOf(n);
+      const pill = document.querySelector(`[data-pill="${CSS.escape(n.id)}"]`);
+      if (pill) {
+        const w = Math.max(48, [...text].reduce((t, ch) => t + (ch.charCodeAt(0) > 255 ? 14 : 8), 0) + 20);
+        pill.querySelector('rect').setAttribute('x', -w / 2);
+        pill.querySelector('rect').setAttribute('width', w);
+        pill.querySelector('rect').setAttribute('fill', THEME.status[k]);
+        const tx = pill.querySelector('text');
+        tx.textContent = text;
+        tx.setAttribute('fill', k === 'wait' ? '#3d2b00' : '#fff');
+      }
+      for (const lamp of ['bad', 'wait', 'ok']) {
+        const el = document.querySelector(`[data-lamp="${CSS.escape(`${n.id}|${lamp}`)}"]`);
+        if (el) el.setAttribute('fill', k === lamp ? THEME.status[lamp] : '#cfd5db');
+      }
+      if (n.kind === 'machine') {
+        const first = LP.rounds.length && LP.rounds[0].lanes.get(n.lane.name);
+        const lined = first ? [...first.counts.values()].reduce((t, c) => t + c, 0) : 0;
+        for (let i = 0; i < Math.max(1, n.lane.queue || 1); i++) {
+          const el = document.querySelector(`[data-q="${CSS.escape(`${n.id}|${i}`)}"]`);
+          if (el) el.setAttribute('fill', i < lined ? THEME.status.ok : '#eef1f4');
+        }
+      }
+    }
+  }
+
+  /* ---------- the wish list and the materials it takes ---------- */
+  const stepper = (key, value, label, step) => `<span class="stepper"><button class="btn" type="button" data-step="${key}|-${step}" aria-label="${label}少 ${step}">−${step}</button><input data-num="${key}" data-f="n:${key}" inputmode="numeric" value="${value}" aria-label="${label}"><button class="btn" type="button" data-step="${key}|${step}" aria-label="${label}多 ${step}">+${step}</button></span>`;
+  function wishHTML() {
+    const rows = A.rows.map((o) => {
+      const res = o.max === Infinity ? `可做 <b>${fmt(o.n)}</b>・不受限購影響`
+        : o.n >= o.qty ? `可做 <b>${fmt(o.n)}</b> ✓・上限 ${fmt(o.max)}`
+        : `本週只能做 <b>${fmt(o.n)}</b>・卡在 ${esc(o.stuck.join('、'))}`;
+      const fix = o.max < Infinity && o.max !== o.qty ? `<button class="btn small" type="button" data-oset="${o.i}|${o.max}">改成上限 ${fmt(o.max)}</button>` : '';
+      return `<div class="wish-row">
+        <span class="wish-n">${o.i + 1}</span>
+        <select data-odish="${o.i}" data-f="o:${o.i}:dish" aria-label="第 ${o.i + 1} 道要做什麼">${dishOptions(o.dish)}</select>
+        ${stepper(`o${o.i}`, o.qty, `第 ${o.i + 1} 道數量`, 10)}
+        <span class="wish-res${o.n < o.qty ? ' cut' : ''}"><span>${res}</span>${fix}</span>
+        <span class="wish-act">
+          <button class="btn" type="button" data-omove="${o.i}|-1" aria-label="往上移"${o.i ? '' : ' disabled'}>▲</button>
+          <button class="btn" type="button" data-omove="${o.i}|1" aria-label="往下移"${o.i < S.orders.length - 1 ? '' : ' disabled'}>▼</button>
+          <button class="btn" type="button" data-odel="${o.i}" aria-label="刪掉這道">✕</button>
+        </span>
+      </div>`;
+    }).join('');
+    return `<section class="card wish">
+      <div class="wish-head"><h2>需求清單</h2><span class="muted">選料理、填數量；越上面越先分到限購材料</span></div>
+      ${rows || '<p class="muted">清單是空的，先加一道菜。</p>'}
+      <button class="btn" type="button" id="add-order">＋ 加一道菜</button>
+    </section>`;
+  }
+  /* ---------- this week's completion list ---------- */
+  const FILL = { bought: '買齊', gathered: '採齊', processed: '全部完成', assembled: '全部組好' };
+  const UNIT = { bought: '個', gathered: '個', processed: '批', assembled: '個' };
+  const doneInput = (r, where, locked) => `<input class="have" data-done="${r.kind}|${esc(r.key)}" data-f="${where}:${r.kind}|${esc(r.key)}" inputmode="numeric" value="${r.done || ''}" placeholder="0"${locked ? ' disabled' : ''} aria-label="${esc(r.item)} ${VERB[r.kind]}">`;
+  const fillButton = (r, locked) => (r.done >= r.plan
+    ? `<button class="btn small" type="button" data-donefill="${r.kind}|0|${esc(r.key)}">清除</button>`
+    : `<button class="btn small" type="button" data-donefill="${r.kind}|${r.plan}|${esc(r.key)}"${locked ? ' disabled' : ''}>${FILL[r.kind]}</button>`);
+  // One line: tick, what and where, the plan, the actual and a button that fills it to plan (or clears it).
+  function doneRow(r, sub, where, locked = false) {
+    const done = r.done >= r.plan;
+    return `<div class="done-row${done ? ' is-done' : ''}${locked ? ' is-locked' : ''}">
+      <span class="chk" aria-hidden="true">${done ? '✓' : ''}</span>
+      <span class="what">${nameHTML(r.item)}${sub ? `<small>${sub}</small>` : ''}</span>
+      <span class="plan">計畫 ${fmt(r.plan)} ${UNIT[r.kind]}</span>
+      <label class="act">${VERB[r.kind]}${doneInput(r, where, locked)}</label>
+      ${fillButton(r, locked)}
+    </div>`;
+  }
+  function doneHTML() {
+    const part = (no, title, rows, body) => {
+      if (!rows.length) return '';
+      const [d, p] = tally(rows), all = d >= p;
+      return `<div class="done-part"><h3><span class="no${all ? ' all' : ''}">${all ? '✓' : no}</span>${title}<small>${fmt(d)}／${fmt(p)}</small></h3>${body}</div>`;
+    };
+    const shops = new Map();
+    for (const r of PR.buy) {
+      const k = `${r.shop.who}|${r.shop.town || r.shop.note}`;
+      if (!shops.has(k)) shops.set(k, []);
+      shops.get(k).push(r);
+    }
+    const buy = [...shops.values()].map((rows) => `<p class="done-where">${esc(rows[0].shop.town ? `${rows[0].shop.who}（${rows[0].shop.town}）` : rows[0].shop.who)}</p>${rows.map((r) => doneRow(r, '', 'd')).join('')}`).join('');
+    const gather = PR.gather.map((r) => doneRow(r, esc(r.how), 'd')).join('');
+    const proc = PR.process.map((r) => doneRow(r, `${esc(r.step.equip || '設備待補')}・每批 ${r.step.secs == null ? '時間待補' : esc(fmtDur(r.step.secs))}${r.waiting.length && r.done < r.plan ? `<em>等料：${esc(r.waiting.join('、'))}還沒齊</em>` : ''}`, 'd')).join('');
+    const asm = PR.assemble.map((r) => doneRow(r, r.done >= r.plan ? '' : r.ready ? '<em class="go-on">加工都完成、料也齊了，可以組裝</em>' : `<em>等：${esc(r.waiting.join('、'))}</em>`, 'd', !r.ready && r.done < r.plan)).join('');
+    return `<section class="card week-list" id="done">
+      <div class="done-head"><h2>本週完成清單</h2><span class="muted">照順序做：買 → 採 → 加工 → 組裝；做完一項就填上去。每週${'日一二三四五六'[SHOP.resetDay]} ${esc(SHOP.resetAt)} 歸零。</span>
+        <span class="done-total">完成 <b>${fmt(PR.finished)}</b>／${fmt(PR.total)} 項</span></div>
+      ${barHTML(PR.total ? PR.finished / PR.total : 0, 'done')}
+      ${PR.total ? '' : '<p class="muted">這週沒有要做的事。</p>'}
+      ${part(1, '採購', PR.buy, buy)}${part(2, '採集', PR.gather, gather)}${part(3, '加工', PR.process, proc)}${part(4, '組裝', PR.assemble, asm)}
+    </section>`;
+  }
+
+  const haveInput = (name) => `<input class="have" data-have="${esc(name)}" data-f="h:${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 持有">`;
+  function matsHTML() {
+    const rank = (m) => (m.s.limited ? 0 : m.s.buyCap ? 1 : m.s.gather ? 2 : 3);
+    const mats = A.mats.filter((m) => m.need || m.short).sort((a, b) => rank(a) - rank(b) || b.util - a.util || b.need - a.need);
+    const rows = mats.map((m) => {
+      const s = m.s, pct = Math.round(m.util * 100);
+      const tag = m.short ? badge(['bad', `異常・缺 ${fmt(m.short)}`]) : s.limited ? badge([m.util >= 0.9 ? 'wait' : 'ok', '限購']) : s.gather ? badge(['idle', '可採集']) : s.unknown ? badge(['bad', '來源待補']) : '';
+      const where = [...m.shops.map((sh) => `${sh.who} ${fmt(sh.qty)}`), m.get ? (s.gather ? `採：${s.src.find((x) => x.kind === 'gather').text}` : '來源待補') : ''].filter(Boolean);
+      return `<tr>
+        <th scope="row">${nameHTML(m.name)} ${tag}</th>
+        <td class="num">${fmt(m.need)}</td>
+        <td>${haveInput(m.name)}</td>
+        <td class="num">${s.buyCap ? `${fmt(m.buy)}<small>／${fmt(s.buyCap)}</small>${barHTML(m.util, pct >= 100 ? (s.limited ? 'full' : 'cap') : '')}` : '—'}</td>
+        <td class="num">${m.get ? fmt(m.get) : '—'}</td>
+        <td class="src">${esc(where.join('、') || '用持有的')}</td>
+      </tr>`;
+    }).join('');
+    const made = P.steps.filter((s) => !P.dishSet.has(s.name)).map((s) => `<tr>
+        <th scope="row">${nameHTML(s.name)}</th>
+        <td class="num">${fmt(s.batches)} 批</td>
+        <td>${haveInput(s.name)}</td>
+        <td class="num">${fmt(s.made)}</td>
+        <td class="num">${fmt(s.need)}</td>
+        <td class="src">${esc(s.equip || '設備待補')}${A.pool.get(s.name) ? `・剩 ${fmt(A.pool.get(s.name))} 個留到下週` : ''}</td>
+      </tr>`).join('');
+    const sum = (k) => mats.reduce((t, m) => t + m[k], 0);
+    return `<section class="card mats">
+      <div class="mats-head"><h2>原物料</h2><span class="muted">${mats.length} 種，共 ${fmt(sum('need'))} 個：持有 ${fmt(sum('have'))}、建議買 ${fmt(sum('buy'))}、要採 ${fmt(sum('get'))}</span></div>
+      ${rows ? `<div class="table-wrap"><table><thead><tr><th>原物料</th><th class="r">需要</th><th>持有</th><th class="r">建議買／上限</th><th class="r">要採</th><th>去哪</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">這週不用原物料。</p>'}
+      ${made ? `<h3>加工品</h3><div class="table-wrap"><table><thead><tr><th>加工品</th><th class="r">要做</th><th>持有</th><th class="r">做出</th><th class="r">要用</th><th>設備</th></tr></thead><tbody>${made}</tbody></table></div>` : ''}
+    </section>`;
+  }
+
+  // 區塊 or 地圖, remembered in this browser.
+  const VIEW_KEY = 'mm-plant-view-v1';
+  let view = readLS(VIEW_KEY) === 'map' ? 'map' : 'blocks';
+
+  function render() {
+    // Keep the focused field (by data-f) and its caret across the rebuild.
+    const a = document.activeElement, f = a && a.dataset ? a.dataset.f : null;
+    const caret = f && typeof a.selectionStart === 'number' ? [a.selectionStart, a.selectionEnd] : null;
+    plan();
+    if (sel && !BY.has(sel)) sel = null;
+    const wk = shopWeek();
+    $('week-line').textContent = `本週 ${wk.range}`;
+    const short = A.mats.filter((m) => m.short);
+    // The summary's results open where they come from; the character count is edited right here.
+    const shortNode = short.length ? nodeOfMat(short[0].name) : null;
+    const station = NODES.find((n) => n.kind === 'machine');
+    const sum = (k, v, go, cls = '') => (go != null ? `<button class="sum ${cls}" type="button" data-go="${esc(go)}"><span class="k">${k}</span><b>${v}</b></button>` : `<span class="sum ${cls}"><span class="k">${k}</span><b>${v}</b></span>`);
+    $('app').innerHTML = `<div class="card summary">
+        <button class="sum" type="button" data-jump="wish"><span class="k">需求</span><b>${fmt(P.qty)}／${fmt(A.rows.reduce((t, o) => t + o.qty, 0))}</b></button>
+        ${sum('異常', short.length ? esc(short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')) : '沒有', shortNode ? shortNode.id : null, short.length ? 'bad' : '')}
+        <button class="sum" type="button" data-jump="done"><span class="k">完成</span><b>${fmt(PR.finished)}／${fmt(PR.total)} 項</b></button>
+        ${sum('上線', `${LP.logins} 次`, station ? station.id : null)}
+        ${sum('加工', P.missing.length ? '時間待補' : esc(fmtDur(LP.total)), station ? station.id : null)}
+        <span class="sum edit"><span class="k">幾隻角色去買${charsFromBoard() ? '（照佈告欄）' : ''}</span>${stepper('chars', chars(), '角色數', 1)}</span>
+        <p class="sum-hint">需求、異常、上線、加工是算出來的計畫；完成是你在完成清單填的實績。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
+      </div>
+      ${wishHTML()}
+      ${doneHTML()}
+      <div class="layout">
+        <div class="left"><div class="card map-card">
+          <div class="view-bar"><h2>廠區</h2>
+            <span class="tabs" role="group" aria-label="顯示方式"><button class="btn" type="button" data-view="blocks" aria-pressed="${view === 'blocks'}">區塊</button><button class="btn" type="button" data-view="map" aria-pressed="${view === 'map'}">地圖</button></span></div>
+          ${view === 'map' ? `<p class="map-hint">地圖可以左右滑動；點建築看需求和狀態。</p><div class="map-scroll">${mapSVG()}</div>` : blocksHTML()}
+          <div class="legend">${Object.entries(STATUS_TEXT).map(([k, text]) => `<span><i class="dot" style="background:${THEME.status[k]}"></i>${text}</span>`).join('')}<span>紅色「異常」是原物料不足，點商店看對策；點任何一格看需求和狀態。</span></div>
+        </div>${matsHTML()}</div>
+        <aside class="card panel" id="panel"></aside>
+      </div>`;
+    if (view === 'map') paintStatus();
+    renderPanel();
+    if (f) {
+      const el = document.querySelector(`[data-f="${CSS.escape(f)}"]`);
+      if (el) { el.focus({ preventScroll: true }); if (caret && el.setSelectionRange) try { el.setSelectionRange(...caret); } catch (_) {} }
+    }
+  }
+
+  function select(id) {
+    sel = id || null;
+    document.querySelectorAll('[data-node], [data-blk]').forEach((el) => el.classList.toggle('sel', (el.dataset.node || el.dataset.blk) === sel));
+    renderPanel();
+    if (window.matchMedia('(max-width: 1000px)').matches && sel) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  /* ---------- events ---------- */
+  document.addEventListener('click', (e) => {
+    const node = e.target.closest('.node');
+    if (node) { select(node.dataset.node); return; }
+    const go = e.target.closest('[data-go]');
+    if (go) { select(go.dataset.go); return; }
+    const v = e.target.closest('[data-view]');
+    if (v) { view = v.dataset.view; writeLS(VIEW_KEY, view); render(); return; }
+    const jump = e.target.closest('[data-jump]');
+    if (jump) {
+      const card = document.querySelector(jump.dataset.jump === 'done' ? '#done' : '.wish');
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const first = card.querySelector('input:not([disabled])');
+      if (first) first.focus({ preventScroll: true });
+      return;
+    }
+  });
+  document.addEventListener('keydown', (e) => {
+    const node = e.target.closest && e.target.closest('.node');
+    if (node && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(node.dataset.node); }
+    if (e.key === 'Escape' && sel) select(null);
+  });
+  wireList(render);
+  // The planner may change the plan in another tab.
+  addEventListener('storage', (e) => { if (e.key === 'mm-line-v1') location.reload(); });
+
+  (async () => {
+    try {
+      await window.LineCore.load();
+    } catch (_) {
+      $('app').innerHTML = '<div class="card fail">這頁的配方是從佈告欄（index.html）讀進來的，要用網址開啟，例如 GitHub Pages；直接點開檔案的話瀏覽器不讓它讀。</div>';
+      return;
+    }
+    render();
+  })();
+})();
+</script>
+</body>
+</html>
