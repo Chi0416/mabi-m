@@ -56,7 +56,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highl
 body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
 /* One column at every width, like the phone layout; wide screens just get margins (about twice a phone's width). */
 .wrap { max-width: 760px; margin: 0 auto; padding-inline: var(--gutter-l) var(--gutter-r); padding-block: 20px calc(var(--tabbar) + 80px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 24px; }
-.wrap > .site-title + .apptabs { margin-top: -18px; }
+.wrap > .site-head + .apptabs { margin-top: -18px; }
 @media (min-width: 701px) { .wrap { padding-block: 28px 96px; gap: 32px; } }
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; margin: 0; text-wrap: balance; }
 /* manipulation: tapping +/− fast doesn't double-tap zoom. 16px inputs keep iOS Safari from zooming in on focus. */
@@ -70,6 +70,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-v
 /* Masthead */
 .mast { display: grid; gap: 8px; }
 .site-title { font-size: clamp(24px, 5vw, 36px); line-height: 1.2; }
+/* The title shares its row with links out to the production-line pages (生產線, 廠區). */
+.site-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.site-links { display: flex; gap: 6px; }
+.site-links a { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 6px 12px; border-radius: 999px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); font-size: 14px; font-weight: 500; text-decoration: none; }
+@media (hover: hover) { .site-links a:hover { color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); } }
+.site-links svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .mast p { margin: 0; color: var(--muted); }
 .mast p b { color: var(--fg); }
 .mast-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
@@ -337,7 +343,13 @@ h2[id] { scroll-margin-top: 16px; }
 </head>
 <body>
 <div class="wrap" id="app">
-  <h1 class="site-title">瑪奇 Mobile 生活力</h1>
+  <div class="site-head">
+    <h1 class="site-title">瑪奇 Mobile 生活力</h1>
+    <nav class="site-links" aria-label="生產規劃">
+      <a href="factory.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 15l3 3-3 3"/></svg>生產線</a>
+      <a href="plant.html"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20V10l6 4v-4l6 4v-4l6 4v6z"/><path d="M3 20h18"/></svg>廠區</a>
+    </nav>
+  </div>
   <nav class="apptabs" role="tablist" aria-label="功能">
     <button type="button" role="tab" id="tabbtn-board" aria-controls="tab-board" aria-selected="true" data-role="tab" data-tab="board"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4.5H6.5A1.5 1.5 0 0 0 5 6v13.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H15"/><rect x="9" y="3" width="6" height="3" rx="1"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></svg>佈告欄</button>
     <button type="button" role="tab" id="tabbtn-craft" aria-controls="tab-craft" aria-selected="false" data-role="tab" data-tab="craft"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h3.5l9.5 9.5-3.5 3.5L4 7.5z"/><path d="M12 19.5l7.5-7.5M16.5 16.5l3.5 3.5"/></svg>武器・防具</button>
