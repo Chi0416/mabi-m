@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
 <style>
 /* Plant map: the week's plan drawn as a factory floor seen at an angle, flow left to right — suppliers outside the
-   fence, then 進料倉, the stations, assembly and 成品倉. Light palette only; status colours are the andon lights'. */
+   fence, then 進料倉, the stations, assembly and 訂單 (the finished dishes). Light palette only; status colours are the andon lights'. */
 :root {
   --bg: #eef1f4;
   --panel: #ffffff;
@@ -49,7 +49,9 @@ h1, h2, h3 { margin: 0; line-height: 1.3; }
 .top nav a:hover { background: rgba(255, 255, 255, .2); }
 
 main { max-width: 1440px; margin: 0 auto; padding: 16px var(--gutter-r) 48px var(--gutter-l); }
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+/* the plant on the left, the info panel (orders by default) on the right, the lists under the plant */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto 1fr; grid-template-areas: "map panel" "rest panel"; gap: 16px; align-items: start; }
+.layout > .map-card { grid-area: map; } .layout > .panel { grid-area: panel; } .layout > .left { grid-area: rest; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
 .summary { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 12px; margin-bottom: 16px; }
 .sum { font: inherit; color: inherit; text-align: left; display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; background: none; }
@@ -106,13 +108,26 @@ svg text { font-family: var(--font); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
 
-/* wish list and materials */
-.wish { padding: 12px 16px 14px; margin-bottom: 16px; }
-.wish-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-bottom: 4px; }
-.wish-head h2 { font-size: 18px; }
-.wish-head .muted { font-size: 13px; }
-.wish-head .chars { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; }
-.wish-row { display: grid; grid-template-columns: 28px minmax(180px, 250px) auto minmax(0, 1fr) auto; gap: 6px 12px; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+/* 訂單 in the panel: one block per order — the dish and its moves, ordered and makeable, stock and status */
+.ord-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.ord-h span { font-weight: 400; letter-spacing: 0; }
+.ord-h b { font-size: 16px; color: var(--ink); }
+.orders-sec > .bar { height: 8px; }
+.ord-row { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 6px 10px; align-items: center; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.ord-row > :not(.wish-n) { grid-column: 2; }
+.ord-top { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.ord-top select { flex: 1 1 0; width: auto; }
+.ord-top .btn { min-height: 34px; min-width: 34px; padding: 2px 6px; }
+.ord-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; color: var(--muted); }
+.ord-line > span { display: inline-flex; align-items: center; gap: 6px; }
+.ord-line b { font-size: 16px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ord-line b.cut { color: var(--bad); }
+.ord-row .stepper .btn { min-width: 40px; }
+.ord-row .stepper input { width: 56px; }
+.ord-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; color: var(--muted); }
+.ord-cut { color: var(--bad); }
+.ord-no { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 12px; font-weight: 700; vertical-align: 1px; }
+.rows .num small { font-weight: 400; }
 .wish-n { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
 select { font: inherit; font-size: 15px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 38px; min-width: 0; width: 100%; }
 .stepper { display: inline-flex; align-items: stretch; }
@@ -120,12 +135,7 @@ select { font: inherit; font-size: 15px; color: var(--ink); background: #fff; bo
 .stepper .btn:first-child { border-radius: 8px 0 0 8px; }
 .stepper .btn:last-child { border-radius: 0 8px 8px 0; }
 .stepper input { width: 64px; font: inherit; font-size: 15px; text-align: center; border: 1px solid var(--line); border-left: 0; border-right: 0; border-radius: 0; color: var(--ink); }
-.wish-res { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 14px; color: var(--muted); }
-.wish-res b { color: var(--ink); font-size: 16px; }
-.wish-res.cut, .wish-res.cut b { color: var(--bad); }
 .btn.small { min-height: 30px; padding: 2px 10px; font-size: 13px; }
-.wish-act { display: inline-flex; gap: 4px; }
-.wish-act .btn { min-height: 34px; padding: 2px 10px; }
 #add-order { margin-top: 10px; }
 .left { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 .mats { padding: 12px 16px 16px; }
@@ -145,19 +155,33 @@ td.num .bar { min-width: 90px; }
 td.src { white-space: normal; min-width: 160px; font-size: 13px; color: var(--muted); }
 input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 
-/* completion list */
-.week-list { padding: 12px 16px 14px; margin-bottom: 16px; }
-.done-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
-.done-head h2 { font-size: 18px; }
-.done-head .muted { font-size: 13px; }
-.done-total { margin-left: auto; font-size: 14px; color: var(--muted); }
-.done-total b { font-size: 18px; color: var(--ink); }
-.week-list > .bar { margin: 8px 0 4px; height: 8px; }
-.done-part h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; margin: 14px 0 4px; }
-.done-part h3 small { font-size: 13px; font-weight: 400; color: var(--muted); }
-.done-part .no { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; background: var(--idle-soft); color: var(--muted); }
-.done-part .no.all { background: var(--ok); color: #fff; }
-.done-where { margin: 8px 0 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+/* a station's queue: rounds of `queue` places, one batch made at a time; ⠿ drags a batch to another place */
+.round { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 10px; margin-top: 10px; background: var(--panel-2); }
+.round.running { border-color: rgba(201, 138, 12, .45); background: var(--wait-soft); }
+.round.ready { border-color: rgba(46, 155, 91, .45); background: var(--ok-soft); }
+.round-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 13px; color: var(--muted); }
+.round-head b { color: var(--ink); font-size: 14px; }
+.ok-text { color: var(--ok); }
+.slot { display: grid; grid-template-columns: 28px 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 44px; padding: 5px 6px; margin-top: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.slot.empty { background: transparent; border-style: dashed; color: var(--muted); font-size: 13px; }
+.slot.lock { background: rgba(255, 255, 255, .7); }
+.slot.bad { border-color: var(--bad); background: #fff8f8; }
+.slot.drop { outline: 2px dashed var(--accent); outline-offset: 1px; }
+.slot.dragging { position: relative; z-index: 5; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
+.slot .grip { height: 32px; display: grid; place-items: center; border-radius: 6px; font-size: 18px; color: var(--idle); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.slot .grip:hover { background: var(--idle-soft); color: var(--ink); }
+.slot.dragging .grip { cursor: grabbing; }
+.slot .no { font-size: 12px; color: var(--muted); text-align: center; }
+.slot .what { min-width: 0; line-height: 1.35; }
+.slot .what small { display: block; font-size: 12px; color: var(--muted); }
+.slot .what em { display: block; font-style: normal; font-size: 12px; color: var(--bad); }
+.slot .mv { display: inline-flex; gap: 2px; }
+.slot .mv .btn { min-height: 30px; min-width: 30px; padding: 0 4px; font-size: 11px; }
+.round-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.round-act label { display: inline-flex; align-items: center; gap: 6px; }
+.round-act input[type="time"] { font: inherit; font-size: 14px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+.note.bad-text { font-weight: 500; }
+/* a line with a tick, what it is, the plan and what is done or in stock */
 .done-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: 4px 12px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
 .done-row .chk { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; }
 .done-row.is-done .chk { background: var(--ok); border-color: var(--ok); }
@@ -168,6 +192,20 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .panel .done-row .plan, .panel .done-row .act { grid-column: 2; }
 .done-row .what em { display: block; font-style: normal; font-size: 12px; color: var(--wait); }
 .done-row .what em.go-on { color: var(--ok); }
+.done-row .what em.bad { color: var(--bad); }
+.done-row.stk.ok .chk { background: var(--ok); border-color: var(--ok); }
+/* a shop's items: bought per character against the weekly limit */
+.buy-all { margin-bottom: 4px; }
+.buy-item { padding: 8px 0 10px; border-bottom: 1px dashed var(--line); }
+.buy-item:last-of-type { border-bottom: 0; }
+.buy-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.buy-head .muted { font-size: 12px; }
+.buy-head .num { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.buy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 6px 0 0 6px; font-size: 13px; color: var(--muted); }
+.buy-row .who { min-width: 3.6em; color: var(--ink); }
+.buy-row .st { flex: 1 1 auto; }
+.buy-row .st.ok { color: var(--ok); font-weight: 700; }
+.buy-row .st.more { color: var(--wait); font-weight: 500; }
 .done-row .plan { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .done-row .act { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
 @media (max-width: 640px) {
@@ -212,14 +250,9 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .loading, .fail { padding: 24px 16px; }
 
 @media (max-width: 1000px) {
-  .layout { grid-template-columns: minmax(0, 1fr); }
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "map" "panel" "rest"; }
   .panel { position: static; max-height: none; }
   .map-hint { display: block; }
-}
-@media (max-width: 760px) {
-  .wish-row { grid-template-columns: 28px minmax(0, 1fr); }
-  .wish-row > .stepper, .wish-row > .wish-res, .wish-row > .wish-act { grid-column: 2; }
-  .wish-head .chars { margin-left: 0; }
 }
 
 </style>
@@ -239,8 +272,9 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // The plant page: the planner's week (same wish list, holdings and characters) as a factory floor. Click a point to
   // see what it needs and how it stands. The plant is shown as blocks, one column per stage, or as a still map.
   const {
-    SHOP, S, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, charsFromBoard, held, readLS, writeLS,
-    allocate, makePlan, makeSchedule, loginPlan, progress, yieldOf, dishOptions, wireList,
+    LINE, SHOP, S, save, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, charsFromBoard, held, readLS, writeLS,
+    allocate, makePlan, makeSchedule, progress, yieldOf, dishOptions, wireList, gathers, setBought,
+    REC, runOf, setOrder, startRound, collectRound, cancelRound, setRunAt,
   } = window.LineCore;
   const $ = (id) => document.getElementById(id);
 
@@ -249,7 +283,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   const THEME = {
     words: {
       outside: '廠外', shop: '供應商', field: '自有採集', unknown: '來源待補', warehouse: '進料倉', machine: '加工站',
-      assembly: '組裝站', fg: '成品倉',
+      assembly: '組裝站', fg: '訂單',
     },
     colors: {
       ground: '#dfe6d8', groundEdge: '#c9d3c0', road: '#b9c1c9', roadLine: '#f4f6f8', floor: '#e4e8ec', floorEdge: '#c3cad2',
@@ -279,7 +313,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   const onFront = (n, u, v, du, dv, fill, extra = '') => poly([pj(n.x + u, n.z + n.d, v), pj(n.x + u + du, n.z + n.d, v), pj(n.x + u + du, n.z + n.d, v + dv), pj(n.x + u, n.z + n.d, v + dv)], fill, extra);
 
   /* ---------- the plan and its points ---------- */
-  let A, P, SCH, LP, PR, NODES = [], BY = new Map(), G = null, sel = null;
+  let A, P, SCH, PR, PL = new Map(), NODES = [], BY = new Map(), G = null, sel = null;
   const rawColor = new Map();
   const RAW_COLORS = ['#d64545', '#e0a526', '#8a96a3', '#7b5cc4', '#2e9b5b', '#e07a9a', '#b07440', '#3b7ddd'];
 
@@ -287,22 +321,21 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     A = allocate();
     P = makePlan(A);
     SCH = makeSchedule(P);
-    LP = loginPlan(P);
     PR = progress(A, P);
     A.mats.forEach((m, i) => rawColor.set(m.name, RAW_COLORS[i % RAW_COLORS.length]));
     const out = [];
     // Outside the fence: every shop selling something the wish list wants (even one whose share came to nothing, so a
-    // shortage still shows where to buy), then gathering, then materials with no known source.
+    // shortage still shows where to buy), then gathering, then materials with no known source. A shop's item carries
+    // its purchases (buy: each character's bought and suggested more).
     const shops = new Map(), fields = new Map(), unknown = [];
     for (const m of A.mats) {
       if (!m.need && !m.want) continue;
-      for (const sh of m.s.shops) {
+      for (const sh of m.buys) {
         const key = `${sh.who}|${sh.town || sh.note}`;
         if (!shops.has(key)) shops.set(key, { id: `shop:${key}`, kind: 'shop', title: sh.town ? `${sh.who}（${sh.town}）` : sh.who, sign: sh.who, town: sh.town, items: [] });
-        const got = m.shops.find((x) => x.who === sh.who && x.town === sh.town);
-        shops.get(key).items.push({ name: m.name, qty: got ? got.qty : 0, mat: m });
+        shops.get(key).items.push({ name: m.name, qty: sh.qty, buy: sh, mat: m });
       }
-      if (!m.get) continue;
+      if (!gathers(m)) continue;
       if (m.s.gather) {
         const g = m.s.src.find((x) => x.kind === 'gather').text;
         if (!fields.has(g)) fields.set(g, { id: `field:${g}`, kind: 'field', title: g, items: [] });
@@ -312,17 +345,113 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     out.push(...[...shops.values()].sort((a, b) => townRank(a.town) - townRank(b.town)), ...fields.values());
     if (unknown.length) out.push({ id: 'unknown', kind: 'unknown', title: W.unknown, items: unknown });
     out.forEach((n) => { n.zone = 'out'; });
-    // Inside: 進料倉, the stations from the raw side, assembly, 成品倉.
+    // Inside: 進料倉, the stations from the raw side, assembly, 訂單. 立即製作 isn't a station of its own: what it makes is
+    // put on the first assembly station (or one named after its skill's station) with the rest of the assembly.
     out.push({ id: 'wh', kind: 'warehouse', title: W.warehouse, zone: 'in' });
+    const instant = SCH.lanes.filter((L) => L.steps.every((s) => s.instant)), extra = instant.flatMap((L) => L.steps);
+    let asmNode = null;
     for (const L of SCH.lanes) {
+      if (instant.includes(L)) continue;
       const asm = L.steps.every(quick);
-      out.push({ id: `lane:${L.name}`, kind: asm ? 'assembly' : 'machine', title: L.equip || '設備待補', todo: !L.equip, lane: L, zone: 'in' });
+      const n = { id: `lane:${L.name}`, kind: asm ? 'assembly' : 'machine', title: L.equip || '設備待補', todo: !L.equip, lane: L, zone: 'in' };
+      if (asm && !asmNode) asmNode = n;
+      out.push(n);
+    }
+    if (extra.length && asmNode) asmNode.lane = { ...asmNode.lane, steps: [...asmNode.lane.steps, ...extra] };
+    else if (extra.length) {
+      const eq = (LINE.skills[extra[0].r.skill] || {}).equip || W.assembly;
+      out.push({ id: `lane:${eq}`, kind: 'assembly', title: eq, lane: { name: eq, equip: eq, steps: extra }, zone: 'in' });
     }
     out.push({ id: 'fg', kind: 'fg', title: W.fg, zone: 'in' });
     NODES = out;
     BY = new Map(NODES.map((n) => [n.id, n]));
+    PL = queues();
     layout();
   }
+
+  /* ---------- stations' queues ---------- */
+  // Clock times in this browser's time zone: 14:05, 明天 01:20, 10/28 09:00.
+  const hm = (ms) => {
+    const d = new Date(ms), day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(d) - day(new Date())) / 864e5), t = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+    return diff === 0 ? t : diff === 1 ? `明天 ${t}` : diff === -1 ? `昨天 ${t}` : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
+  };
+  const timeVal = (ms) => { const d = new Date(ms); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  // A time typed as HH:MM is today's, or yesterday's when today's would still be ahead.
+  const fromTime = (v) => {
+    const m = String(v || '').match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    const d = new Date();
+    d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+    return d.getTime() > Date.now() + 60e3 ? d.getTime() - 864e5 : d.getTime();
+  };
+  const secsOf = (name) => { const s = P.steps.find((x) => x.name === name); return s ? s.secs : null; };
+  // Every station from now: the round running (if any), then the batches still to line up — in the order chosen, the
+  // rest raw side first — cut into rounds of its queue size. Times assume each round is collected and the next one
+  // started as soon as it ends. A batch is marked (wait) when what it needs from other batches isn't made by its round,
+  // and the next round to start lists the raw materials the stock is short of (short).
+  function queues() {
+    const now = Date.now(), out = new Map();
+    for (const n of NODES) {
+      if (n.kind !== 'machine') continue;
+      const L = n.lane, steps = L.steps.filter((x) => !quick(x)), size = Math.max(1, L.queue || 1), run = runOf(L.name);
+      const left = new Map(steps.map((x) => [x.name, Math.max(0, x.batches - (Math.floor(Number(S.done.processed[x.name])) || 0) - (run ? run.items.filter((y) => y === x.name).length : 0))]));
+      const seq = [];
+      for (const name of (S.done.proc[L.name] || {}).order || []) if (left.get(name) > 0) { seq.push(name); left.set(name, left.get(name) - 1); }
+      for (const x of steps) for (let k = 0; k < left.get(x.name); k++) seq.push(x.name);
+      const rounds = run ? [{ running: true, items: run.items, from: -1, start: run.at }] : [];
+      for (let k = 0; k < seq.length; k += size) rounds.push({ running: false, items: seq.slice(k, k + size), from: k });
+      let t = now, known = true;
+      for (const r of rounds) {
+        if (!r.running) r.start = Math.max(t, now);
+        let c = r.start;
+        r.ends = r.items.map((name) => { const x = secsOf(name); if (x == null) known = false; c += (x || 0) * 1000; return known ? c : null; });
+        r.end = known ? c : null;
+        r.wait = r.items.map(() => []);
+        r.short = [];
+        t = c;
+      }
+      out.set(L.name, { node: n, lane: L, size, run, seq, rounds, end: rounds.length ? rounds[rounds.length - 1].end : now });
+    }
+    // Round by round on every station at once: what each needs from other batches against what is made by then.
+    const made = new Set(P.steps.map((x) => x.name)), avail = new Map([...made].map((name) => [name, held(name)]));
+    const all = [...out.values()], most = Math.max(0, ...all.map((q) => q.rounds.length));
+    for (let k = 0; k < most; k++) {
+      for (const q of all) {
+        const r = q.rounds[k];
+        if (!r || r.running) continue;
+        const need = new Map(), raw = new Map();
+        r.items.forEach((name, j) => {
+          for (const i of REC.get(name).inputs) {
+            const map = made.has(i.item) ? need : raw;
+            map.set(i.item, (map.get(i.item) || 0) + i.qty);
+            if (made.has(i.item) && need.get(i.item) > (avail.get(i.item) || 0) && !r.wait[j].includes(i.item)) r.wait[j].push(i.item);
+          }
+        });
+        if (r === q.rounds.find((x) => !x.running)) r.short = [...raw].filter(([item, qty]) => held(item) < qty).map(([item, qty]) => ({ item, lack: qty - held(item) }));
+      }
+      for (const q of all) {
+        const r = q.rounds[k];
+        if (!r) continue;
+        for (const name of r.items) {
+          const rec = REC.get(name);
+          if (!r.running) for (const i of rec.inputs) if (made.has(i.item)) avail.set(i.item, (avail.get(i.item) || 0) - i.qty);
+          avail.set(name, (avail.get(name) || 0) + yieldOf(rec));
+        }
+      }
+    }
+    return out;
+  }
+  // The stations together: logins still needed (one to start, one at every round's end), when everything is made, and
+  // the next time to log in (now when a station can start).
+  function procSummary() {
+    const qs = [...PL.values()].filter((q) => q.rounds.length), now = Date.now();
+    const logins = Math.max(0, ...qs.map((q) => q.rounds.length + (q.run ? 0 : 1)));
+    const ends = qs.map((q) => q.end), finish = ends.length && ends.every((x) => x != null) ? Math.max(...ends) : null;
+    const nexts = qs.map((q) => (q.run ? q.rounds[0].end : now)).filter((x) => x != null);
+    return { busy: qs.length > 0, logins, rounds: Math.max(0, ...qs.map((q) => q.rounds.length)), finish, next: nexts.length ? Math.min(...nexts) : null };
+  }
+  const nextText = (t) => (t == null ? '時間待補' : t <= Date.now() + 30e3 ? '現在' : hm(t));
 
   const SIZE = { shop: [6, 3, 2.6], field: [6, 3, 0.25], unknown: [6, 3, 1.8], warehouse: [7, 5, 3.4], machine: [5, 4, 2.6], assembly: [5, 4, 1.4], fg: [7, 5, 3.4] };
   function layout() {
@@ -350,7 +479,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   }
 
   /* ---------- statuses ---------- */
-  const VERB = { bought: '已買', gathered: '已採', processed: '已完成', assembled: '已組裝' };
+  const VERB = { processed: '已完成', assembled: '已組裝' };
   // The progress lines a point answers for.
   function rowsOf(n) {
     if (n.kind === 'shop') return PR.buy.filter((r) => `shop:${r.shop.who}|${r.shop.town || r.shop.note}` === n.id);
@@ -363,11 +492,31 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // [colour key, short text] for a point: red for a shortage or missing data, otherwise how far this week's actuals
   // have got — grey not started, yellow under way or ready to do, green done.
   function statusOf(n) {
-    if (n.kind === 'shop' && n.items.some((i) => i.mat.short)) {
-      const [d, p] = tally(rowsOf(n));
-      return ['bad', p && d >= p ? '買齊仍缺' : '異常'];
+    // A shop: every character's limit used up is 已買滿; bought what the plan wants from it is 夠用.
+    if (n.kind === 'shop') {
+      const per = n.items.flatMap((i) => i.buy.per), B = per.reduce((t, x) => t + x.bought, 0), L = per.length * SHOP.limit;
+      const M = per.reduce((t, x) => t + x.more, 0);
+      if (n.items.some((i) => i.mat.short)) return ['bad', B >= L ? '買滿仍缺' : '異常'];
+      if (B >= L) return ['ok', '已買滿'];
+      if (!M) return B ? ['ok', '夠用'] : ['idle', '不用買'];
+      return B ? ['wait', `已買 ${fmt(B)}／${fmt(L)}`] : ['idle', '未買'];
+    }
+    // Gathering: what the stock still lacks after the shops' share.
+    if (n.kind === 'field' || n.kind === 'unknown') {
+      const left = n.items.reduce((t, i) => t + i.mat.get, 0);
+      if (!left) return ['ok', n.kind === 'field' ? '已採齊' : '已取得'];
+      if (n.kind === 'unknown') return ['bad', '來源待補'];
+      return [n.items.some((i) => i.mat.stock) ? 'wait' : 'idle', `還要採 ${fmt(left)}`];
     }
     if (n.kind === 'machine' && n.lane.steps.some((s) => s.secs == null)) return ['bad', '時間待補'];
+    // A station: its round running (or done and waiting for 全部領取), or whether the next one can start.
+    if (n.kind === 'machine') {
+      const q = PL.get(n.lane.name);
+      if (!q || !q.rounds.length) return rowsOf(n).length ? ['ok', '加工完成'] : ['idle', '—'];
+      const r = q.rounds[0];
+      if (q.run) return r.end != null && r.end <= Date.now() ? ['ok', '可領取'] : ['wait', `做中${r.end != null ? `・${hm(r.end)} 好` : ''}`];
+      return r.short.length || r.wait.some((w) => w.length) ? ['idle', '等料'] : ['wait', '可開工'];
+    }
     if (n.kind === 'warehouse') {
       const mats = A.mats.filter((m) => m.need), ok = mats.filter((m) => (PR.inHand.get(m.name) || 0) >= m.need).length;
       if (!mats.length) return ['idle', '沒有進料'];
@@ -376,14 +525,12 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return ok === mats.length ? ['ok', '齊料'] : ok ? ['wait', `齊 ${ok}/${mats.length} 樣`] : ['idle', '待進料'];
     }
     const rows = rowsOf(n);
-    if (!rows.length) return ['idle', n.kind === 'fg' ? '沒有需求' : '—'];
+    if (!rows.length) return ['idle', n.kind === 'fg' ? '沒有訂單' : '—'];
     const [d, p] = tally(rows);
-    if (d >= p) return ['ok', { shop: '已買齊', field: '已採齊', unknown: '已取得', machine: '加工完成', assembly: '組裝完成' }[n.kind] || `完成 ${fmt(d)}`];
-    if (n.kind === 'unknown') return ['bad', '來源待補'];
+    if (d >= p) return ['ok', { machine: '加工完成', assembly: '組裝完成', fg: '全部入庫' }[n.kind] || `完成 ${fmt(d)}`];
     if (d > 0) return ['wait', `${n.kind === 'fg' ? '入庫' : VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
-    if (n.kind === 'machine') return rows.some((r) => r.waiting.length) ? ['idle', '等料'] : ['wait', '可開始'];
     if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : ['idle', '等加工'];
-    return ['idle', { shop: '未買', field: '未採', fg: `0/${fmt(p)}` }[n.kind] || '未開始'];
+    return ['idle', n.kind === 'fg' ? `0/${fmt(p)}` : '未開始'];
   }
 
   /* ---------- drawing ---------- */
@@ -495,24 +642,31 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   function blockLines(n) {
     const line = (name, v, cls = '') => `<span class="ln ${cls}"><span>${esc(name)}</span><span>${v}</span></span>`;
     const dp = (r) => `${fmt(r.done)}／${fmt(r.plan)}`;
-    if (n.kind === 'shop') {
-      const short = (name) => (A.mats.find((m) => m.name === name) || {}).short || 0;
-      return rowsOf(n).map((r) => line(r.item, short(r.item) ? `${dp(r)}・缺 ${fmt(short(r.item))}` : dp(r), short(r.item) ? 'bad' : r.done >= r.plan ? 'ok' : '')).join('')
-        || n.items.map((i) => line(i.name, i.mat.short ? `缺 ${fmt(i.mat.short)}` : '0', i.mat.short ? 'bad' : '')).join('');
-    }
-    if (n.kind === 'field' || n.kind === 'unknown') return rowsOf(n).map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('');
-    if (n.kind === 'warehouse') return A.mats.filter((m) => m.need || m.short).map((m) => line(m.name, m.short ? `${fmt(m.need)}・缺 ${fmt(m.short)}` : `${fmt(Math.min(PR.inHand.get(m.name) || 0, m.need))}／${fmt(m.need)}`, m.short ? 'bad' : (PR.inHand.get(m.name) || 0) >= m.need ? 'ok' : '')).join('') || line('沒有進料', '');
+    // a shop: bought against what every character may buy there; gathering: what is still to gather; the warehouse:
+    // the stock against what is still to use
+    if (n.kind === 'shop') return n.items.map((i) => {
+      const B = i.buy.bought, L = i.buy.per.length * SHOP.limit, v = `${fmt(B)}／${fmt(L)}`;
+      return line(i.name, i.mat.short ? `${v}・缺 ${fmt(i.mat.short)}` : v, i.mat.short ? 'bad' : B >= L || (B && !i.buy.qty) ? 'ok' : '');
+    }).join('');
+    if (n.kind === 'field' || n.kind === 'unknown') return n.items.map((i) => line(i.name, i.mat.get ? `還要採 ${fmt(i.mat.get)}` : '齊', i.mat.get ? '' : 'ok')).join('');
+    if (n.kind === 'warehouse') return A.mats.filter((m) => m.need || m.short).map((m) => {
+      const v = `${fmt(m.stock)}／${fmt(Math.max(0, m.need - m.used))}`;
+      return line(m.name, m.short ? `${v}・缺 ${fmt(m.short)}` : v, m.short ? 'bad' : m.base >= m.need ? 'ok' : '');
+    }).join('') || line('沒有進料', '');
     if (n.kind === 'machine') {
-      const L = n.lane;
-      return rowsOf(n).map((r) => line(r.item, `${dp(r)} 批`, r.done >= r.plan ? 'ok' : '')).join('')
-        + `<span class="foot">${L.queue == null ? '排程上限待補' : `排程上限 ${L.queue}`}・每批 ${esc(L.steps.filter((s) => !quick(s)).map((s) => (s.secs == null ? '?' : fmtDur(s.secs))).join('／'))}</span>`;
+      const L = n.lane, q = PL.get(L.name), r = q && q.rounds[0];
+      const now = !r ? '都做完了' : q.run ? (r.end != null && r.end <= Date.now() ? '做好了，可以全部領取' : `第 1 輪做中${r.end != null ? `・${hm(r.end)} 好` : ''}`)
+        : `下一輪 ${r.items.length} 批・還有 ${q.rounds.length} 輪`;
+      return rowsOf(n).map((x) => line(x.item, `${dp(x)} 批`, x.done >= x.plan ? 'ok' : '')).join('')
+        + `<span class="foot">${esc(now)}・${L.queue == null ? '排程上限待補' : `排程 ${L.queue} 格`}</span>`;
     }
     if (n.kind === 'assembly') {
       const made = new Set(P.steps.map((s) => s.name)), inputs = [...new Set(n.lane.steps.flatMap((s) => s.r.inputs.map((i) => i.item)))];
       return PR.assemble.map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('')
         + `<span class="foot">直接料 ${esc(inputs.filter((i) => !made.has(i)).join('、') || '—')}・加工料 ${esc(inputs.filter((i) => made.has(i)).join('、') || '—')}</span>`;
     }
-    return A.rows.map((o) => { const r = PR.assemble.find((x) => x.item === o.dish); return line(o.dish, `${fmt(r ? r.done : 0)}／${fmt(o.n)}${o.n < o.qty ? `（想 ${fmt(o.qty)}）` : ''}`, o.n < o.qty ? 'bad' : r && r.done >= r.plan ? 'ok' : ''); }).join('') || line('沒有需求', '');
+    return (PR.assemble.map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('') || line('沒有訂單', ''))
+      + '<span class="foot">點一下填已入庫</span>';
   }
   function blocksHTML() {
     return `<div class="flow">${STAGES.map(([key, title]) => {
@@ -536,27 +690,110 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 
   // Ways out of a shortage of a shop-only material, worked out from the numbers.
   function remedies(m) {
-    const perChar = m.s.shops.length * SHOP.limit, toBuy = Math.max(0, m.want - held(m.name)), tips = [];
-    const need = Math.ceil(toBuy / perChar);
-    if (chars() < MAX_CHARS) tips.push(need <= MAX_CHARS ? `加到 ${need} 隻角色去買就夠（每多一隻，這樣東西本週多 ${fmt(perChar)} 個）。` : `角色加到上限 ${MAX_CHARS} 隻也只買得到 ${fmt(perChar * MAX_CHARS)} 個，還缺 ${fmt(toBuy - perChar * MAX_CHARS)}。`);
+    const perChar = m.s.shops.length * SHOP.limit, toBuy = Math.max(0, m.want - m.base), tips = [];
+    const need = chars() + Math.ceil(m.short / perChar);
+    if (chars() < MAX_CHARS) tips.push(need <= MAX_CHARS ? `加到 ${need} 隻角色去買就夠（每多一隻，這樣東西本週多 ${fmt(perChar)} 個）。` : `角色加到上限 ${MAX_CHARS} 隻也還缺 ${fmt(m.short - (MAX_CHARS - chars()) * perChar)}。`);
     tips.push(`分週做：照現在 ${chars()} 隻角色，要 ${Math.ceil(toBuy / (perChar * chars()))} 週才買得齊；這週先做上限，剩的下週再排。`);
-    tips.push('把需求清單的數量改成上限，或把比較要緊的料理往上移，讓它先分到。');
+    tips.push('把訂單數改成上限，或把比較要緊的料理往上移，讓它先分到。');
     const other = m.s.src.filter((x) => x.kind === 'barter' || x.kind === 'loot');
     if (other.length) tips.push(`還有其他來源沒算進去：${other.map(sourceText).join('、')}。`);
-    tips.push('手上有庫存的話，在原物料表填「持有」。');
+    tips.push('手上有庫存的話，在進料倉填「庫存」。');
     return tips;
   }
   function shortageHTML(m) {
     const cut = A.rows.filter((o) => o.n < o.qty && o.stuck.includes(m.name));
     return `<div class="sec alert"><h3>異常・${esc(m.name)}原物料不足</h3>
       <dl class="kv">
-        <dt>需求要</dt><dd>${fmt(m.want)}</dd>
-        <dt>本週最多</dt><dd>${fmt(m.s.cap)}（${esc(m.s.shops.map((x) => x.who).join('＋'))}，每家每隻 ${SHOP.limit} 個 × ${chars()} 隻${m.have ? `，加持有 ${fmt(held(m.name))}` : ''}）</dd>
+        <dt>訂單要</dt><dd>${fmt(m.want)}</dd>
+        <dt>本週最多</dt><dd>${fmt(m.s.cap)}（已有 ${fmt(m.base)} ＋ 還能買 ${fmt(m.s.buyCap)}：${esc(m.s.shops.map((x) => x.who).join('＋'))}，每家每隻 ${SHOP.limit} 個 × ${chars()} 隻）</dd>
         <dt>缺</dt><dd class="bad-text">${fmt(m.short)}</dd>
       </dl>
       ${cut.length ? `<h4>影響</h4><ul class="rows">${cut.map((o) => `<li><span>${nameHTML(o.dish)}<span class="muted">・想做 ${fmt(o.qty)}，只能做 ${fmt(o.n)}</span></span><span>${fixButton(o)}</span></li>`).join('')}</ul>` : ''}
       <h4>可以怎麼做</h4><ul class="tips">${remedies(m).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
     </div>`;
+  }
+
+  // 訂單需求: the orders a point works for, top first, and what it does for each; parts(o) lists that as HTML bits.
+  function demandHTML(parts, note = '') {
+    const lines = A.rows.map((o) => [o, parts(o)]).filter(([, p]) => p.length);
+    return `<div class="sec"><h3>訂單需求</h3>${lines.length ? `<ul class="rows">${lines.map(([o, p]) => `<li><span><span class="ord-no">${o.i + 1}</span>${nameHTML(o.dish)}</span>
+        <span class="num">×${fmt(o.n)}${o.n < o.qty ? `<small class="ord-cut">／訂 ${fmt(o.qty)}</small>` : ''}</span><span class="sub">${p.join('、')}</span></li>`).join('')}</ul>`
+      : '<p class="muted" style="margin:0">沒有訂單用到這裡。</p>'}${lines.length && note ? `<p class="note">${note}</p>` : ''}</div>`;
+  }
+  // How much of each raw material order o takes; one it is held back by is marked.
+  const rawParts = (o, names) => names.filter((m) => o.raw.get(m) || (o.n < o.qty && o.stuck.includes(m))).map((m) => (o.n < o.qty && o.stuck.includes(m)
+    ? `<span class="ord-cut">${esc(m)} ${fmt(o.raw.get(m) || 0)}・不夠</span>` : `${esc(m)} ${fmt(o.raw.get(m))}`));
+  const stepParts = (o, steps, unit) => steps.filter((st) => o.batches.get(st.name)).map((st) => `${esc(st.name)} ${fmt(o.batches.get(st.name))} ${unit}`);
+
+  // One raw material: the stock (as the game shows it) against what the week still has to use, and what is missing;
+  // with `go`, a button to the shop or field that supplies the rest.
+  function stockRow(m, go = true, where = 'hp') {
+    const rem = Math.max(0, m.need - m.used), lack = Math.max(0, m.need - m.base);
+    const to = lack && go ? NODES.find((n) => n.items && n.items.some((i) => i.name === m.name && (n.kind !== 'shop' || i.buy.qty))) || nodeOfMat(m.name) : null;
+    const sub = lack ? `<em>還差 ${fmt(lack)}${m.buy ? `・建議買 ${fmt(m.buy)}` : ''}${m.get ? `・${m.s.gather ? '要採' : '待補'} ${fmt(m.get)}` : ''}</em>`
+      : `<em class="go-on">夠了</em>`;
+    return `<div class="done-row stk${lack ? '' : ' ok'}">
+      <span class="chk" aria-hidden="true">${lack ? '' : '✓'}</span>
+      <span class="what">${nameHTML(m.name)}<small>${sub}${m.short ? `<em class="bad">訂單想要的還缺 ${fmt(m.short)}</em>` : ''}</small></span>
+      <span class="plan">還要用 ${fmt(rem)}</span>
+      <label class="act">庫存${haveInput(m.name, where)}</label>
+      ${to ? `<button class="btn small" type="button" data-go="${esc(to.id)}">去${esc(to.sign || to.title)}</button>` : ''}
+    </div>`;
+  }
+  // A shop's items, each with a line per character: bought (typed in) against the weekly limit, and what the plan
+  // still suggests buying there.
+  function buyHTML(n) {
+    const wk = shopWeek(), full = n.items.every((i) => i.buy.per.every((x) => x.bought >= SHOP.limit));
+    const items = n.items.map((i) => {
+      const b = i.buy, L = b.per.length * SHOP.limit;
+      const others = i.mat.s.shops.filter((x) => x.who !== n.sign || x.town !== n.town).map((x) => x.who);
+      const rows = b.per.map((x, c) => `<div class="buy-row">
+          <span class="who">角色 ${c + 1}</span>
+          <span><input class="have" data-buy="${c}|${esc(b.key)}" data-f="b:${c}|${esc(b.key)}" inputmode="numeric" value="${x.bought || ''}" placeholder="0" aria-label="${esc(i.name)} 角色 ${c + 1} 已購買">／${SHOP.limit}</span>
+          <span class="st${x.bought >= SHOP.limit ? ' ok' : x.more ? ' more' : ''}">${x.bought >= SHOP.limit ? '✓ 買滿' : x.more ? `建議再買 ${fmt(x.more)}` : `還能買 ${fmt(SHOP.limit - x.bought)}`}</span>
+          ${x.bought < SHOP.limit ? `<button class="btn small" type="button" data-buyfill="${c}|${SHOP.limit}|${esc(b.key)}">買滿</button>` : ''}
+        </div>`).join('');
+      const note = [i.mat.short && `<span class="bad-text">買滿也不夠，缺 ${fmt(i.mat.short)}</span>`, others.length && `也在 ${esc(others.join('、'))} 買`].filter(Boolean);
+      return `<div class="buy-item">
+        <div class="buy-head">${nameHTML(i.name)}<span class="muted">可購買 ${fmt(L)}（${b.per.length} 隻 × ${SHOP.limit}）</span><span class="num">${fmt(b.bought)}／${fmt(L)}</span></div>
+        ${barHTML(L ? b.bought / L : 0, i.mat.short ? 'full' : '')}${rows}${note.length ? `<p class="note">${note.join('・')}</p>` : ''}
+      </div>`;
+    }).join('');
+    return `<div class="sec"><h3 class="ord-h">已購買・可購買<span>每週${'日一二三四五六'[SHOP.resetDay]} ${esc(SHOP.resetAt)} 重置・還剩 ${esc(wk.left)}</span></h3>
+      ${full ? '' : `<button class="btn small buy-all" type="button" data-buyall="${esc(n.id)}">這家全部買滿</button>`}
+      ${items}<p class="note">填已購買，進料倉的庫存會自動加上去。</p></div>`;
+  }
+
+  // A station's queue in the panel: each round with its places, the running one locked, the rest draggable (⠿) or
+  // moved with ▲▼; 開工 starts the next round, 全部領取 finishes the running one.
+  function queueHTML(q) {
+    const L = q.lane, lane = esc(L.name), first = q.rounds.findIndex((r) => !r.running), now = Date.now();
+    const rounds = q.rounds.map((r, k) => {
+      const done = r.running && r.end != null && r.end <= now;
+      const head = r.running ? (done ? '<b class="ok-text">做好了，可以全部領取</b>' : `做中・${hm(r.start)} 開工${r.end != null ? ` → ${hm(r.end)} 全部好` : ''}`)
+        : `預計 ${k === first && !q.run ? '現在' : hm(r.start)} 開工${r.end != null ? ` → ${hm(r.end)} 好` : '・時間待補'}`;
+      const cells = Array.from({ length: q.size }, (_, j) => {
+        const name = r.items[j];
+        if (!name) return `<div class="slot empty"${!r.running && k === q.rounds.length - 1 ? ` data-slot="${q.seq.length - 1}" data-lane="${lane}"` : ''}><span></span><span class="no">${j + 1}</span><span>空</span></div>`;
+        const idx = r.from + j, x = secsOf(name), wait = r.wait[j];
+        const what = `<span class="what">${nameHTML(name)}<small>每批 ${x == null ? '時間待補' : esc(fmtDur(x))}${r.ends[j] != null ? `・${hm(r.ends[j])} 好` : ''}</small>${wait.length ? `<em>${esc(wait.join('、'))}還沒做好</em>` : ''}</span>`;
+        if (r.running) return `<div class="slot lock"><span></span><span class="no">${j + 1}</span>${what}<span></span></div>`;
+        return `<div class="slot${wait.length ? ' bad' : ''}" data-slot="${idx}" data-lane="${lane}">
+          <span class="grip" title="拖拉換順序" aria-hidden="true">⠿</span><span class="no">${j + 1}</span>${what}
+          <span class="mv"><button class="btn" type="button" data-smove="${lane}|${idx}|-1" aria-label="${esc(name)} 往前"${idx ? '' : ' disabled'}>▲</button><button class="btn" type="button" data-smove="${lane}|${idx}|1" aria-label="${esc(name)} 往後"${idx < q.seq.length - 1 ? '' : ' disabled'}>▼</button></span>
+        </div>`;
+      }).join('');
+      const act = r.running
+        ? `<div class="round-act"><button class="btn primary" type="button" data-collect="${lane}">全部領取</button><label>開工時間<input type="time" data-runat="${lane}" data-f="ra:${lane}" value="${timeVal(r.start)}"></label><button class="btn small" type="button" data-unstart="${lane}">取消開工</button></div>`
+        : k === first && !q.run ? `<div class="round-act"><button class="btn primary" type="button" data-start="${lane}">開工</button><label>開工時間<input type="time" data-startat="${lane}" data-f="sa:${lane}" value="${timeVal(now)}"></label></div>` : '';
+      const short = r.short.length ? `<p class="note bad-text">庫存不夠：${esc(r.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</p>` : '';
+      return `<div class="round${r.running ? ' running' : ''}${done ? ' ready' : ''}"><div class="round-head"><b>第 ${k + 1} 輪</b><span>${head}</span></div>${cells}${short}${act}</div>`;
+    }).join('');
+    const sum = q.rounds.length ? `${q.rounds.length} 輪${q.end != null ? `・${hm(q.end)} 全部做完` : '・時間待補'}` : '都做完了';
+    return `<div class="sec"><h3 class="ord-h">排程<span>${esc(sum)}</span></h3>
+      ${rounds || '<p class="muted" style="margin:0">這週的批數都做完了。</p>'}
+      ${q.seq.length > 1 ? '<p class="note">拖 ⠿ 或按 ▲▼ 換順序，時間會跟著重算；開工後那一輪就鎖住。後面的輪次照「上一輪做完就接著開工」算。</p>' : ''}
+      <p class="note">開工會從庫存扣掉這一輪的原料，全部領取會把做好的加工品加進庫存。排程上限 ${L.queue == null ? '待補，先當 1 格' : `${q.size} 格，一次做一批`}。</p></div>`;
   }
 
   function overviewHTML() {
@@ -567,68 +804,55 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (BY.has('unknown')) issues.push(goHTML('unknown', '有原料來源待補', esc(BY.get('unknown').items.map((i) => i.name).join('、'))));
     for (const n of NODES) if (n.kind === 'machine' && n.lane.steps.some((s) => s.secs == null)) issues.push(goHTML(n.id, `${esc(n.title)}的時間待補`, '補上才能排時間'));
     for (const n of NODES) if (n.kind === 'machine' && n.lane.queue == null) issues.push(goHTML(n.id, `${esc(n.title)}的排程上限待補`, '先當一次排 1 批'));
-    return `<div class="panel-head"><div class="kind">總覽</div><h2>本週計畫</h2></div>
-      <div class="sec"><h3>本週進度</h3>${barHTML(PR.total ? PR.finished / PR.total : 0, 'done')}<p class="note">完成 ${fmt(PR.finished)}／${fmt(PR.total)} 項・<button class="go" type="button" data-jump="done" style="display:inline;width:auto"><b>到完成清單</b></button></p></div>
+    return `<div class="panel-head"><div class="kind">總覽</div><h2>訂單</h2></div>
+      ${ordersHTML()}
+      <div class="sec"><h3>本週進度</h3>${barHTML(PR.total ? PR.finished / PR.total : 0, 'done')}<p class="note">完成 ${fmt(PR.finished)}／${fmt(PR.total)} 項（買、採、加工、組裝每一項做滿算一項）</p></div>
       <div class="sec${alarms.length ? ' alert' : ''}"><h3>異常</h3>${alarms.length ? `<ul class="rows">${alarms.map((x) => `<li>${x}</li>`).join('')}</ul>` : '<p class="muted" style="margin:0">沒有異常，原物料都夠。</p>'}</div>
       ${issues.length ? `<div class="sec"><h3>待補</h3><ul class="rows">${issues.map((x) => `<li>${x}</li>`).join('')}</ul></div>` : ''}
       <div class="sec"><dl class="kv">
         <dt>本週</dt><dd>${esc(wk.range)}・還剩 ${esc(wk.left)}</dd>
         <dt>角色</dt><dd>${chars()} 隻${charsFromBoard() ? '（照佈告欄）' : ''}，每隻每店每樣 ${SHOP.limit} 個／週</dd>
-        <dt>需求</dt><dd>${full}／${rows.length} 道做滿・共 ${fmt(P.qty)}／${fmt(rows.reduce((t, o) => t + o.qty, 0))} 個</dd>
-        <dt>加工</dt><dd>${LP.rounds.length ? `排 ${LP.rounds.length} 輪、上線 ${LP.logins} 次・${P.missing.length ? '時間待補' : `約 ${esc(fmtDur(LP.total))}`}` : '不用加工'}</dd>
+        <dt>訂單</dt><dd>${full}／${rows.length} 道做得滿・可做 ${fmt(P.qty)}／${fmt(rows.reduce((t, o) => t + o.qty, 0))} 個</dd>
+        <dt>加工</dt><dd>${(() => { const ps = procSummary(); return ps.busy ? `還有 ${ps.rounds} 輪、上線 ${ps.logins} 次・下次 ${esc(nextText(ps.next))}・${ps.finish != null ? `${esc(hm(ps.finish))} 全部做完` : '時間待補'}` : '加工都做完了'; })()}</dd>
       </dl></div>`;
   }
 
   function nodeHTML(n) {
     const st = statusOf(n);
-    const head = `<div class="panel-head"><button class="back" type="button" data-go="">◀ 總覽</button><div class="kind">${esc(W[n.kind])}</div><h2>${esc(n.title)} ${badge(st)}</h2></div>`;
-    const per = SHOP.limit * chars();
-    // The same actuals as the completion list, for just this point.
-    const mine = n.kind === 'fg' ? [] : rowsOf(n);
-    const actual = mine.length ? `<div class="sec"><h3>實績・本週</h3>${mine.map((r) => (r.kind === 'assembled'
+    const head = `<div class="panel-head"><button class="back" type="button" data-go="">◀ 訂單</button><div class="kind">${esc(W[n.kind])}</div><h2>${esc(n.title)} ${badge(st)}</h2></div>`;
+    // A station's actuals, the same as on the completion list.
+    const mine = n.kind === 'machine' || n.kind === 'assembly' ? rowsOf(n) : [];
+    const actual = mine.length ? `<div class="sec"><h3>${n.kind === 'machine' ? '已完成・要修正再改' : '實績・本週'}</h3>${mine.map((r) => (r.kind === 'assembled'
       ? doneRow(r, r.done >= r.plan ? '' : r.ready ? '<em class="go-on">可以組裝</em>' : `<em>等：${esc(r.waiting.join('、'))}</em>`, 'p', !r.ready && r.done < r.plan)
       : doneRow(r, r.kind === 'processed' && r.waiting.length && r.done < r.plan ? `<em>等料：${esc(r.waiting.join('、'))}還沒齊</em>` : '', 'p'))).join('')}</div>` : '';
     if (n.kind === 'shop') {
-      return head + n.items.filter((i) => i.mat.short).map((i) => shortageHTML(i.mat)).join('') + actual
-        + `<div class="sec"><h3>需求・本週建議買</h3><ul class="rows">${n.items.map((i) => `<li><span>${nameHTML(i.name)}</span><span class="num">${fmt(i.qty)}／${fmt(per)}</span>
-          <span class="sub">${i.mat.short ? `買滿也不夠，缺 ${fmt(i.mat.short)}` : i.qty >= per ? '買滿' : `還能多買 ${fmt(per - i.qty)}`}${i.mat.s.shops.length > 1 ? `・也在 ${esc(i.mat.s.shops.filter((x) => x.who !== n.sign).map((x) => x.who).join('、'))} 買` : ''}</span>${barHTML(i.qty / per, i.mat.short ? 'full' : i.qty >= per ? 'cap' : '')}</li>`).join('')}</ul></div>
-        <div class="sec"><h3>狀態</h3><dl class="kv"><dt>限購</dt><dd>每隻角色每樣 ${SHOP.limit} 個，${chars()} 隻共 ${fmt(per)}</dd><dt>重置</dt><dd>每週${'日一二三四五六'[SHOP.resetDay]} ${esc(SHOP.resetAt)}</dd></dl></div>`;
+      return head + demandHTML((o) => rawParts(o, n.items.map((i) => i.name)), n.items.some((i) => i.mat.s.shops.length > 1) ? '數字是整張訂單要的量；同一樣東西在幾家店買的話，這家只買其中一部分，下面的「建議再買」才是這家的份。' : '')
+        + buyHTML(n) + n.items.filter((i) => i.mat.short).map((i) => shortageHTML(i.mat)).join('');
     }
     if (n.kind === 'field' || n.kind === 'unknown') {
-      return head + actual + `<div class="sec"><h3>需求・本週要${n.kind === 'field' ? '採' : '拿'}</h3><ul class="rows">${n.items.map((i) => `<li><span>${nameHTML(i.name)}</span><span class="num">${fmt(i.qty)}</span>
-          ${i.mat.s.src.length ? `<span class="sub">${esc(i.mat.s.src.map(sourceText).join('、'))}</span>` : ''}</li>`).join('')}</ul>
-        ${n.kind === 'unknown' ? '<p class="note">還不知道在哪拿，先當成不限量。截道具卡給我就能補上。</p>' : '<p class="note">採集不受限購，花的是你的時間。</p>'}</div>`;
+      return head + demandHTML((o) => rawParts(o, n.items.map((i) => i.name))) + `<div class="sec"><h3>庫存・還要${n.kind === 'field' ? '採' : '拿'}</h3>${n.items.map((i) => stockRow(i.mat, false)).join('')}
+        ${n.kind === 'unknown' ? '<p class="note">還不知道在哪拿，先當成不限量。截道具卡給我就能補上。</p>' : '<p class="note">採集不受限購，花的是你的時間。採回來直接改庫存。</p>'}</div>`;
     }
     if (n.kind === 'warehouse') {
-      return head + A.mats.filter((m) => m.short).map(shortageHTML).join('')
-        + `<div class="sec"><h3>需求・本週進料</h3><ul class="rows">${A.mats.filter((m) => m.need || m.want).map((m) => `<li><span>${nameHTML(m.name)}</span><span class="num">${fmt(m.need)}</span>
-            <span class="sub">${[m.have && `持有 ${fmt(m.have)}`, m.buy && `買 ${fmt(m.buy)}`, m.get && `${m.s.gather ? '採' : '待補'} ${fmt(m.get)}`, m.short && `缺 ${fmt(m.short)}`].filter(Boolean).join('・')}</span></li>`).join('')}</ul></div>`;
+      return head + demandHTML((o) => rawParts(o, A.mats.map((m) => m.name))) + A.mats.filter((m) => m.short).map(shortageHTML).join('')
+        + `<div class="sec"><h3>庫存・還要用</h3>${A.mats.filter((m) => m.need || m.want).map((m) => stockRow(m)).join('') || '<p class="muted" style="margin:0">這週不用原物料。</p>'}
+          <p class="note">庫存照遊戲背包現在的數量填。商店填已購買、加工站開工和全部領取、訂單填已入庫，這裡都會自動加減；對不上時直接改，以你填的為準。</p></div>`;
     }
     if (n.kind === 'machine') {
-      const L = n.lane;
-      const rounds = LP.rounds.map((r, k) => [k, r]).filter(([, r]) => r.lanes.has(L.name));
-      return head + actual + `<div class="sec"><h3>需求</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 批</span>
+      const L = n.lane, q = PL.get(L.name);
+      return head + demandHTML((o) => stepParts(o, L.steps, '批')) + (q ? queueHTML(q) : '') + `<div class="sec"><h3>需求</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 批</span>
           <span class="sub">每批 ${s.secs == null ? '時間待補' : esc(fmtDur(s.secs))}・一批 ${yieldOf(s.r)} 個・用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul></div>
-        <div class="sec"><h3>狀態</h3><dl class="kv">
-          <dt>排程上限</dt><dd>${L.queue == null ? '待補（先當 1）' : `${L.queue} 批，一次做一批`}</dd>
-          <dt>全部做完</dt><dd>${P.missing.length ? '時間待補' : esc(fmtDur(L.steps.reduce((t, s) => t + s.batches * (s.secs || 0), 0)))}</dd>
-        </dl></div>
-        ${rounds.length ? `<div class="sec"><h3>上線排程</h3><ul class="rows">${rounds.map(([k, r]) => `<li><span>第 ${k + 1} 輪・${k ? `開工後 ${esc(fmtDur(r.at))}` : '開工'}</span><span class="num">${P.missing.length ? '' : esc(fmtDur(r.lanes.get(L.name).secs))}</span>
-          <span class="sub">${esc([...r.lanes.get(L.name).counts].map(([name, c]) => `${name} ×${c}`).join('、'))}</span></li>`).join('')}</ul></div>` : ''}`;
+        ${actual}`;
     }
     if (n.kind === 'assembly') {
       const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
       for (const s of L.steps) for (const i of s.r.inputs) need.set(i.item, (need.get(i.item) || 0) + s.batches * i.qty);
-      return head + actual + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
+      return head + demandHTML((o) => stepParts(o, L.steps, '個')) + actual + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
           <span class="sub">一個用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul><p class="note">組裝只要十幾秒，不計時。</p></div>
         <div class="sec"><h3>要備齊的料</h3><ul class="rows">${[...need].map(([item, q]) => `<li><span>${nameHTML(item)}<span class="muted">${made.has(item) ? '・加工料，從加工站來' : '・直接料，先放這裡等'}</span></span><span class="num">${fmt(q)}</span></li>`).join('')}</ul></div>`;
     }
-    // 成品倉
-    return head + `<div class="sec"><h3>需求清單・本週入庫</h3><ul class="rows">${A.rows.map((o) => {
-        const r = PR.assemble.find((x) => x.item === o.dish), done = r ? r.done : 0;
-        return `<li><span>${nameHTML(o.dish)}</span><span class="num">${fmt(done)}／${fmt(o.n)}</span>
-          <span class="sub">已組裝 ${fmt(done)}・計畫 ${fmt(o.n)}・想做 ${fmt(o.qty)}${o.n < o.qty ? `・卡在 ${esc(o.stuck.join('、'))} ${fixButton(o)}` : ''}</span>${barHTML(o.n ? done / o.n : 0, 'done')}</li>`;
-      }).join('') || '<li class="muted">清單是空的。</li>'}</ul><p class="note">成品倉就是需求清單的結果：組裝完成的會算進來。</p></div>`;
+    // 訂單 is the panel's default view (see pick).
+    return head;
   }
 
   function renderPanel() {
@@ -655,11 +879,12 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         if (el) el.setAttribute('fill', k === lamp ? THEME.status[lamp] : '#cfd5db');
       }
       if (n.kind === 'machine') {
-        const first = LP.rounds.length && LP.rounds[0].lanes.get(n.lane.name);
-        const lined = first ? [...first.counts.values()].reduce((t, c) => t + c, 0) : 0;
+        // the round on the station: yellow running, green made, grey lined up next
+        const q = PL.get(n.lane.name), r = q && q.rounds[0], lined = r ? r.items.length : 0;
+        const fill = !r ? '' : !q.run ? '#b9c3cd' : r.end != null && r.end <= Date.now() ? THEME.status.ok : THEME.status.wait;
         for (let i = 0; i < Math.max(1, n.lane.queue || 1); i++) {
           const el = document.querySelector(`[data-q="${CSS.escape(`${n.id}|${i}`)}"]`);
-          if (el) el.setAttribute('fill', i < lined ? THEME.status.ok : '#eef1f4');
+          if (el) el.setAttribute('fill', i < lined ? fill : '#eef1f4');
         }
       }
     }
@@ -667,32 +892,46 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 
   /* ---------- the wish list and the materials it takes ---------- */
   const stepper = (key, value, label, step) => `<span class="stepper"><button class="btn" type="button" data-step="${key}|-${step}" aria-label="${label}少 ${step}">−${step}</button><input data-num="${key}" data-f="n:${key}" inputmode="numeric" value="${value}" aria-label="${label}"><button class="btn" type="button" data-step="${key}|${step}" aria-label="${label}多 ${step}">+${step}</button></span>`;
-  function wishHTML() {
+  // 訂單, the panel's default view: the wish list (the orders), what the week can make of each, and how many
+  // are assembled into stock.
+  function ordersHTML() {
+    // A dish ordered on two lines is assembled as one; its stock is filled in on the first line.
+    const first = new Map();
+    for (const o of A.rows) if (!first.has(o.dish)) first.set(o.dish, o.i);
+    const [inD, inP] = tally(PR.assemble);
     const rows = A.rows.map((o) => {
-      const res = o.max === Infinity ? `可做 <b>${fmt(o.n)}</b>・不受限購影響`
-        : o.n >= o.qty ? `可做 <b>${fmt(o.n)}</b> ✓・上限 ${fmt(o.max)}`
-        : `本週只能做 <b>${fmt(o.n)}</b>・卡在 ${esc(o.stuck.join('、'))}`;
-      const fix = o.max < Infinity && o.max !== o.qty ? `<button class="btn small" type="button" data-oset="${o.i}|${o.max}">改成上限 ${fmt(o.max)}</button>` : '';
-      return `<div class="wish-row">
+      const r = PR.assemble.find((x) => x.item === o.dish), own = first.get(o.dish) === o.i, cut = o.n < o.qty;
+      const locked = !!r && !r.ready && r.done < r.plan;
+      let st, wait = '';
+      if (!r) st = ['bad', '做不了'];
+      else if (!own) st = ['idle', `跟第 ${first.get(o.dish) + 1} 道一起入庫`];
+      else if (r.done >= r.plan) st = ['ok', '已入庫'];
+      else if (r.ready) st = ['wait', '可以組裝'];
+      else { st = ['idle', PR.process.some((p) => p.done < p.plan) ? '等加工' : '等料']; wait = `等：${esc(r.waiting.join('、'))}`; }
+      const note = (cut ? `<span class="ord-cut">想做 ${fmt(o.qty)}・卡在 ${esc(o.stuck.join('、'))}</span>${o.max > 0 ? fixButton(o) : ''}` : '') + (wait ? `<span>${wait}</span>` : '');
+      return `<div class="ord-row">
         <span class="wish-n">${o.i + 1}</span>
-        <select data-odish="${o.i}" data-f="o:${o.i}:dish" aria-label="第 ${o.i + 1} 道要做什麼">${dishOptions(o.dish)}</select>
-        ${stepper(`o${o.i}`, o.qty, `第 ${o.i + 1} 道數量`, 10)}
-        <span class="wish-res${o.n < o.qty ? ' cut' : ''}"><span>${res}</span>${fix}</span>
-        <span class="wish-act">
+        <span class="ord-top">
+          <select data-odish="${o.i}" data-f="o:${o.i}:dish" aria-label="第 ${o.i + 1} 道要做什麼">${dishOptions(o.dish)}</select>
           <button class="btn" type="button" data-omove="${o.i}|-1" aria-label="往上移"${o.i ? '' : ' disabled'}>▲</button>
           <button class="btn" type="button" data-omove="${o.i}|1" aria-label="往下移"${o.i < S.orders.length - 1 ? '' : ' disabled'}>▼</button>
           <button class="btn" type="button" data-odel="${o.i}" aria-label="刪掉這道">✕</button>
         </span>
+        <span class="ord-line"><span>訂單${stepper(`o${o.i}`, o.qty, `第 ${o.i + 1} 道訂單數`, 10)}</span>
+          <span>可做<b${cut ? ' class="cut"' : ''}>${fmt(o.n)}</b>${o.max < Infinity ? `上限 ${fmt(o.max)}` : ''}</span></span>
+        <span class="ord-line"><span>已入庫${r && own ? doneInput(r, 's', locked) + fillButton(r, locked) : '—'}</span>${badge(st)}</span>
+        ${note ? `<span class="ord-note">${note}</span>` : ''}
       </div>`;
     }).join('');
-    return `<section class="card wish">
-      <div class="wish-head"><h2>需求清單</h2><span class="muted">選料理、填數量；越上面越先分到限購材料</span></div>
-      ${rows || '<p class="muted">清單是空的，先加一道菜。</p>'}
+    return `<div class="sec orders-sec"><h3 class="ord-h">入庫<span><b>${fmt(inD)}</b>／${fmt(inP)}</span></h3>
+      ${barHTML(inP ? inD / inP : 0, 'done')}
+      <p class="note">選料理、填訂單數，越上面越先分到限購材料；組裝好就填已入庫。</p>
+      ${rows || '<p class="muted">還沒有訂單，先加一道菜。</p>'}
       <button class="btn" type="button" id="add-order">＋ 加一道菜</button>
-    </section>`;
+    </div>`;
   }
-  /* ---------- this week's completion list ---------- */
-  const FILL = { bought: '買齊', gathered: '採齊', processed: '全部完成', assembled: '全部組好' };
+  /* ---------- a station's finished counts ---------- */
+  const FILL = { bought: '買齊', gathered: '採齊', processed: '全部完成', assembled: '全部入庫' };
   const UNIT = { bought: '個', gathered: '個', processed: '批', assembled: '個' };
   const doneInput = (r, where, locked) => `<input class="have" data-done="${r.kind}|${esc(r.key)}" data-f="${where}:${r.kind}|${esc(r.key)}" inputmode="numeric" value="${r.done || ''}" placeholder="0"${locked ? ' disabled' : ''} aria-label="${esc(r.item)} ${VERB[r.kind]}">`;
   const fillButton = (r, locked) => (r.done >= r.plan
@@ -709,32 +948,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       ${fillButton(r, locked)}
     </div>`;
   }
-  function doneHTML() {
-    const part = (no, title, rows, body) => {
-      if (!rows.length) return '';
-      const [d, p] = tally(rows), all = d >= p;
-      return `<div class="done-part"><h3><span class="no${all ? ' all' : ''}">${all ? '✓' : no}</span>${title}<small>${fmt(d)}／${fmt(p)}</small></h3>${body}</div>`;
-    };
-    const shops = new Map();
-    for (const r of PR.buy) {
-      const k = `${r.shop.who}|${r.shop.town || r.shop.note}`;
-      if (!shops.has(k)) shops.set(k, []);
-      shops.get(k).push(r);
-    }
-    const buy = [...shops.values()].map((rows) => `<p class="done-where">${esc(rows[0].shop.town ? `${rows[0].shop.who}（${rows[0].shop.town}）` : rows[0].shop.who)}</p>${rows.map((r) => doneRow(r, '', 'd')).join('')}`).join('');
-    const gather = PR.gather.map((r) => doneRow(r, esc(r.how), 'd')).join('');
-    const proc = PR.process.map((r) => doneRow(r, `${esc(r.step.equip || '設備待補')}・每批 ${r.step.secs == null ? '時間待補' : esc(fmtDur(r.step.secs))}${r.waiting.length && r.done < r.plan ? `<em>等料：${esc(r.waiting.join('、'))}還沒齊</em>` : ''}`, 'd')).join('');
-    const asm = PR.assemble.map((r) => doneRow(r, r.done >= r.plan ? '' : r.ready ? '<em class="go-on">加工都完成、料也齊了，可以組裝</em>' : `<em>等：${esc(r.waiting.join('、'))}</em>`, 'd', !r.ready && r.done < r.plan)).join('');
-    return `<section class="card week-list" id="done">
-      <div class="done-head"><h2>本週完成清單</h2><span class="muted">照順序做：買 → 採 → 加工 → 組裝；做完一項就填上去。每週${'日一二三四五六'[SHOP.resetDay]} ${esc(SHOP.resetAt)} 歸零。</span>
-        <span class="done-total">完成 <b>${fmt(PR.finished)}</b>／${fmt(PR.total)} 項</span></div>
-      ${barHTML(PR.total ? PR.finished / PR.total : 0, 'done')}
-      ${PR.total ? '' : '<p class="muted">這週沒有要做的事。</p>'}
-      ${part(1, '採購', PR.buy, buy)}${part(2, '採集', PR.gather, gather)}${part(3, '加工', PR.process, proc)}${part(4, '組裝', PR.assemble, asm)}
-    </section>`;
-  }
-
-  const haveInput = (name) => `<input class="have" data-have="${esc(name)}" data-f="h:${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 持有">`;
+  const haveInput = (name, where = 'h') => `<input class="have" data-have="${esc(name)}" data-f="${where}:${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 庫存">`;
   function matsHTML() {
     const rank = (m) => (m.s.limited ? 0 : m.s.buyCap ? 1 : m.s.gather ? 2 : 3);
     const mats = A.mats.filter((m) => m.need || m.short).sort((a, b) => rank(a) - rank(b) || b.util - a.util || b.need - a.need);
@@ -744,11 +958,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const where = [...m.shops.map((sh) => `${sh.who} ${fmt(sh.qty)}`), m.get ? (s.gather ? `採：${s.src.find((x) => x.kind === 'gather').text}` : '來源待補') : ''].filter(Boolean);
       return `<tr>
         <th scope="row">${nameHTML(m.name)} ${tag}</th>
-        <td class="num">${fmt(m.need)}</td>
+        <td class="num">${fmt(Math.max(0, m.need - m.used))}</td>
         <td>${haveInput(m.name)}</td>
         <td class="num">${s.buyCap ? `${fmt(m.buy)}<small>／${fmt(s.buyCap)}</small>${barHTML(m.util, pct >= 100 ? (s.limited ? 'full' : 'cap') : '')}` : '—'}</td>
         <td class="num">${m.get ? fmt(m.get) : '—'}</td>
-        <td class="src">${esc(where.join('、') || '用持有的')}</td>
+        <td class="src">${esc(where.join('、') || '用庫存')}</td>
       </tr>`;
     }).join('');
     const made = P.steps.filter((s) => !P.dishSet.has(s.name)).map((s) => `<tr>
@@ -759,11 +973,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         <td class="num">${fmt(s.need)}</td>
         <td class="src">${esc(s.equip || '設備待補')}${A.pool.get(s.name) ? `・剩 ${fmt(A.pool.get(s.name))} 個留到下週` : ''}</td>
       </tr>`).join('');
-    const sum = (k) => mats.reduce((t, m) => t + m[k], 0);
+    const sum = (f) => mats.reduce((t, m) => t + f(m), 0), rem = (m) => Math.max(0, m.need - m.used);
     return `<section class="card mats">
-      <div class="mats-head"><h2>原物料</h2><span class="muted">${mats.length} 種，共 ${fmt(sum('need'))} 個：持有 ${fmt(sum('have'))}、建議買 ${fmt(sum('buy'))}、要採 ${fmt(sum('get'))}</span></div>
-      ${rows ? `<div class="table-wrap"><table><thead><tr><th>原物料</th><th class="r">需要</th><th>持有</th><th class="r">建議買／上限</th><th class="r">要採</th><th>去哪</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">這週不用原物料。</p>'}
-      ${made ? `<h3>加工品</h3><div class="table-wrap"><table><thead><tr><th>加工品</th><th class="r">要做</th><th>持有</th><th class="r">做出</th><th class="r">要用</th><th>設備</th></tr></thead><tbody>${made}</tbody></table></div>` : ''}
+      <div class="mats-head"><h2>原物料</h2><span class="muted">${mats.length} 種，還要用 ${fmt(sum(rem))} 個：庫存有 ${fmt(sum((m) => Math.min(m.stock, rem(m))))}、建議買 ${fmt(sum((m) => m.buy))}、要採 ${fmt(sum((m) => m.get))}</span></div>
+      ${rows ? `<div class="table-wrap"><table><thead><tr><th>原物料</th><th class="r">還要用</th><th>庫存</th><th class="r">建議買／還能買</th><th class="r">要採</th><th>去哪</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="muted">這週不用原物料。</p>'}
+      ${made ? `<h3>加工品</h3><div class="table-wrap"><table><thead><tr><th>加工品</th><th class="r">要做</th><th>庫存</th><th class="r">做出</th><th class="r">要用</th><th>設備</th></tr></thead><tbody>${made}</tbody></table></div>` : ''}
     </section>`;
   }
 
@@ -775,6 +989,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     // Keep the focused field (by data-f) and its caret across the rebuild.
     const a = document.activeElement, f = a && a.dataset ? a.dataset.f : null;
     const caret = f && typeof a.selectionStart === 'number' ? [a.selectionStart, a.selectionEnd] : null;
+    const scroll = $('panel') ? $('panel').scrollTop : 0;
     plan();
     if (sel && !BY.has(sel)) sel = null;
     const wk = shopWeek();
@@ -782,30 +997,31 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const short = A.mats.filter((m) => m.short);
     // The summary's results open where they come from; the character count is edited right here.
     const shortNode = short.length ? nodeOfMat(short[0].name) : null;
-    const station = NODES.find((n) => n.kind === 'machine');
+    const station = NODES.find((n) => n.kind === 'machine'), ps = procSummary();
     const sum = (k, v, go, cls = '') => (go != null ? `<button class="sum ${cls}" type="button" data-go="${esc(go)}"><span class="k">${k}</span><b>${v}</b></button>` : `<span class="sum ${cls}"><span class="k">${k}</span><b>${v}</b></span>`);
     $('app').innerHTML = `<div class="card summary">
-        <button class="sum" type="button" data-jump="wish"><span class="k">需求</span><b>${fmt(P.qty)}／${fmt(A.rows.reduce((t, o) => t + o.qty, 0))}</b></button>
+        <button class="sum" type="button" data-jump="wish"><span class="k">可做／訂單</span><b>${fmt(P.qty)}／${fmt(A.rows.reduce((t, o) => t + o.qty, 0))}</b></button>
+        <button class="sum" type="button" data-jump="stock"><span class="k">入庫</span><b>${fmt(tally(PR.assemble)[0])}／${fmt(P.qty)}</b></button>
         ${sum('異常', short.length ? esc(short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')) : '沒有', shortNode ? shortNode.id : null, short.length ? 'bad' : '')}
-        <button class="sum" type="button" data-jump="done"><span class="k">完成</span><b>${fmt(PR.finished)}／${fmt(PR.total)} 項</b></button>
-        ${sum('上線', `${LP.logins} 次`, station ? station.id : null)}
-        ${sum('加工', P.missing.length ? '時間待補' : esc(fmtDur(LP.total)), station ? station.id : null)}
+        ${sum('下次上線', ps.busy ? esc(nextText(ps.next)) : '不用', station ? station.id : null)}
+        ${sum('還要上線', `${ps.logins} 次`, station ? station.id : null)}
+        ${sum('加工', !ps.busy ? '都做完了' : ps.finish != null ? `${esc(hm(ps.finish))} 做完` : '時間待補', station ? station.id : null)}
         <span class="sum edit"><span class="k">幾隻角色去買${charsFromBoard() ? '（照佈告欄）' : ''}</span>${stepper('chars', chars(), '角色數', 1)}</span>
-        <p class="sum-hint">需求、異常、上線、加工是算出來的計畫；完成是你在完成清單填的實績。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
+        <p class="sum-hint">可做、異常、上線、加工是照你填的庫存、已購買、開工和入庫算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
       </div>
-      ${wishHTML()}
-      ${doneHTML()}
       <div class="layout">
-        <div class="left"><div class="card map-card">
+        <div class="card map-card">
           <div class="view-bar"><h2>廠區</h2>
             <span class="tabs" role="group" aria-label="顯示方式"><button class="btn" type="button" data-view="blocks" aria-pressed="${view === 'blocks'}">區塊</button><button class="btn" type="button" data-view="map" aria-pressed="${view === 'map'}">地圖</button></span></div>
           ${view === 'map' ? `<p class="map-hint">地圖可以左右滑動；點建築看需求和狀態。</p><div class="map-scroll">${mapSVG()}</div>` : blocksHTML()}
-          <div class="legend">${Object.entries(STATUS_TEXT).map(([k, text]) => `<span><i class="dot" style="background:${THEME.status[k]}"></i>${text}</span>`).join('')}<span>紅色「異常」是原物料不足，點商店看對策；點任何一格看需求和狀態。</span></div>
-        </div>${matsHTML()}</div>
+          <div class="legend">${Object.entries(STATUS_TEXT).map(([k, text]) => `<span><i class="dot" style="background:${THEME.status[k]}"></i>${text}</span>`).join('')}<span>紅色「異常」是原物料不足，點商店看對策；點任何一格看需求、訂單需求和狀態。</span></div>
+        </div>
         <aside class="card panel" id="panel"></aside>
+        <div class="left">${matsHTML()}</div>
       </div>`;
     if (view === 'map') paintStatus();
     renderPanel();
+    $('panel').scrollTop = scroll;
     if (f) {
       const el = document.querySelector(`[data-f="${CSS.escape(f)}"]`);
       if (el) { el.focus({ preventScroll: true }); if (caret && el.setSelectionRange) try { el.setSelectionRange(...caret); } catch (_) {} }
@@ -819,26 +1035,115 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (window.matchMedia('(max-width: 1000px)').matches && sel) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  // 'wish' and 'stock' bring the orders back into the panel and put the caret in the first order, or the first 已入庫
+  // that can be filled in.
+  function jumpTo(where) {
+    select(null);
+    const panel = $('panel'), first = panel.querySelector(where === 'stock' ? 'input[data-done]:not([disabled])' : 'input:not([disabled])');
+    panel.scrollTop = 0;
+    (first || panel).scrollIntoView({ behavior: 'smooth', block: first ? 'center' : 'start' });
+    if (first) first.focus({ preventScroll: true });
+  }
+  // The 訂單 point is the order list, so it brings the orders back into the panel.
+  const pick = (id) => (id === 'fg' ? jumpTo('stock') : select(id));
+
+  /* ---------- a station's queue: moving, starting and collecting rounds ---------- */
+  // Moves the batch at `from` in a station's queue to `to` (both places among the batches not yet started).
+  function moveBatch(lane, from, to) {
+    const q = PL.get(lane);
+    if (!q || from === to) return;
+    const seq = q.seq.slice(), [x] = seq.splice(from, 1);
+    seq.splice(Math.max(0, Math.min(seq.length, to)), 0, x);
+    setOrder(lane, seq);
+    save();
+    render();
+  }
+  function queueAction(b) {
+    const lane = b.dataset.start || b.dataset.collect || b.dataset.unstart, q = lane && PL.get(lane);
+    if (b.dataset.smove) {
+      const v = b.dataset.smove, c = v.lastIndexOf('|'), a = v.lastIndexOf('|', c - 1);
+      const from = Number(v.slice(a + 1, c));
+      moveBatch(v.slice(0, a), from, from + Number(v.slice(c + 1)));
+      return;
+    }
+    if (!q) return;
+    if (b.dataset.start) {
+      const r = q.rounds.find((x) => !x.running), inp = document.querySelector(`[data-startat="${CSS.escape(lane)}"]`);
+      if (r) startRound(lane, r.items, (inp && fromTime(inp.value)) || Date.now(), q.seq.slice(r.items.length));
+    } else if (b.dataset.collect) collectRound(lane);
+    else cancelRound(lane);
+    save();
+    render();
+  }
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!t.dataset || !t.dataset.runat) return;
+    const at = fromTime(t.value);
+    if (at != null) { setRunAt(t.dataset.runat, at); save(); render(); }
+  });
+  // Dragging a batch by its ⠿ to another place on the same station; works with a mouse or a finger.
+  let drag = null;
+  const clearDrop = () => document.querySelectorAll('.slot.drop').forEach((x) => x.classList.remove('drop'));
+  document.addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest && e.target.closest('.grip');
+    if (!grip || e.button > 0) return;
+    const el = grip.closest('[data-slot]');
+    e.preventDefault();
+    drag = { el, lane: el.dataset.lane, from: Number(el.dataset.slot), x: e.clientX, y: e.clientY, id: e.pointerId, on: false, to: null };
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.on && Math.hypot(dx, dy) < 5) return;
+    drag.on = true;
+    drag.el.classList.add('dragging');
+    drag.el.style.transform = `translate(${dx}px, ${dy}px)`;
+    const t = document.elementsFromPoint(e.clientX, e.clientY).map((x) => x.closest('[data-slot]')).find((x) => x && x !== drag.el);
+    clearDrop();
+    drag.to = t && t.dataset.lane === drag.lane ? Number(t.dataset.slot) : null;
+    if (drag.to != null) t.classList.add('drop');
+  });
+  const endDrag = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    clearDrop();
+    if (d.on && d.to != null && d.to !== d.from) moveBatch(d.lane, d.from, d.to);
+    else { d.el.classList.remove('dragging'); d.el.style.transform = ''; }
+  };
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+  // Running rounds come due by themselves: redraw now and then, unless something is being typed or dragged.
+  setInterval(() => {
+    const a = document.activeElement;
+    if (!A || drag || (a && a.matches && a.matches('input, select'))) return;
+    render();
+  }, 30e3);
+
   /* ---------- events ---------- */
   document.addEventListener('click', (e) => {
+    const qb = e.target.closest('[data-start], [data-collect], [data-unstart], [data-smove]');
+    if (qb) { queueAction(qb); return; }
+    const all = e.target.closest('[data-buyall]');
+    if (all) {
+      const n = BY.get(all.dataset.buyall);
+      if (n) for (const i of n.items) i.buy.per.forEach((_, c) => setBought(i.buy.key, c, SHOP.limit));
+      save();
+      render();
+      return;
+    }
     const node = e.target.closest('.node');
-    if (node) { select(node.dataset.node); return; }
+    if (node) { pick(node.dataset.node); return; }
     const go = e.target.closest('[data-go]');
-    if (go) { select(go.dataset.go); return; }
+    if (go) { pick(go.dataset.go); return; }
     const v = e.target.closest('[data-view]');
     if (v) { view = v.dataset.view; writeLS(VIEW_KEY, view); render(); return; }
     const jump = e.target.closest('[data-jump]');
-    if (jump) {
-      const card = document.querySelector(jump.dataset.jump === 'done' ? '#done' : '.wish');
-      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      const first = card.querySelector('input:not([disabled])');
-      if (first) first.focus({ preventScroll: true });
-      return;
-    }
+    if (jump) { jumpTo(jump.dataset.jump); return; }
   });
   document.addEventListener('keydown', (e) => {
     const node = e.target.closest && e.target.closest('.node');
-    if (node && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(node.dataset.node); }
+    if (node && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(node.dataset.node); }
     if (e.key === 'Escape' && sel) select(null);
   });
   wireList(render);

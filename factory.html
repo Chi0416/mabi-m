@@ -396,8 +396,8 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 26px; background: v
       return `<div class="mat">
         <div class="mat-head">${nameHTML(m.name)}${tag}<span class="mat-need">需要 <b>${fmt(m.need)}</b></span></div>
         <div class="mat-row">
-          <label>持有<input class="have-in" data-have="${esc(m.name)}" data-f="h:${esc(m.name)}" inputmode="numeric" value="${held(m.name) || ''}" placeholder="0" aria-label="${esc(m.name)} 持有"></label>
-          ${s.buyCap ? `<span>建議買 <b>${fmt(m.buy)}</b>／本週上限 ${fmt(s.buyCap)}</span>` : ''}
+          <label>庫存<input class="have-in" data-have="${esc(m.name)}" data-f="h:${esc(m.name)}" inputmode="numeric" value="${held(m.name) || ''}" placeholder="0" aria-label="${esc(m.name)} 庫存"></label>
+          ${s.buyCap ? `<span>建議買 <b>${fmt(m.buy)}</b>／還能買 ${fmt(s.buyCap)}</span>` : ''}
           ${m.get ? `<span>${s.gather ? '要採' : '其他來源'} <b>${fmt(m.get)}</b></span>` : ''}
         </div>
         ${m.short ? `<div class="mat-short">原物料不足：需求要 ${fmt(m.want)}，本週最多 ${fmt(s.cap)}，缺 ${fmt(m.short)}。</div>` : ''}
@@ -408,7 +408,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 26px; background: v
     return `<section class="panel">
       <h2 class="bar">原料<small>本週要用的</small></h2>
       <div class="body">
-        <p class="hint">持有的先用；能買的先買到上限，不夠再採。長條是本週限購額度用了多少：紅色是買完又不能採，黃色是買完了但還能採。</p>
+        <p class="hint">庫存（背包現在的數量）先用；能買的先買到上限，不夠再採。長條是本週限購額度用了多少：紅色是買完又不能採，黃色是買完了但還能採。</p>
         ${rows || '<p class="hint">這週沒有要用的原料。</p>'}
       </div>
     </section>`;
@@ -457,7 +457,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 26px; background: v
           const extra = A.pool.get(s.name) || 0;
           return `<li>${nameHTML(s.name)}<span class="qty">${fmt(s.batches)} 批</span>
             <span class="alt">每批 ${s.secs == null ? '時間待補' : esc(fmtDur(s.secs))}・做出 ${fmt(s.made)}，要用 ${fmt(s.need)}${extra ? `・剩 ${fmt(extra)} 個留到下週` : ''}</span>
-            <label class="alt have-line">持有<input class="have-in" data-have="${esc(s.name)}" data-f="h:${esc(s.name)}" inputmode="numeric" value="${held(s.name) || ''}" placeholder="0" aria-label="${esc(s.name)} 持有"></label></li>`;
+            <label class="alt have-line">庫存<input class="have-in" data-have="${esc(s.name)}" data-f="h:${esc(s.name)}" inputmode="numeric" value="${held(s.name) || ''}" placeholder="0" aria-label="${esc(s.name)} 庫存"></label></li>`;
         }).join('')}</ul>
         <p class="stop-foot">共 ${fmt(st.batches)} 批，一次做一批，全部做完要 <b>${P.missing.length ? '待補' : esc(fmtDur(st.busy))}</b>。</p>
       </div>`;
@@ -578,7 +578,7 @@ input[type="range"]::-moz-range-thumb { width: 18px; height: 26px; background: v
     return `<section class="panel">
       <h2 class="bar">材料展開</h2>
       <div class="body">
-        <p class="hint">從本週排得到的成品一路拆到原料，沒扣持有。加工品一次做好幾個時，批數會無條件進位，所以有時會多做一點。</p>
+        <p class="hint">從本週排得到的成品一路拆到原料，沒扣庫存。加工品一次做好幾個時，批數會無條件進位，所以有時會多做一點。</p>
         <ul class="tree">${P.dishes.map((d) => node(d.dish, d.n, new Set())).join('') || '<li class="muted">這週沒有排到任何料理。</li>'}</ul>
       </div>
     </section>`;

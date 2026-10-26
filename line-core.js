@@ -76,7 +76,8 @@
 
   /* ---------- saved state, shared by the pages ---------- */
   // orders: the week's wish list, top first ({ dish, qty }); chars: how many characters buy (0 = the board's count);
-  // have: what is already held, by item; draft: station, time and queue values typed on the planner.
+  // have: the stock in hand now, as the game's bag shows it, by item; draft: station, time and queue values typed on the
+  // planner.
   const SAVED = readLS(KEY);
   const S = Object.assign({ orders: [], chars: 0, have: {}, speed: 0, draft: { steps: {}, queue: {} } }, SAVED || {});
   if (!Array.isArray(S.orders)) S.orders = [];
@@ -91,11 +92,16 @@
   if (!S.draft.queue || typeof S.draft.queue !== 'object') S.draft.queue = S.draft.slots && typeof S.draft.slots === 'object' ? S.draft.slots : {};
   delete S.draft.slots;
   // done: this week's actual progress, cleared when the shop week turns over (`week` is the week's start) —
-  // bought ('who|town|item' → count), gathered (item → count), processed (made item → batches finished),
-  // assembled (dish → made).
-  const DONE_KINDS = ['bought', 'gathered', 'processed', 'assembled'];
+  // bought ('who|town|item' → [count per character, first character first]), processed (made item → batches
+  // finished), assembled (dish → made), proc (station → { order: the batches still to line up, by item, in the order
+  // chosen; run: { at, items } — the round started at `at` (ms) and not yet collected }). What is gathered isn't
+  // kept: it shows in the stock.
+  const DONE_KINDS = ['bought', 'processed', 'assembled', 'proc'];
   if (!S.done || typeof S.done !== 'object') S.done = { week: 0 };
   for (const k of DONE_KINDS) if (!S.done[k] || typeof S.done[k] !== 'object') S.done[k] = {};
+  delete S.done.gathered;
+  // Purchases used to be one count per shop and item; that count becomes the first character's.
+  for (const [k, v] of Object.entries(S.done.bought)) if (!Array.isArray(v)) S.done.bought[k] = [Math.max(0, Math.floor(Number(v)) || 0)];
   const save = () => writeLS(KEY, S);
   function rollWeek() {
     const week = shopWeek().start;
@@ -249,26 +255,113 @@
   const chars = () => Math.min(MAX_CHARS, posInt(S.chars) || BOARD_CHARS || 1);
   const charsFromBoard = () => !posInt(S.chars) && !!BOARD_CHARS;
   const held = (name) => Math.max(0, Math.floor(Number(S.have[name])) || 0);
-  // A raw material's weekly supply: held plus every shop's limit for every character. Something that can be gathered,
-  // or whose source isn't known yet, has no cap (barter and quest loot aren't counted on).
-  function supplyOf(name) {
+
+  /* ---------- stock and this week's purchases ---------- */
+  // The week's work moves the stock the way the game does: a purchase adds to it, a batch processed takes its inputs
+  // and adds its output, a dish assembled takes its inputs. The plan works from base(): what would be in hand had none
+  // of this week's processing or assembly happened, so the stock can be typed in from the game at any point.
+  const bump = (name, d) => { const n = Math.max(0, held(name) + Math.round(d)); if (n) S.have[name] = n; else delete S.have[name]; };
+  function worked(kind, name, d) {
+    const r = REC.get(name);
+    if (!r || !d) return;
+    const per = kind === 'assembled' ? d / yieldOf(r) : d;
+    for (const i of r.inputs) bump(i.item, -i.qty * per);
+    if (kind === 'processed') bump(name, yieldOf(r) * d);
+  }
+  // What this week's finished batches, rounds still running and assembled dishes have taken (used) and made, by item.
+  function usedThisWeek() {
+    const used = new Map(), made = new Map(), add = (m, k, v) => m.set(k, (m.get(k) || 0) + v);
+    for (const name of runningItems()) { const r = REC.get(name); if (r) for (const i of r.inputs) add(used, i.item, i.qty); }
+    for (const kind of ['processed', 'assembled']) for (const [name, v] of Object.entries(S.done[kind])) {
+      const r = REC.get(name), n = Math.max(0, Math.floor(Number(v)) || 0);
+      if (!r || !n) continue;
+      const per = kind === 'assembled' ? n / yieldOf(r) : n;
+      for (const i of r.inputs) add(used, i.item, i.qty * per);
+      if (kind === 'processed') add(made, name, yieldOf(r) * n);
+    }
+    return { used, made };
+  }
+  const baseOf = (name, U) => Math.max(0, Math.round(held(name) + (U.used.get(name) || 0) - (U.made.get(name) || 0)));
+  // A purchase: key 'who|town|item', character c (0 = first); the stock moves by the difference.
+  const boughtBy = (key) => (Array.isArray(S.done.bought[key]) ? S.done.bought[key] : []);
+  function setBought(key, c, n) {
+    n = Math.min(SHOP.limit, Math.max(0, Math.floor(Number(n)) || 0));
+    const list = boughtBy(key).slice(), old = Math.max(0, Math.floor(Number(list[c])) || 0);
+    list[c] = n;
+    while (list.length && !list[list.length - 1]) list.pop();
+    if (list.length) S.done.bought[key] = list.map((v) => v || 0); else delete S.done.bought[key];
+    bump(key.slice(key.lastIndexOf('|') + 1), n - old);
+  }
+  // A finished count: processed (batches) or assembled (dishes); the stock moves by the difference.
+  function setDone(kind, key, n) {
+    n = Math.max(0, Math.floor(Number(n)) || 0);
+    const old = Math.max(0, Math.floor(Number(S.done[kind][key])) || 0);
+    if (n) S.done[kind][key] = n; else delete S.done[kind][key];
+    worked(kind, key, n - old);
+  }
+
+  // A station's queue (see S.done.proc). Starting a round takes its batches' inputs from the stock, as lining them up
+  // in the game does; collecting it (全部領取) counts the batches finished and adds what they made.
+  const procOf = (lane) => (S.done.proc[lane] && typeof S.done.proc[lane] === 'object' ? S.done.proc[lane] : (S.done.proc[lane] = {}));
+  const runOf = (lane) => { const run = procOf(lane).run; return run && Array.isArray(run.items) && run.items.length ? run : null; };
+  const runningItems = () => Object.keys(S.done.proc).flatMap((lane) => (runOf(lane) || { items: [] }).items);
+  const setOrder = (lane, order) => { procOf(lane).order = order.slice(); };
+  // took: what actually came out of the stock (less than the inputs when the stock was short), so taking the round
+  // back gives back no more than that.
+  function startRound(lane, items, at, rest) {
+    if (runOf(lane) || !items.length) return;
+    const took = {};
+    for (const name of items) {
+      const r = REC.get(name);
+      if (r) for (const i of r.inputs) { const k = Math.min(held(i.item), i.qty); took[i.item] = (took[i.item] || 0) + k; bump(i.item, -i.qty); }
+    }
+    Object.assign(procOf(lane), { run: { at, items: items.slice(), took }, order: rest.slice() });
+  }
+  function collectRound(lane) {
+    const run = runOf(lane);
+    if (!run) return;
+    for (const name of run.items) {
+      const r = REC.get(name);
+      S.done.processed[name] = (Math.floor(Number(S.done.processed[name])) || 0) + 1;
+      if (r) bump(name, yieldOf(r));
+    }
+    delete procOf(lane).run;
+  }
+  // Taking a round back out: its inputs return to the stock and its batches to the front of the queue.
+  function cancelRound(lane) {
+    const run = runOf(lane);
+    if (!run) return;
+    for (const [item, qty] of Object.entries(run.took || {})) bump(item, qty);
+    procOf(lane).order = [...run.items, ...(procOf(lane).order || [])];
+    delete procOf(lane).run;
+  }
+  const setRunAt = (lane, at) => { const run = runOf(lane); if (run) run.at = at; };
+
+  // A raw material's weekly supply: its base plus what every shop can still sell every character this week.
+  // Something that can be gathered, or whose source isn't known yet, has no cap (barter and quest loot aren't counted
+  // on).
+  function supplyOf(name, U) {
     const src = sourcesOf(name);
     const shops = src.filter((s) => s.kind === 'buy').sort((a, b) => townRank(a.town) - townRank(b.town));
     const gather = src.some((s) => s.kind === 'gather');
     const limited = shops.length > 0 && !gather;
-    const buyCap = shops.length * SHOP.limit * chars();
-    return { name, src, shops, gather, limited, unknown: !src.length, buyCap, cap: limited ? held(name) + buyCap : Infinity };
+    let buyCap = 0;
+    for (const sh of shops) {
+      const got = boughtBy(`${sh.who}|${sh.town || sh.note}|${name}`);
+      for (let c = 0; c < chars(); c++) buyCap += Math.max(0, SHOP.limit - (Math.floor(Number(got[c])) || 0));
+    }
+    return { name, src, shops, gather, limited, unknown: !src.length, buyCap, cap: limited ? baseOf(name, U) + buyCap : Infinity };
   }
   // Each line of the wish list, top first, gets the most it can (up to its count) from what the lines above left.
   // A line's max is how many it could make on its own from that remainder; stuck lists what runs out one past it.
   function allocate() {
-    const sup = new Map(), left = new Map();
+    const U = usedThisWeek(), sup = new Map(), left = new Map();
     const supply = (m) => {
-      if (!sup.has(m)) { const s = supplyOf(m); sup.set(m, s); left.set(m, s.cap); }
+      if (!sup.has(m)) { const s = supplyOf(m, U); sup.set(m, s); left.set(m, s.cap); }
       return sup.get(m);
     };
     const pool = new Map();
-    for (const name of Object.keys(S.have)) if (REC.has(name) && held(name)) pool.set(name, held(name));
+    for (const name of new Set([...Object.keys(S.have), ...U.used.keys(), ...U.made.keys()])) if (REC.has(name) && baseOf(name, U)) pool.set(name, baseOf(name, U));
     // What the whole wish list would take if nothing ran out, and which dishes want each material.
     const want = new Map(), wantBy = new Map(), wantPool = new Map(pool);
     for (const o of S.orders) {
@@ -302,19 +395,32 @@
       for (const [m, q] of x.left) add(pool, m, q);
       for (const [m, b] of x.batches) add(A.batches, m, b);
       for (const [m, q] of x.net) add(A.net, m, q);
-      A.rows.push({ i, dish: o.dish, qty: o.qty, n, max, stuck });
+      // raw and batches are this line's own share (material → count, made item → batches), for 訂單需求.
+      A.rows.push({ i, dish: o.dish, qty: o.qty, n, max, stuck, raw: x.raw, batches: x.batches });
     });
-    // How each raw material is covered: held first, then shops in board town order up to their limit, the rest gathered
-    // (or from a source still to be filled in). want is what the full wish list would take; short is how much of a
-    // shop-only material the limits can't cover (異常: not enough raw material), users the dishes that want it.
+    // How each raw material is covered: its base first, then what the shops can still sell, in board town order and
+    // first character first, the rest gathered (or from a source still to be filled in). stock is the bag now, used
+    // what this week's work has taken, so need - used is still to use and need - base still to get. buys has every
+    // shop that sells it with each character's purchases (bought) and suggested purchases (more); shops only the ones
+    // with something left to buy. want is what the full wish list would take; short is how much of a shop-only
+    // material the limits can't cover (異常: not enough raw material), users the dishes that want it.
     A.mats = [...new Set([...A.raw.keys(), ...want.keys()])].map((name) => {
-      const s = supply(name), need = A.raw.get(name) || 0, have = Math.min(held(name), need), rest = need - have;
+      const s = supply(name), need = A.raw.get(name) || 0, base = baseOf(name, U), have = Math.min(base, need), rest = need - have;
       const buy = Math.min(rest, s.buyCap);
       let r = buy;
-      const shops = s.shops.map((sh) => { const k = Math.min(r, SHOP.limit * chars()); r -= k; return { ...sh, qty: k }; }).filter((sh) => sh.qty);
+      const buys = s.shops.map((sh) => {
+        const key = `${sh.who}|${sh.town || sh.note}|${name}`, got = boughtBy(key);
+        const per = Array.from({ length: chars() }, (_, c) => {
+          const b = Math.max(0, Math.floor(Number(got[c])) || 0), k = Math.min(r, Math.max(0, SHOP.limit - b));
+          r -= k;
+          return { bought: b, more: k };
+        });
+        return { ...sh, key, per, bought: per.reduce((t, x) => t + x.bought, 0), qty: per.reduce((t, x) => t + x.more, 0) };
+      });
       const w = want.get(name) || 0, short = s.limited ? Math.max(0, w - s.cap) : 0;
       return {
-        name, need, have, buy, get: rest - buy, s, shops, util: s.buyCap ? buy / s.buyCap : 0, want: w, short,
+        name, need, have, buy, get: rest - buy, s, buys, shops: buys.filter((sh) => sh.qty), util: s.buyCap ? buy / s.buyCap : 0, want: w, short,
+        stock: held(name), base, used: Math.round(U.used.get(name) || 0),
         users: [...(wantBy.get(name) || [])], stuck: A.rows.some((o) => o.n < o.qty && o.stuck.includes(name)),
       };
     });
@@ -498,29 +604,30 @@
   }
 
   /* ---------- this week's actual progress ---------- */
+  // A material that is gathered (or got from a source still to be filled in) rather than only bought: always when it
+  // can't be bought, otherwise while the shops leave some to get.
+  const gathers = (m) => !!(m.need || m.get) && (m.s.gather ? m.get > 0 || !m.s.shops.length : m.get > 0 || m.s.unknown);
+
   // The week's work in the order it is done — buy, gather, process, assemble — each line with its plan and what has
-  // been filled in as done. Assembly opens only when every processing line is finished and the dish's direct materials
-  // are all in hand: the dishes are assembled in one go at the end, not a portion at a time.
+  // been done: a shop line is bought against bought plus still suggested, a gathered line is the stock against what is
+  // still to use. Assembly opens only when every processing line is finished and the dish's direct materials are all
+  // in hand: the dishes are assembled in one go at the end, not a portion at a time.
   function progress(A, P) {
     const D = S.done, num = (o, k) => Math.max(0, Math.floor(Number(o[k])) || 0);
     const buy = [], gather = [];
     for (const m of A.mats) {
-      for (const sh of m.shops) {
-        const key = `${sh.who}|${sh.town || sh.note}|${m.name}`;
-        buy.push({ kind: 'bought', key, item: m.name, shop: sh, plan: sh.qty, done: num(D.bought, key) });
-      }
-      if (m.get) {
-        const g = m.s.src.find((x) => x.kind === 'gather');
-        gather.push({ kind: 'gathered', key: m.name, item: m.name, how: g ? g.text : '來源待補', plan: m.get, done: num(D.gathered, m.name) });
+      for (const sh of m.buys) if (sh.bought + sh.qty) buy.push({ kind: 'bought', key: sh.key, item: m.name, shop: sh, per: sh.per, plan: sh.bought + sh.qty, done: sh.bought });
+      if (gathers(m)) {
+        const g = m.s.src.find((x) => x.kind === 'gather'), plan = Math.max(0, m.need - m.used);
+        gather.push({ kind: 'gathered', key: m.name, item: m.name, how: g ? g.text : '來源待補', plan, done: Math.min(m.stock, plan), left: m.get });
       }
     }
-    // What each raw material has in hand: held, bought and gathered.
-    const inHand = new Map(A.mats.map((m) => [m.name, held(m.name)
-      + buy.filter((r) => r.item === m.name).reduce((t, r) => t + r.done, 0)
-      + gather.filter((r) => r.item === m.name).reduce((t, r) => t + r.done, 0)]));
+    // What each raw material has in hand for the week: its base (the stock plus what this week's work has used).
+    const inHand = new Map(A.mats.map((m) => [m.name, m.base]));
     const missing = (inputs) => inputs.filter((i) => A.raw.has(i) && (inHand.get(i) || 0) < A.raw.get(i));
+    const running = runningItems();
     const process = P.steps.filter((s) => !P.dishSet.has(s.name) && !quick(s)).map((s) => ({
-      kind: 'processed', key: s.name, item: s.name, step: s, plan: s.batches, done: num(D.processed, s.name),
+      kind: 'processed', key: s.name, item: s.name, step: s, plan: s.batches, done: num(D.processed, s.name), running: running.filter((x) => x === s.name).length,
       waiting: missing(s.r.inputs.map((i) => i.item)),
     }));
     const unfinished = process.filter((r) => r.done < r.plan);
@@ -535,8 +642,9 @@
   /* ---------- editing the wish list, characters and holdings ---------- */
   // Both pages use the same controls: data-odish (a line's dish), data-num (a stepper's number: 'chars' or 'o' + a
   // line's index), data-step ('key|±n'), data-oset ('index|count'), data-omove ('index|±1'), data-odel (index),
-  // data-have (an item's held count), data-done ('kind|key', an actual) and data-donefill ('kind|n|key'), and
-  // #add-order. `changed` redraws the page after an edit.
+  // data-have (an item's stock), data-done ('kind|key', an actual) and data-donefill ('kind|n|key'), data-buy
+  // ('c|key', a character's purchase) and data-buyfill ('c|n|key'), and #add-order. `changed` redraws the page after
+  // an edit.
   const ADD_QTY = 10;
   function setNum(key, n) {
     if (key === 'chars') S.chars = Math.min(MAX_CHARS, Math.max(1, n || 1));
@@ -548,9 +656,11 @@
       if (t.dataset.odish != null) { const o = S.orders[Number(t.dataset.odish)]; if (o) o.dish = t.value; }
       else if (t.dataset.num) setNum(t.dataset.num, posInt(t.value));
       else if (t.dataset.done) {
-        const [kind, key] = [t.dataset.done.slice(0, t.dataset.done.indexOf('|')), t.dataset.done.slice(t.dataset.done.indexOf('|') + 1)];
-        const n = Math.floor(Number(t.value));
-        if (n > 0) S.done[kind][key] = n; else delete S.done[kind][key];
+        const v = t.dataset.done, a = v.indexOf('|');
+        setDone(v.slice(0, a), v.slice(a + 1), t.value);
+      } else if (t.dataset.buy) {
+        const v = t.dataset.buy, a = v.indexOf('|');
+        setBought(v.slice(a + 1), Number(v.slice(0, a)), t.value);
       } else if (t.dataset.have != null) {
         const n = Math.floor(Number(t.value));
         if (n > 0) S.have[t.dataset.have] = n; else delete S.have[t.dataset.have];
@@ -573,11 +683,11 @@
         [S.orders[i], S.orders[j]] = [S.orders[j], S.orders[i]];
       } else if (b.dataset.odel) {
         S.orders.splice(Number(b.dataset.odel), 1);
-      } else if (b.dataset.donefill) {
-        // 'kind|n|key': set a line to n (its plan, or 0 to clear it)
-        const v = b.dataset.donefill, a = v.indexOf('|'), c = v.indexOf('|', a + 1);
-        const kind = v.slice(0, a), n = Number(v.slice(a + 1, c)), key = v.slice(c + 1);
-        if (n > 0) S.done[kind][key] = n; else delete S.done[kind][key];
+      } else if (b.dataset.donefill || b.dataset.buyfill) {
+        // 'kind|n|key': set a line to n (its plan, or 0 to clear it); 'c|n|key': set a character's purchase to n
+        const v = b.dataset.donefill || b.dataset.buyfill, a = v.indexOf('|'), c = v.indexOf('|', a + 1);
+        if (b.dataset.donefill) setDone(v.slice(0, a), v.slice(c + 1), v.slice(a + 1, c));
+        else setBought(v.slice(c + 1), Number(v.slice(0, a)), v.slice(a + 1, c));
       } else if (b.id === 'add-order') {
         const taken = new Set(S.orders.map((o) => o.dish));
         const next = dishes().find((r) => !taken.has(r.name)) || dishes()[0];
@@ -588,7 +698,7 @@
       changed();
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && e.target.matches && e.target.matches('input[data-num], input[data-have], input[data-done]')) e.target.blur();
+      if (e.key === 'Enter' && e.target.matches && e.target.matches('input[data-num], input[data-have], input[data-done], input[data-buy]')) e.target.blur();
     });
   }
 
@@ -597,5 +707,6 @@
     LINE, SHOP, CITIES, MAX_CHARS, COLORS, S, save, REC, load, dishes, dishOptions, esc, fmt, posInt, readLS, writeLS,
     fmtDur, clock, parseDur, shopWeek, yieldOf, gradeOf, nameHTML, sourcesOf, sourceText, townRank,
     stepInfo, quick, chars, charsFromBoard, held, allocate, makePlan, makeSchedule, countLE, jobAt, loginPlan, progress,
+    gathers, setBought, setDone, runOf, setOrder, startRound, collectRound, cancelRound, setRunAt,
   };
 })();
