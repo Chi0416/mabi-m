@@ -238,6 +238,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .badge.ok { color: var(--ok); background: var(--ok-soft); } .badge.wait { color: var(--wait); background: var(--wait-soft); }
 .badge.bad { color: var(--bad); background: var(--bad-soft); } .badge.done { color: var(--done); background: var(--done-soft); }
 .badge.idle { color: var(--idle); background: var(--idle-soft); }
+.badge.tag { padding: 0 6px; font-size: 11px; vertical-align: 1px; }
 .rows { list-style: none; margin: 0; padding: 0; }
 .rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
 .rows li:last-child { border-bottom: 0; }
@@ -275,7 +276,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27-1</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27-2</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a></nav>
   </div>
 </header>
@@ -566,11 +567,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       if (!use.length) return ['idle', '沒有要用的料'];
       return short ? ['wait', `還缺 ${fmt(short)} 樣`] : ['ok', '這週的料都有'];
     }
-    // A shop: every character's limit used up is 已買滿.
+    // A shop: every character's limit used up means it has nothing left to sell this week, 已售完 — not a job done.
     if (n.kind === 'shop') {
       const per = n.items.flatMap((i) => i.buy.per), B = per.reduce((t, x) => t + x.bought, 0), L = per.length * SHOP.limit;
-      if (n.items.some((i) => i.mat.short)) return ['bad', B >= L ? '買滿仍缺' : '異常'];
-      return B >= L ? ['idle', '✓ 已買滿'] : B ? ['wait', '買了一些'] : ['idle', '還沒買'];
+      if (n.items.some((i) => i.mat.short)) return ['bad', B >= L ? '已售完仍缺' : '異常'];
+      return B >= L ? ['idle', '已售完'] : B ? ['wait', '買了一些'] : ['idle', '還沒買'];
     }
     // Gathering: what the stock still lacks after the shops' share.
     if (n.kind === 'field' || n.kind === 'unknown') {
@@ -621,7 +622,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     // a shop: what every character can still buy there; gathering: what is still to gather
     if (n.kind === 'shop') return n.items.map((i) => {
       const left = i.buy.per.length * SHOP.limit - i.buy.bought;
-      return line(i.name, left ? `還能買 ${fmt(left)}` : '買滿', i.mat.short ? 'bad' : left ? '' : 'ok');
+      return line(i.name, left ? `還能買 ${fmt(left)}` : '已售完', i.mat.short ? 'bad' : '');
     }).join('');
     if (n.kind === 'field' || n.kind === 'unknown') return n.items.map((i) => line(i.name, i.mat.get ? `還要採 ${fmt(i.mat.get)}` : '齊', i.mat.get ? '' : 'ok')).join('');
     // 背包: one line, how many kinds the week still takes and how many it doesn't; the panel lists them
@@ -706,8 +707,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         : o.can >= o.left ? `<span class="ok-text">✓ ${fmt(o.left)} ${unit}都可以${n.asm ? '製作' : '加工'}</span>` : `可以${n.asm ? '製作' : '加工'} ${fmt(o.can)}／${fmt(o.left)} ${unit}`;
       return `<li><span>${nameHTML(o.name)}</span><span class="num">${right}</span>${miss ? `<span class="sub">${esc(miss)}</span>` : ''}</li>`;
     }).join('');
-    const mat = (i) => `<li><span>${nameHTML(i.name)}</span><span class="num">${i.lack ? `<span class="bad-text">還缺 ${fmt(i.lack)}</span>` : '<span class="ok-text">✓ 夠了</span>'}</span>
-      <span class="sub">需要 ${fmt(i.need)}・${takers(i.name).length > 1 ? `背包 ${fmt(held(i.name))}，別區也要用，照需求清單順序這區分到 ${fmt(i.have)}` : `現有 ${fmt(i.have)}`}</span></li>`;
+    // an item another 投料區 takes too gets a small 共用 tag (how it is split is in its title and on 背包)
+    const tag = (i) => (takers(i.name).length > 1 ? ` <span class="badge idle tag" title="背包 ${fmt(held(i.name))}，別區也要用，照需求清單順序這區分到 ${fmt(i.have)}">共用</span>` : '');
+    const mat = (i) => `<li><span>${nameHTML(i.name)}${tag(i)}</span><span class="num">${i.lack ? `<span class="bad-text">還缺 ${fmt(i.lack)}</span>` : '<span class="ok-text">✓ 夠了</span>'}</span>
+      <span class="sub">需要 ${fmt(i.need)}・現有 ${fmt(i.have)}</span></li>`;
     const list = (title, items) => (items.length ? `<h4>${title}</h4><ul class="rows">${items.map(mat).join('')}</ul>` : '');
     const mats = list('原料', n.items.filter((i) => !i.made)) + list('加工品', n.items.filter((i) => i.made));
     return `<div class="sec"><h3>${n.asm ? '料理' : '加工品'}</h3>${outs ? `<ul class="rows">${outs}</ul>` : `<p class="muted" style="margin:0">這週不用${n.asm ? '製作' : '加工'}，不用備料。</p>`}</div>
@@ -725,7 +728,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const list = (title, names) => (names.length ? `<h4>${title}</h4><ul class="rows">${names.map(row).join('')}</ul>` : '');
     const other = g.other.map((name) => `<li><span>${nameHTML(name)}</span><span class="num">${fmt(held(name))}</span></li>`).join('');
     return `<div class="sec"><button class="btn primary buy-open" type="button" data-stockopen>填現有庫存</button>
-        <p class="note">照遊戲背包現在的數量填。購買、開工、領料和已入庫會自動加減。</p></div>
+        <p class="note">照遊戲背包現在的數量填，買了東西也要來這裡改。開工、領料和已入庫會自動加減。</p></div>
       <div class="sec"><h3>這週要用</h3>${list('原料', g.raw) + list('加工品', g.made) || '<p class="muted" style="margin:0">需求清單還沒有要用的料。</p>'}</div>
       ${other ? `<div class="sec"><h3 class="ord-h">這週用不到<span>${fmt(g.other.length)} 種</span></h3><ul class="rows">${other}</ul>
         <p class="note">之前留下來的。不需要的話，在「填現有庫存」填 0 清掉。</p></div>` : ''}`;
@@ -733,7 +736,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // A shop in the panel: what it sells and how many have been bought this week; 填已購買 opens the form.
   function shopHTML(n) {
     const rows = n.items.map((i) => `<li><button class="go buy-line" type="button" data-buyopen="${esc(n.id)}"><span>${nameHTML(i.name)}</span>
-      <span class="num">已買 ${fmt(i.buy.bought)}／${fmt(i.buy.per.length * SHOP.limit)}</span></button></li>`).join('');
+      <span class="num">${i.buy.bought >= i.buy.per.length * SHOP.limit ? '已售完' : '已買'} ${fmt(i.buy.bought)}／${fmt(i.buy.per.length * SHOP.limit)}</span></button></li>`).join('');
     return `<div class="sec"><ul class="rows">${rows}</ul><button class="btn primary buy-open" type="button" data-buyopen="${esc(n.id)}">填已購買</button></div>`;
   }
 
@@ -1099,7 +1102,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         <input class="have" data-bm="${c}|${esc(i.buy.key)}" inputmode="numeric" value="${(i.buy.per[c] || {}).bought || ''}" placeholder="0" aria-label="${esc(i.name)}${many ? ` 角色 ${c + 1}` : ''} 已購買">
         <span class="muted">／${SHOP.limit}</span><button class="btn small" type="button" data-bmfill>滿</button></div>`).join('')}</fieldset>`).join('');
     $('sheet-form').dataset.kind = 'buy';
-    $('sheet-form').innerHTML = `<h2>${esc(n.title)}</h2><p class="muted">這週已經買了幾個？每樣最多 ${SHOP.limit} 個${many ? '，每隻角色分開算' : ''}。</p>
+    $('sheet-form').innerHTML = `<h2>${esc(n.title)}</h2><p class="muted">這週已經買了幾個？每樣最多 ${SHOP.limit} 個${many ? '，每隻角色分開算' : ''}。這裡只記額度，背包請另外更新。</p>
       ${groups}
       <div class="bm-act"><button class="btn small" type="button" data-bmall>全部填滿</button><span class="grow"></span>
         <button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
@@ -1145,7 +1148,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const first = $('sheet-form').querySelector('input:not([disabled])');
     if (first) first.select();
   }
-  // 完成: every number that changed is saved (a purchase or 已入庫 moves the stock with it).
+  // 完成: every number that changed is saved (已入庫 moves the stock with it; a purchase doesn't).
   $('sheet-form').addEventListener('submit', (e) => {
     e.preventDefault();
     if ($('sheet-form').dataset.kind === 'orders') { saveOrders(); return; }

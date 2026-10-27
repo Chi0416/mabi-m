@@ -256,11 +256,12 @@
   const held = (name) => Math.max(0, Math.floor(Number(S.have[name])) || 0);
 
   /* ---------- stock and this week's purchases ---------- */
-  // The week's work moves the stock the way the game does: a purchase adds to it, a batch processed takes its inputs
-  // and adds its output, a dish assembled takes its inputs. The plan works from base(): what would be in hand had none
-  // of this week's processing or assembly happened, so the stock can be typed in from the game at any point.
+  // The week's work moves the stock the way the game does: a batch processed takes its inputs and adds its output, a
+  // dish assembled takes its inputs (a purchase doesn't: the bag is typed in from the game after buying). The plan
+  // works from base(): what would be in hand had none of this week's processing or assembly happened, so the stock can
+  // be typed in from the game at any point.
   // A page may follow every move (onStock): the item, how much it really moved and why — { use: step } a step took (or
-  // gave back) its inputs, { make: step } a step's output, { lane } a station's round given back, { buy: true }.
+  // gave back) its inputs, { make: step } a step's output, { lane } a station's round given back.
   let stockHook = null;
   const onStock = (fn) => { stockHook = fn; };
   const bump = (name, d, why = {}) => {
@@ -289,15 +290,15 @@
     return { used, made };
   }
   const baseOf = (name, U) => Math.max(0, Math.round(held(name) + (U.used.get(name) || 0) - (U.made.get(name) || 0)));
-  // A purchase: key 'who|town|item', character c (0 = first); the stock moves by the difference.
+  // A purchase: key 'who|town|item', character c (0 = first). It only uses up the shop's weekly limit; the stock is
+  // typed in from the game's bag whenever it changes, so a purchase doesn't move it.
   const boughtBy = (key) => (Array.isArray(S.done.bought[key]) ? S.done.bought[key] : []);
   function setBought(key, c, n) {
     n = Math.min(SHOP.limit, Math.max(0, Math.floor(Number(n)) || 0));
-    const list = boughtBy(key).slice(), old = Math.max(0, Math.floor(Number(list[c])) || 0);
+    const list = boughtBy(key).slice();
     list[c] = n;
     while (list.length && !list[list.length - 1]) list.pop();
     if (list.length) S.done.bought[key] = Array.from(list, (v) => v || 0); else delete S.done.bought[key];
-    bump(key.slice(key.lastIndexOf('|') + 1), n - old, { buy: true });
   }
   // A finished count: processed (batches) or assembled (dishes); the stock moves by the difference.
   function setDone(kind, key, n) {
