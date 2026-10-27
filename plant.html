@@ -86,6 +86,14 @@ button.sum:hover b { color: var(--accent); }
 .blk .ln span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; }
 .blk .ln.bad { color: var(--bad); }
 .blk-cut { margin: 3px 0; border-top: 1px dashed #b9c3cd; }
+/* a dish's material collection on the assembly card: its name, then a bar and the count */
+.blk-dish { display: block; font-size: 13px; line-height: 1.5; }
+.blk-prog { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.blk-bar { flex: 1 1 auto; display: block; height: 6px; border-radius: 3px; background: var(--idle-soft); overflow: hidden; }
+.blk-bar i { display: block; height: 100%; background: var(--wait); border-radius: 3px; }
+.blk-prog .n { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.blk-dish.ok .blk-bar i { background: var(--ok); }
+.blk-dish.bad .n { color: var(--bad); }
 .blk .foot { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
 .btn { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
 .btn:hover { background: #e9edf1; }
@@ -272,7 +280,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.5</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.6</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -396,7 +404,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // what its station's share came to. Each item: need, have (the share), lack, made (an item a station makes, not one
   // to buy or gather), mat. Each out: left (still to do, batches or dishes), can (how many of those the share covers),
   // none (a dish the week can't make any of). cut lists the missing items the shop limits can't cover, on the last
-  // 投料區 that takes them.
+  // 投料區 that takes them. A dish's out also has mats: each of its materials, what it still takes and what its own
+  // share of the bag came to.
   function makeZones(stations) {
     const dishSet = new Set(A.rows.map((o) => o.dish)), made = new Set(stations.flatMap((n) => n.lane.steps.map((s) => s.name)));
     const zoneOf = new Map();
@@ -437,6 +446,13 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         if (!it) c.z.items.push(it = { name: i.item, need: 0, have: 0, made: made.has(i.item), mat: A.mats.find((m) => m.name === i.item) });
         it.need += want;
         it.have += got;
+        const o = c.z.asm && c.z.outs.find((x) => x.name === c.name);
+        if (o) {
+          const m = (o.mats || (o.mats = new Map())).get(i.item) || { need: 0, have: 0 };
+          m.need += want;
+          m.have += got;
+          o.mats.set(i.item, m);
+        }
       }
     }
     // How many of each out its 投料區's share covers, in the same order.
@@ -645,11 +661,22 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return rowsOf(n).map((x) => line(x.item, `${dp(x)} 批`, x.done >= x.plan ? 'ok' : '')).join('')
         + `<span class="foot">${esc(now)}${L.queue == null ? '・排程上限待補' : ''}</span>`;
     }
+    // assembly: each dish on its own, wish list order — how many of its materials its share of the bag covers in full,
+    // with a bar, until they all are and it says 可以組裝 (or ✓ 完成 once it is marked done)
     if (n.kind === 'assembly') {
-      const made = new Set(P.steps.map((s) => s.name)), inputs = [...new Set(n.lane.steps.flatMap((s) => s.r.inputs.map((i) => i.item)))];
-      if (!PR.assemble.length) return line('沒有要組裝的', '');
-      return PR.assemble.map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('')
-        + `<span class="foot">直接料 ${esc(inputs.filter((i) => !made.has(i)).join('、') || '—')}・加工料 ${esc(inputs.filter((i) => made.has(i)).join('、') || '—')}</span>`;
+      const z = ZONES.find((x) => x.station === n), at = (name) => A.rows.findIndex((o) => o.dish === name);
+      const outs = z ? z.outs.slice().sort((a, b) => at(a.name) - at(b.name)) : [];
+      if (!outs.length) return line('沒有要組裝的', '');
+      // the dish's name, then its bar and count on one line, the same shape for every dish
+      const dish = (o, f, text, cls = '') => `<span class="blk-dish${cls ? ` ${cls}` : ''}"><span class="nm">${esc(o.name)}</span>
+        <span class="blk-prog"><span class="blk-bar" aria-hidden="true"><i style="width:${Math.round(f * 100)}%"></i></span><span class="n">${text}</span></span></span>`;
+      return outs.map((o) => {
+        if (o.none) return dish(o, 0, '這週做不了', 'bad');
+        if (!o.left) return dish(o, 1, '✓ 完成', 'ok');
+        if (o.can >= o.left) return dish(o, 1, '✓ 可以組裝', 'ok');
+        const mats = [...(o.mats || new Map()).values()], ok = mats.filter((m) => m.have >= m.need).length;
+        return dish(o, mats.length ? ok / mats.length : 0, `材料 ${fmt(ok)}／${fmt(mats.length)} 樣`);
+      }).join('');
     }
     // 訂單: each dish done (完成) or not yet
     return (PR.assemble.map((r) => line(r.item, r.done >= r.plan ? '✓ 完成' : '還沒', r.done >= r.plan ? 'ok' : '')).join('') || line('沒有訂單', ''))
