@@ -280,7 +280,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.6</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.7</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -637,6 +637,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   function blockLines(n) {
     const line = (name, v, cls = '') => `<span class="ln ${cls}"><span>${esc(name)}</span><span>${v}</span></span>`;
     const dp = (r) => `${fmt(r.done)}／${fmt(r.plan)}`;
+    // a dish on the assembly and 訂單 cards: its name, then a bar (f of it full) and a count on one line, the same
+    // shape for every dish
+    const dish = (name, f, text, cls = '') => `<span class="blk-dish${cls ? ` ${cls}` : ''}"><span class="nm">${esc(name)}</span>
+        <span class="blk-prog"><span class="blk-bar" aria-hidden="true"><i style="width:${Math.round(f * 100)}%"></i></span><span class="n">${text}</span></span></span>`;
     // a shop: what every character can still buy there; gathering: what is still to gather
     if (n.kind === 'shop') return n.items.map((i) => {
       const left = i.buy.per.length * SHOP.limit - i.buy.bought;
@@ -667,20 +671,24 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const z = ZONES.find((x) => x.station === n), at = (name) => A.rows.findIndex((o) => o.dish === name);
       const outs = z ? z.outs.slice().sort((a, b) => at(a.name) - at(b.name)) : [];
       if (!outs.length) return line('沒有要組裝的', '');
-      // the dish's name, then its bar and count on one line, the same shape for every dish
-      const dish = (o, f, text, cls = '') => `<span class="blk-dish${cls ? ` ${cls}` : ''}"><span class="nm">${esc(o.name)}</span>
-        <span class="blk-prog"><span class="blk-bar" aria-hidden="true"><i style="width:${Math.round(f * 100)}%"></i></span><span class="n">${text}</span></span></span>`;
       return outs.map((o) => {
-        if (o.none) return dish(o, 0, '這週做不了', 'bad');
-        if (!o.left) return dish(o, 1, '✓ 完成', 'ok');
-        if (o.can >= o.left) return dish(o, 1, '✓ 可以組裝', 'ok');
+        if (o.none) return dish(o.name, 0, '這週做不了', 'bad');
+        if (!o.left) return dish(o.name, 1, '✓ 完成', 'ok');
+        if (o.can >= o.left) return dish(o.name, 1, '✓ 可以組裝', 'ok');
         const mats = [...(o.mats || new Map()).values()], ok = mats.filter((m) => m.have >= m.need).length;
-        return dish(o, mats.length ? ok / mats.length : 0, `材料 ${fmt(ok)}／${fmt(mats.length)} 樣`);
+        return dish(o.name, mats.length ? ok / mats.length : 0, `材料 ${fmt(ok)}／${fmt(mats.length)} 樣`);
       }).join('');
     }
-    // 訂單: each dish done (完成) or not yet
-    return (PR.assemble.map((r) => line(r.item, r.done >= r.plan ? '✓ 完成' : '還沒', r.done >= r.plan ? 'ok' : '')).join('') || line('沒有訂單', ''))
-      + '<span class="foot">點一下看訂單</span>';
+    // 訂單: each dish (wish list order, a dish ordered twice as one) with how many are done of how many are ordered
+    const ordered = new Map();
+    for (const o of A.rows) ordered.set(o.dish, (ordered.get(o.dish) || 0) + o.qty);
+    if (!ordered.size) return line('沒有訂單', '');
+    return [...ordered].map(([name, qty]) => {
+      const r = PR.assemble.find((x) => x.item === name);
+      if (!r) return dish(name, 0, `做不了・0／${fmt(qty)}`, 'bad');
+      const done = Math.min(r.done, qty), all = r.done >= r.plan;
+      return dish(name, qty ? done / qty : 0, `${all ? '✓ ' : ''}完成 ${fmt(done)}／${fmt(qty)}`, all ? 'ok' : '');
+    }).join('');
   }
   function blocksHTML() {
     return `<div class="flow">${STAGES.map(([key, title]) => {
