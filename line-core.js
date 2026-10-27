@@ -256,10 +256,10 @@
   const held = (name) => Math.max(0, Math.floor(Number(S.have[name])) || 0);
 
   /* ---------- stock and this week's purchases ---------- */
-  // The week's work moves the stock the way the game does: a batch processed takes its inputs and adds its output, a
-  // dish assembled takes its inputs (a purchase doesn't: the bag is typed in from the game after buying). The plan
-  // works from base(): what would be in hand had none of this week's processing or assembly happened, so the stock can
-  // be typed in from the game at any point.
+  // The week's processing moves the stock the way the game does: a batch processed takes its inputs and adds its
+  // output. A purchase or a dish marked 完成 doesn't: the bag is typed in from the game after buying or cooking. The
+  // plan works from base(): what would be in hand had none of this week's processing or assembly happened, so the stock
+  // can be typed in from the game at any point.
   // A page may follow every move (onStock): the item, how much it really moved and why — { use: step } a step took (or
   // gave back) its inputs, { make: step } a step's output, { lane } a station's round given back.
   let stockHook = null;
@@ -271,10 +271,9 @@
   };
   function worked(kind, name, d) {
     const r = REC.get(name);
-    if (!r || !d) return;
-    const per = kind === 'assembled' ? d / yieldOf(r) : d;
-    for (const i of r.inputs) bump(i.item, -i.qty * per, { use: name });
-    if (kind === 'processed') bump(name, yieldOf(r) * d, { make: name });
+    if (!r || !d || kind !== 'processed') return;
+    for (const i of r.inputs) bump(i.item, -i.qty * d, { use: name });
+    bump(name, yieldOf(r) * d, { make: name });
   }
   // What this week's finished batches, rounds still running and assembled dishes have taken (used) and made, by item.
   function usedThisWeek() {
@@ -300,7 +299,7 @@
     while (list.length && !list[list.length - 1]) list.pop();
     if (list.length) S.done.bought[key] = Array.from(list, (v) => v || 0); else delete S.done.bought[key];
   }
-  // A finished count: processed (batches) or assembled (dishes); the stock moves by the difference.
+  // A finished count: processed (batches; the stock moves by the difference) or assembled (dishes, 完成; it doesn't).
   function setDone(kind, key, n) {
     n = Math.max(0, Math.floor(Number(n)) || 0);
     const old = Math.max(0, Math.floor(Number(S.done[kind][key])) || 0);

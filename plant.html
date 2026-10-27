@@ -106,12 +106,15 @@ button.sum:hover b { color: var(--accent); }
 .ord-h b { font-size: 16px; color: var(--ink); }
 .ord-h .btn { letter-spacing: 0; }
 .orders-sec > .bar { height: 8px; }
-.ord-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+/* an order: number | dish, its light (and how many the week can make) | how many, 完成 */
+.ord-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--line); }
 .ord-row .wish-n { grid-row: span 2; }
 .ord-name { min-width: 0; font-size: 15px; }
-.ord-qty { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ord-cap { font-size: 12px; color: var(--muted); }
-.ord-row .badge { justify-self: end; padding: 0 8px; font-size: 12px; }
+.ord-qty { justify-self: end; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ord-state { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.ord-state .badge { padding: 0 8px; font-size: 12px; }
+.ord-state small { font-size: 12px; }
+.ord-row > .btn { justify-self: end; min-width: 56px; }
 .ord-cut { color: var(--bad); }
 /* the order form: the whole wish list at once — ⠿ (or ▲▼) moves a line, ✕ takes it off, 上限 in small type under
    the count; nothing is kept until 完成 */
@@ -200,16 +203,6 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .round-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--muted); }
 .note.bad-text { font-weight: 500; }
 /* a line with a tick, what it is, the plan and what is done or in stock */
-.done-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: 4px 12px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
-.done-row .chk { width: 20px; height: 20px; border-radius: 5px; border: 2px solid var(--line); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; }
-.done-row.is-done .chk { background: var(--ok); border-color: var(--ok); }
-.done-row.is-done .what b { color: var(--muted); text-decoration: line-through; }
-.done-row.is-locked { opacity: .7; }
-.done-row .what small { display: block; font-size: 12px; color: var(--muted); }
-.panel .done-row { grid-template-columns: 22px minmax(0, 1fr) auto; }
-.panel .done-row .plan, .panel .done-row .act { grid-column: 2; }
-.done-row .what em { display: block; font-style: normal; font-size: 12px; color: var(--wait); }
-.done-row .what em.go-on { color: var(--ok); }
 /* a shop in the panel, and the 填已購買 form over the page */
 .buy-line { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .buy-line .num { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -227,13 +220,6 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .bm-row > .muted { white-space: nowrap; }
 .bm-act { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
 .bm-act .grow { flex: 1; }
-.done-row .plan { font-size: 13px; color: var(--muted); white-space: nowrap; }
-.done-row .act { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
-@media (max-width: 640px) {
-  .done-row { grid-template-columns: 22px minmax(0, 1fr) auto; }
-  .done-row .plan { grid-column: 2; }
-  .done-row .act { grid-column: 2; }
-}
 
 /* the side panel */
 .panel { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
@@ -286,7 +272,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.3</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.4</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a></nav>
   </div>
 </header>
@@ -612,13 +598,19 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       if (n.outs.every((o) => o.can >= o.left)) return ['ok', n.asm ? '全部可以一次製作' : '全部可以一次加工'];
       return [can ? 'ok' : 'idle', n.asm ? `可以製作 ${fmt(can)}／${fmt(left)} 份` : `可以加工 ${fmt(can)}／${fmt(left)} 批`];
     }
+    // 訂單: how many of the dishes are done
+    if (n.kind === 'fg') {
+      const all = PR.assemble.length, done = PR.assemble.filter((r) => r.done >= r.plan).length;
+      if (!all) return ['idle', '沒有訂單'];
+      return done >= all ? ['idle', '✓ 全部完成'] : [done ? 'ok' : 'idle', `完成 ${fmt(done)}/${fmt(all)} 道`];
+    }
     const rows = rowsOf(n);
-    if (!rows.length) return ['idle', n.kind === 'fg' || n.kind === 'assembly' ? '沒有訂單' : '—'];
+    if (!rows.length) return ['idle', n.kind === 'assembly' ? '沒有訂單' : '—'];
     const [d, p] = tally(rows);
-    if (d >= p) return ['idle', `✓ ${{ machine: '加工完成', assembly: '組裝完成', fg: '全部入庫' }[n.kind] || `完成 ${fmt(d)}`}`];
-    if (d > 0) return ['ok', `${n.kind === 'fg' ? '入庫' : VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
+    if (d >= p) return ['idle', `✓ ${{ machine: '加工完成', assembly: '組裝完成' }[n.kind] || `完成 ${fmt(d)}`}`];
+    if (d > 0) return ['ok', `${VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
     if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
-    return ['idle', n.kind === 'fg' ? `0/${fmt(p)}` : '未開始'];
+    return ['idle', '未開始'];
   }
 
   /* ---------- blocks: every point as a card, one column per stage ---------- */
@@ -659,7 +651,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return PR.assemble.map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('')
         + `<span class="foot">直接料 ${esc(inputs.filter((i) => !made.has(i)).join('、') || '—')}・加工料 ${esc(inputs.filter((i) => made.has(i)).join('、') || '—')}</span>`;
     }
-    return (PR.assemble.map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('') || line('沒有訂單', ''))
+    // 訂單: each dish done (完成) or not yet
+    return (PR.assemble.map((r) => line(r.item, r.done >= r.plan ? '✓ 完成' : '還沒', r.done >= r.plan ? 'ok' : '')).join('') || line('沒有訂單', ''))
       + '<span class="foot">點一下看訂單</span>';
   }
   function blocksHTML() {
@@ -738,7 +731,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const list = (title, names) => (names.length ? `<h4>${title}</h4><ul class="rows">${names.map(row).join('')}</ul>` : '');
     const other = g.other.map((name) => `<li><span>${nameHTML(name)}</span><span class="num">${fmt(held(name))}</span></li>`).join('');
     return `<div class="sec"><button class="btn primary buy-open" type="button" data-stockopen>填現有庫存</button>
-        <p class="note">照遊戲背包現在的數量填，買了東西也要來這裡改。開工、領料和已入庫會自動加減。</p></div>
+        <p class="note">照遊戲背包現在的數量填，買了東西、做完料理都要來這裡改。只有加工設備的開工和領料會自動加減。</p></div>
       <div class="sec"><h3>這週要用</h3>${list('原料', g.raw) + list('加工品', g.made) || '<p class="muted" style="margin:0">需求清單還沒有要用的料。</p>'}</div>
       ${other ? `<div class="sec"><h3 class="ord-h">這週用不到<span>${fmt(g.other.length)} 種</span></h3><ul class="rows">${other}</ul>
         <p class="note">之前留下來的。不需要的話，在「填現有庫存」填 0 清掉。</p></div>` : ''}`;
@@ -781,27 +774,14 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         ${q.seq.length ? '<p class="note">拖 ⠿ 換順序，或拖進上面的空格。</p>' : ''}</div>`;
   }
 
+  // 訂單, the panel's default view: the wish list alone — shortages and missing data show on the cards and the summary.
   function overviewHTML() {
-    const alarms = A.mats.filter((m) => m.short).map((m) => goHTML(zoneFor(m.name), `${esc(m.name)}原物料不足，缺 ${fmt(m.short)}`, `${esc(m.users.join('、'))}做不滿・點開看對策`));
-    const issues = [];
-    if (BY.has('unknown')) issues.push(goHTML('unknown', '有原料來源待補', esc(BY.get('unknown').items.map((i) => i.name).join('、'))));
-    for (const n of NODES) if (n.kind === 'machine' && n.lane.steps.some((s) => s.secs == null)) issues.push(goHTML(n.id, `${esc(n.title)}的時間待補`, '補上才能排時間'));
-    for (const n of NODES) if (n.kind === 'machine' && n.lane.queue == null) issues.push(goHTML(n.id, `${esc(n.title)}的排程上限待補`, '先當一次排 1 批'));
-    return `<div class="panel-head"><div class="kind">總覽</div><h2>訂單</h2></div>
-      ${ordersHTML()}
-      <div class="sec"><h3>本週進度</h3>${barHTML(PR.total ? PR.finished / PR.total : 0, 'done')}<p class="note">完成 ${fmt(PR.finished)}／${fmt(PR.total)} 項（買、採、加工、組裝每一項做滿算一項）</p></div>
-      <div class="sec${alarms.length ? ' alert' : ''}"><h3>異常</h3>${alarms.length ? `<ul class="rows">${alarms.map((x) => `<li>${x}</li>`).join('')}</ul>` : '<p class="muted" style="margin:0">沒有異常，原物料都夠。</p>'}</div>
-      ${issues.length ? `<div class="sec"><h3>待補</h3><ul class="rows">${issues.map((x) => `<li>${x}</li>`).join('')}</ul></div>` : ''}`;
+    return `<div class="panel-head"><h2 class="ord-h">訂單<button class="btn small" type="button" data-oopen>編輯</button></h2></div>${ordersHTML()}`;
   }
 
   function nodeHTML(n) {
     const st = statusOf(n);
     const head = `<div class="panel-head"><button class="back" type="button" data-go="">◀ 訂單</button><div class="kind">${esc(W[n.kind])}</div><h2>${esc(n.title)} ${badge(st)}</h2></div>`;
-    // A station's actuals, the same as on the completion list.
-    const mine = n.kind === 'machine' || n.kind === 'assembly' ? rowsOf(n) : [];
-    const actual = mine.length ? `<div class="sec"><h3>${n.kind === 'machine' ? '已完成・要修正再改' : '實績・本週'}</h3>${mine.map((r) => (r.kind === 'assembled'
-      ? doneRow(r, r.done >= r.plan ? '' : r.ready ? '<em class="go-on">可以組裝</em>' : `<em>等：${esc(r.waiting.join('、'))}</em>`, 'p', !r.ready && r.done < r.plan)
-      : doneRow(r, r.kind === 'processed' && r.waiting.length && r.done < r.plan ? `<em>等料：${esc(r.waiting.join('、'))}還沒齊</em>` : '', 'p'))).join('')}</div>` : '';
     if (n.kind === 'shop') {
       return head + shopHTML(n);
     }
@@ -827,7 +807,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
       if (!L.steps.length) return head + '<div class="sec"><p class="muted" style="margin:0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯」加一道菜。</p></div>';
       for (const s of L.steps) for (const i of s.r.inputs) need.set(i.item, (need.get(i.item) || 0) + s.batches * i.qty);
-      return head + actual + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
+      return head + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
           <span class="sub">一個用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul><p class="note">組裝只要十幾秒，不計時。</p></div>
         <div class="sec"><h3>要備齊的料</h3><ul class="rows">${[...need].map(([item, q]) => `<li><span>${nameHTML(item)}<span class="muted">${made.has(item) ? '・加工料，從加工站來' : '・直接料，先放這裡等'}</span></span><span class="num">${fmt(q)}</span></li>`).join('')}</ul></div>`;
     }
@@ -852,52 +832,35 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 
   /* ---------- the wish list and the materials it takes ---------- */
   const stepper = (key, value, label, step) => `<span class="stepper"><button class="btn" type="button" data-step="${key}|-${step}" aria-label="${label}少 ${step}">−${step}</button><input data-num="${key}" data-f="n:${key}" inputmode="numeric" value="${value}" aria-label="${label}"><button class="btn" type="button" data-step="${key}|${step}" aria-label="${label}多 ${step}">+${step}</button></span>`;
-  // One order line's status: from its 成品倉 row (a dish ordered on two lines is assembled as one, its stock counted
-  // on the first line).
+  // One order line's status (a dish ordered on two lines is made as one, on the first line).
   function orderStatus(o) {
     const r = PR.assemble.find((x) => x.item === o.dish), first = A.rows.find((x) => x.dish === o.dish).i;
     if (!r) return ['bad', '做不了'];
-    if (first !== o.i) return ['idle', `跟第 ${first + 1} 道一起入庫`];
-    if (r.done >= r.plan) return ['idle', '✓ 已入庫'];
+    if (first !== o.i) return ['idle', `跟第 ${first + 1} 道一起完成`];
+    if (r.done >= r.plan) return ['idle', '✓ 完成'];
     if (r.ready) return ['wait', '可以組裝'];
     return PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
   }
-  // 訂單, the panel's default view, shown only: the wish list, each dish and how many, with what the week can make of
-  // it and its status in small type, then 已入庫. 編輯 opens the whole list in one form, 填已入庫 the stock of dishes.
+  // The wish list: each dish, how many, its light and 完成 — greyed out until its ingredients are all in hand; a done
+  // one can be taken back (取消). Marking it leaves the bag alone. A line the week can't make in full says how many it
+  // can, and 完成 means those are made.
   function ordersHTML() {
-    const [inD, inP] = tally(PR.assemble);
-    const rows = A.rows.map((o) => `<div class="ord-row">
+    const rows = A.rows.map((o) => {
+      const r = PR.assemble.find((x) => x.item === o.dish), own = r && A.rows.find((x) => x.dish === o.dish).i === o.i;
+      const act = !own ? '<span></span>' : r.done >= r.plan
+        ? `<button class="btn small" type="button" data-odone="${esc(r.key)}|0">取消</button>`
+        : `<button class="btn small primary" type="button" data-odone="${esc(r.key)}|${r.plan}"${r.ready ? '' : ' disabled'}>完成</button>`;
+      return `<div class="ord-row">
         <span class="wish-n">${o.i + 1}</span>
         <span class="ord-name">${nameHTML(o.dish)}</span>
         <span class="ord-qty">×${fmt(o.qty)}</span>
-        <small class="ord-cap"><span${o.n < o.qty ? ' class="ord-cut"' : ''}>可做 ${fmt(o.n)}</span>${o.max < Infinity ? `・上限 ${fmt(o.max)}` : ''}</small>
-        ${badge(orderStatus(o))}
-      </div>`).join('');
-    return `<div class="sec orders-sec"><h3 class="ord-h">需求清單<button class="btn small" type="button" data-oopen>編輯</button></h3>
+        <span class="ord-state">${badge(orderStatus(o))}${o.n < o.qty ? `<small class="ord-cut">這週只做得出 ${fmt(o.n)}</small>` : ''}</span>
+        ${act}
+      </div>`;
+    }).join('');
+    return `<div class="sec orders-sec">
       ${rows || '<p class="muted" style="margin:0">還沒有訂單，按「編輯」加一道菜。</p>'}
       ${A.rows.length > 1 ? '<p class="note">越上面越先分到限購材料。</p>' : ''}
-    </div>
-    ${inP ? `<div class="sec orders-sec"><h3 class="ord-h">已入庫<span><b>${fmt(inD)}</b>／${fmt(inP)}</span></h3>
-      ${barHTML(inD / inP, 'done')}
-      <button class="btn primary buy-open" type="button" data-inopen>填已入庫</button>
-    </div>` : ''}`;
-  }
-  /* ---------- a station's finished counts ---------- */
-  const FILL = { bought: '買齊', gathered: '採齊', processed: '全部完成', assembled: '全部入庫' };
-  const UNIT = { bought: '個', gathered: '個', processed: '批', assembled: '個' };
-  const doneInput = (r, where, locked) => `<input class="have" data-done="${r.kind}|${esc(r.key)}" data-f="${where}:${r.kind}|${esc(r.key)}" inputmode="numeric" value="${r.done || ''}" placeholder="0"${locked ? ' disabled' : ''} aria-label="${esc(r.item)} ${VERB[r.kind]}">`;
-  const fillButton = (r, locked) => (r.done >= r.plan
-    ? `<button class="btn small" type="button" data-donefill="${r.kind}|0|${esc(r.key)}">清除</button>`
-    : `<button class="btn small" type="button" data-donefill="${r.kind}|${r.plan}|${esc(r.key)}"${locked ? ' disabled' : ''}>${FILL[r.kind]}</button>`);
-  // One line: tick, what and where, the plan, the actual and a button that fills it to plan (or clears it).
-  function doneRow(r, sub, where, locked = false) {
-    const done = r.done >= r.plan;
-    return `<div class="done-row${done ? ' is-done' : ''}${locked ? ' is-locked' : ''}">
-      <span class="chk" aria-hidden="true">${done ? '✓' : ''}</span>
-      <span class="what">${nameHTML(r.item)}${sub ? `<small>${sub}</small>` : ''}</span>
-      <span class="plan">計畫 ${fmt(r.plan)} ${UNIT[r.kind]}</span>
-      <label class="act">${VERB[r.kind]}${doneInput(r, where, locked)}</label>
-      ${fillButton(r, locked)}
     </div>`;
   }
   // 原物料: every raw material the week takes — what is still to use, the bag's stock (shown only; it is typed in on
@@ -954,11 +917,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const sum = (k, v, go, cls = '') => (go != null ? `<button class="sum ${cls}" type="button" data-go="${esc(go)}"><span class="k">${k}</span><b>${v}</b></button>` : `<span class="sum ${cls}"><span class="k">${k}</span><b>${v}</b></span>`);
     $('app').innerHTML = `<div class="card summary">
         <button class="sum" type="button" data-jump="wish"><span class="k">可做／訂單</span><b>${fmt(P.qty)}／${fmt(A.rows.reduce((t, o) => t + o.qty, 0))}</b></button>
-        <button class="sum" type="button" data-jump="stock"><span class="k">入庫</span><b>${fmt(tally(PR.assemble)[0])}／${fmt(P.qty)}</b></button>
+        <button class="sum" type="button" data-jump="stock"><span class="k">完成</span><b>${fmt(PR.assemble.filter((r) => r.done >= r.plan).length)}／${fmt(PR.assemble.length)} 道</b></button>
         ${sum('異常', short.length ? esc(short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')) : '沒有', short.length ? zoneFor(short[0].name) : null, short.length ? 'bad' : '')}
         ${sum('加工', !ps.busy ? '都做完了' : ps.finish != null ? `${esc(hm(ps.finish))} 做完` : '時間待補', station ? station.id : null)}
         <span class="sum edit"><span class="k">幾隻角色去買${charsFromBoard() ? '（照佈告欄）' : ''}</span>${stepper('chars', chars(), '角色數', 1)}</span>
-        <p class="sum-hint">可做、異常、加工是照你填的庫存、已購買、開工和入庫算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
+        <p class="sum-hint">可做、異常、加工是照你填的庫存、已購買、開工和完成算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
       </div>
       <div class="layout">
         <div class="card plant-card">
@@ -989,7 +952,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (stacked() && sel) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // The summary's 可做／訂單 and 入庫, and the 訂單 point, bring the orders back into the panel.
+  // The summary's 可做／訂單 and 完成, and the 訂單 point, bring the orders back into the panel.
   function showOrders() {
     select(null);
     $('panel').scrollTop = 0;
@@ -1123,7 +1086,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   }
   // 填現有庫存, the one place the stock is typed in (from 背包): every raw material the week takes, every made item (one
   // made ahead cuts the batches still to make), then anything else in the bag, each as many as the game's bag holds now
-  // (data-sm). Purchases, 開工, 領料 and 已入庫 move it by themselves.
+  // (data-sm). Only a station's 開工 and 領料 move it by themselves.
   function openStock() {
     const need = new Map();
     for (const z of ZONES) for (const i of z.items) need.set(i.name, (need.get(i.name) || 0) + i.need);
@@ -1141,32 +1104,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const first = $('sheet-form').querySelector('input');
     if (first) first.select();
   }
-  // 填已入庫: every dish on the wish list and how many are in stock; one still waiting for its ingredients can't be
-  // filled in yet.
-  function openStocked() {
-    const rows = PR.assemble.map((r) => {
-      const locked = !r.ready && r.done < r.plan;
-      return `<div class="bm-row"><span class="bm-name">${nameHTML(r.item)}${locked ? `<small class="muted">等：${esc(r.waiting.join('、'))}</small>` : ''}</span>
-        <input class="have" data-im="${esc(r.key)}" inputmode="numeric" value="${r.done || ''}" placeholder="0"${locked ? ' disabled' : ''} aria-label="${esc(r.item)} 已入庫">
-        <span class="muted">／${fmt(r.plan)}</span><button class="btn small" type="button" data-imfill="${r.plan}"${locked ? ' disabled' : ''}>滿</button></div>`;
-    }).join('');
-    $('sheet-form').dataset.kind = 'stocked';
-    $('sheet-form').innerHTML = `<h2>填已入庫</h2><p class="muted">做好的料理放進倉庫幾個了？料還沒齊的，要等齊了才能填。</p>
-      <fieldset class="bm-char">${rows}</fieldset>
-      <div class="bm-act"><button class="btn small" type="button" data-imall>全部填滿</button><span class="grow"></span>
-        <button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
-    $('sheet').showModal();
-    const first = $('sheet-form').querySelector('input:not([disabled])');
-    if (first) first.select();
-  }
-  // 完成: every number that changed is saved (已入庫 moves the stock with it; a purchase doesn't).
+  // 完成: every number that changed is saved (a purchase doesn't move the stock).
   $('sheet-form').addEventListener('submit', (e) => {
     e.preventDefault();
     if ($('sheet-form').dataset.kind === 'orders') { saveOrders(); return; }
-    for (const inp of $('sheet-form').querySelectorAll('[data-im]:not([disabled])')) {
-      const key = inp.dataset.im, n = Math.max(0, Math.floor(Number(inp.value)) || 0);
-      if (n !== (Math.max(0, Math.floor(Number(S.done.assembled[key])) || 0))) setDone('assembled', key, n);
-    }
     for (const inp of $('sheet-form').querySelectorAll('[data-sm]')) {
       const name = inp.dataset.sm, n = Math.max(0, Math.floor(Number(inp.value)) || 0);
       if (n === held(name)) continue;
@@ -1188,10 +1129,6 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const one = e.target.closest('[data-bmfill]');
     if (one) { one.closest('.bm-row').querySelector('input').value = SHOP.limit; return; }
     if (e.target.closest('[data-bmall]')) d.querySelectorAll('[data-bm]').forEach((x) => { x.value = SHOP.limit; });
-    // 填已入庫: 滿 fills one dish, 全部填滿 every one that can be filled
-    const fill = e.target.closest('[data-imfill]');
-    if (fill) { fill.closest('.bm-row').querySelector('input').value = fill.dataset.imfill; return; }
-    if (e.target.closest('[data-imall]')) d.querySelectorAll('[data-imfill]:not([disabled])').forEach((x) => { x.closest('.bm-row').querySelector('input').value = x.dataset.imfill; });
     // the order form: ▲▼ moves a line, ✕ takes it off, ＋ 加一道菜 adds the first dish not on the list yet
     const mv = e.target.closest('[data-oemove]');
     if (mv) { const [i, k] = mv.dataset.oemove.split('|').map(Number); moveDraft(i, i + k); return; }
@@ -1309,7 +1246,9 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (open) { openBuy(open.dataset.buyopen); return; }
     if (e.target.closest('[data-stockopen]')) { openStock(); return; }
     if (e.target.closest('[data-oopen]')) { openOrders(); return; }
-    if (e.target.closest('[data-inopen]')) { openStocked(); return; }
+    // 完成 / 取消 on an order (data-odone 'dish|count'): only the count is kept, the bag stays as typed in
+    const od = e.target.closest('[data-odone]');
+    if (od) { const v = od.dataset.odone, a = v.lastIndexOf('|'); setDone('assembled', v.slice(0, a), v.slice(a + 1)); save(); render(); return; }
     const go = e.target.closest('[data-go]');
     if (go) { pick(go.dataset.go); return; }
     const jump = e.target.closest('[data-jump]');
