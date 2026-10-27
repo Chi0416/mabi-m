@@ -252,6 +252,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .bar i { display: block; height: 100%; background: var(--ok); }
 .bar.full i { background: var(--bad); } .bar.cap i { background: var(--wait); } .bar.done i { background: var(--done); }
 .go { font: inherit; text-align: left; width: 100%; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
+.go.go-link { display: inline; width: auto; text-align: right; font-size: 13px; color: var(--accent); }
+.note.dish-recipe { margin: 4px 0 2px; }
 .go:hover b { color: var(--accent); text-decoration: underline; }
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; }
 .kv dt { color: var(--muted); }
@@ -280,7 +282,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.7</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.8</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -501,6 +503,23 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       lack: zs.reduce((t, [, i]) => t + i.lack, 0), over: held(name) - zs.reduce((t, [, i]) => t + i.have, 0),
     };
   }
+  // Where a missing material comes from, as a link to that point: the station that makes it (with the batches it still
+  // has to make), a shop with some left this week, the place to gather it, or 來源待補; a shop-only one every shop has
+  // sold out of says so.
+  function whereFrom(item) {
+    const go = (id, text) => `<button class="go go-link" type="button" data-go="${esc(id)}">→ ${esc(text)}</button>`;
+    const m = A.mats.find((x) => x.name === item);
+    if (!m) {
+      if (!REC.has(item)) return '';
+      const lane = stepInfo(item).lane, r = PR.process.find((x) => x.item === item), left = r ? Math.max(0, r.plan - r.done - r.running) : 0;
+      return go(`lane:${lane}`, `${lane}${left ? `（還要做 ${fmt(left)} 批）` : ''}`);
+    }
+    const sh = m.buys.find((x) => x.per.length * SHOP.limit > x.bought);
+    if (sh) return go(`shop:${sh.who}|${sh.town || sh.note}`, `${sh.who} 還能買 ${fmt(sh.per.length * SHOP.limit - sh.bought)}`);
+    if (m.s.gather) { const g = m.s.src.find((x) => x.kind === 'gather').text; return go(`field:${g}`, g); }
+    if (m.s.unknown) return go('unknown', '來源待補');
+    return m.buys.length ? '<span class="bad-text">商店已售完</span>' : '';
+  }
   // Where the stock is typed in, for the notes that point there.
   const BAG_LINK = '<button class="go" type="button" data-go="bag" style="display:inline;width:auto"><b>背包</b></button>';
 
@@ -619,6 +638,12 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const all = PR.assemble.length, done = PR.assemble.filter((r) => r.done >= r.plan).length;
       if (!all) return ['idle', '沒有訂單'];
       return done >= all ? ['idle', '✓ 全部完成'] : [done ? 'ok' : 'idle', `完成 ${fmt(done)}/${fmt(all)} 道`];
+    }
+    // A food station: as soon as one dish not done yet has all its materials (the card's ✓ 可以組裝), 可組裝 — yellow,
+    // someone has to go and make it.
+    if (n.kind === 'assembly') {
+      const z = ZONES.find((x) => x.station === n);
+      if (z && z.outs.some((o) => o.left && o.can >= o.left)) return ['wait', '可組裝'];
     }
     const rows = rowsOf(n);
     if (!rows.length) return ['idle', n.kind === 'assembly' ? '沒有訂單' : '—'];
@@ -838,13 +863,22 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return head + (q ? queueHTML(q) : '') + `<div class="sec grow"><h3 class="ord-h">已完成<span>${esc(tally)}</span></h3>
         ${log ? `<ul class="rows list5" data-keep="log">${log}</ul>` : ''}</div>`;
     }
+    // A food station: each dish (wish list order) — how many, where it stands, what one portion takes, and under that
+    // what is still missing and where to get it. 完成 stays on 訂單.
     if (n.kind === 'assembly') {
-      const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
-      if (!L.steps.length) return head + '<div class="sec"><p class="muted" style="margin:0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯」增加訂單。</p></div>';
-      for (const s of L.steps) for (const i of s.r.inputs) need.set(i.item, (need.get(i.item) || 0) + s.batches * i.qty);
-      return head + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
-          <span class="sub">一個用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul><p class="note">組裝只要十幾秒，不計時。</p></div>
-        <div class="sec"><h3>要備齊的料</h3><ul class="rows">${[...need].map(([item, q]) => `<li><span>${nameHTML(item)}<span class="muted">${made.has(item) ? '・加工料，從加工站來' : '・直接料，先放這裡等'}</span></span><span class="num">${fmt(q)}</span></li>`).join('')}</ul></div>`;
+      const z = ZONES.find((x) => x.station === n), at = (name) => A.rows.findIndex((o) => o.dish === name);
+      const outs = z ? z.outs.slice().sort((a, b) => at(a.name) - at(b.name)) : [];
+      if (!outs.length) return head + '<div class="sec"><p class="muted" style="margin:0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯」增加訂單。</p></div>';
+      return head + outs.map((o) => {
+        const qty = A.rows.filter((x) => x.dish === o.name).reduce((t, x) => t + x.qty, 0), y = yieldOf(o.r);
+        const mats = [...(o.mats || new Map())], ok = mats.filter(([, m]) => m.have >= m.need).length;
+        const state = o.none ? '<span class="bad-text">這週做不了</span>' : !o.left ? '<span class="ok-text">✓ 完成</span>'
+          : o.can >= o.left ? '<span class="ok-text">✓ 可以組裝</span>' : `材料 ${fmt(ok)}／${fmt(mats.length)} 樣`;
+        const miss = o.left && o.can < o.left ? mats.filter(([, m]) => m.have < m.need) : [];
+        return `<div class="sec"><h3 class="ord-h"><span>${nameHTML(o.name)} ×${fmt(qty)}</span><span>${state}</span></h3>
+          <p class="note dish-recipe">一份用：${esc(o.r.inputs.map((i) => `${i.item} ${i.qty}`).join('、'))}${y > 1 ? `（一次做出 ${y} 份）` : ''}</p>
+          ${miss.length ? `<ul class="rows">${miss.map(([item, m]) => `<li><span>${nameHTML(item)} <span class="bad-text">還缺 ${fmt(m.need - m.have)}</span></span><span>${whereFrom(item)}</span></li>`).join('')}</ul>` : ''}</div>`;
+      }).join('');
     }
     // 訂單 is the panel's default view (see pick).
     return head;
@@ -867,14 +901,20 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 
   /* ---------- the wish list and the materials it takes ---------- */
   const stepper = (key, value, label, step) => `<span class="stepper"><button class="btn" type="button" data-step="${key}|-${step}" aria-label="${label}少 ${step}">−${step}</button><input data-num="${key}" data-f="n:${key}" inputmode="numeric" value="${value}" aria-label="${label}"><button class="btn" type="button" data-step="${key}|${step}" aria-label="${label}多 ${step}">+${step}</button></span>`;
-  // One order line's status (a dish ordered on two lines is made as one, on the first line).
+  // A dish on its food station's 投料區 (see makeZones), and whether its own share of the bag covers all it still takes
+  // — the same 可以組裝 as on the assembly card, whatever the other dishes or stations are waiting for.
+  const dishOut = (name) => ZONES.flatMap((z) => (z.asm ? z.outs : [])).find((o) => o.name === name);
+  const canMake = (name) => { const o = dishOut(name); return !!o && o.left > 0 && o.can >= o.left; };
+  // One order line's status (a dish ordered on two lines is made as one, on the first line): 等加工 while one of its
+  // missing materials is a made item, 等料 while only bought or gathered ones are.
   function orderStatus(o) {
     const r = PR.assemble.find((x) => x.item === o.dish), first = A.rows.find((x) => x.dish === o.dish).i;
     if (!r) return ['bad', '做不了'];
     if (first !== o.i) return ['idle', `跟第 ${first + 1} 道一起完成`];
     if (r.done >= r.plan) return ['idle', '✓ 完成'];
-    if (r.ready) return ['wait', '可以組裝'];
-    return PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
+    if (canMake(o.dish)) return ['wait', '可以組裝'];
+    const out = dishOut(o.dish), miss = out ? [...(out.mats || new Map())].filter(([, m]) => m.have < m.need).map(([item]) => item) : [];
+    return miss.some((item) => !A.mats.some((m) => m.name === item)) ? ['idle', '等加工'] : ['wait', '等料'];
   }
   // The wish list: each dish, how many, its light and 完成 — greyed out until its ingredients are all in hand; a done
   // one can be taken back (取消). Marking it leaves the bag alone. A line the week can't make in full says how many it
@@ -884,7 +924,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const r = PR.assemble.find((x) => x.item === o.dish), own = r && A.rows.find((x) => x.dish === o.dish).i === o.i;
       const act = !own ? '<span></span>' : r.done >= r.plan
         ? `<button class="btn small" type="button" data-odone="${esc(r.key)}|0">取消</button>`
-        : `<button class="btn small primary" type="button" data-odone="${esc(r.key)}|${r.plan}"${r.ready ? '' : ' disabled'}>完成</button>`;
+        : `<button class="btn small primary" type="button" data-odone="${esc(r.key)}|${r.plan}"${canMake(o.dish) ? '' : ' disabled'}>完成</button>`;
       return `<div class="ord-row">
         <span class="wish-n">${o.i + 1}</span>
         <span class="ord-name">${nameHTML(o.dish)}</span>
