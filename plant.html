@@ -72,8 +72,6 @@ button.sum:hover b { color: var(--accent); }
 .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 14px; background: var(--panel-2); }
 .stage { display: grid; gap: 8px; align-content: start; min-width: 0; }
 .stage h3 { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; display: flex; align-items: center; gap: 6px; }
-.stage h3:has(.stock-open) { white-space: nowrap; }
-.stage h3 .stock-open { flex: none; margin-left: auto; letter-spacing: 0; }
 .stage + .stage h3::before { content: "→"; color: var(--idle); }
 .blk { font: inherit; color: var(--ink); text-align: left; display: grid; gap: 3px; width: 100%; padding: 9px 10px 10px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--idle); border-radius: 8px; cursor: pointer; }
 .blk.ok { border-left-color: var(--ok); } .blk.wait { border-left-color: var(--wait); } .blk.bad { border-left-color: var(--bad); background: #fff8f8; }
@@ -296,7 +294,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // needs its own words and colours here.
   const THEME = {
     words: {
-      outside: '廠外', shop: '供應商', field: '自有採集', unknown: '來源待補', warehouse: '暫存區', machine: '加工站',
+      outside: '廠外', shop: '供應商', field: '自有採集', unknown: '來源待補', warehouse: '暫存區', bag: '暫存區', machine: '加工站',
       assembly: '組裝站', fg: '訂單',
     },
     status: { ok: '#2e9b5b', wait: '#e0a526', bad: '#d64545', idle: '#9aa5b1' },
@@ -377,7 +375,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       stations.push({ id: `lane:${eq}`, kind: 'assembly', title: eq, lane: { name: eq, equip: eq, steps: extra }, zone: 'in' });
     }
     const zones = makeZones([...stations.filter((n) => n.kind === 'machine'), ...stations.filter((n) => n.kind === 'assembly')]);
-    out.push(...zones, ...stations, { id: 'fg', kind: 'fg', title: W.fg, zone: 'in' });
+    // 背包 heads 暫存區: the whole stock, and the one place it is typed in
+    out.push({ id: 'bag', kind: 'bag', title: '背包', zone: 'in' }, ...zones, ...stations, { id: 'fg', kind: 'fg', title: W.fg, zone: 'in' });
     NODES = out;
     BY = new Map(NODES.map((n) => [n.id, n]));
     PL = queues();
@@ -462,6 +461,25 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   }
   // An out with nothing left to put in: made, or still in the station.
   const outDone = (z, o) => { const r = !z.asm && PR.process.find((x) => x.item === o.name); return r && r.done < r.plan ? '✓ 都投料了' : '✓ 完成'; };
+  // 背包: everything the stock holds or the week takes, in three groups — the raw materials the week takes, the made
+  // items its stations make, and anything else still in the bag (left over from other weeks or other dishes).
+  function bagGroups() {
+    const dishSet = new Set(A.rows.map((o) => o.dish));
+    const raw = A.mats.filter((m) => m.need || m.short).map((m) => m.name);
+    const made = [...new Set(ZONES.flatMap((z) => z.station.lane.steps.map((s) => s.name)))].filter((name) => !dishSet.has(name));
+    const known = new Set([...raw, ...made]);
+    return { raw, made, other: Object.keys(S.have).filter((name) => held(name) && !known.has(name)) };
+  }
+  // An item in the bag: its share in each 投料區 that still takes it, what they miss and what is over.
+  function bagSplit(name) {
+    const zs = ZONES.map((z) => [z, z.items.find((i) => i.name === name)]).filter(([, i]) => i);
+    return {
+      used: zs.length > 0, parts: zs.map(([z, i]) => `${z.station.title} ${fmt(i.have)}`),
+      lack: zs.reduce((t, [, i]) => t + i.lack, 0), over: held(name) - zs.reduce((t, [, i]) => t + i.have, 0),
+    };
+  }
+  // Where the stock is typed in, for the notes that point there.
+  const BAG_LINK = '<button class="go" type="button" data-go="bag" style="display:inline;width:auto"><b>背包</b></button>';
 
   /* ---------- stations' queues ---------- */
   // Clock times in this browser's time zone: 14:05, 明天 01:20, 10/28 09:00.
@@ -530,6 +548,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // [colour key, short text] for a point: red for a shortage or missing data, otherwise how far this week's actuals
   // have got — grey not started, yellow under way or ready to do, green done.
   function statusOf(n) {
+    // 背包: how many of the things the week still takes it is short of.
+    if (n.kind === 'bag') {
+      const g = bagGroups(), short = [...g.raw, ...g.made].filter((name) => bagSplit(name).lack > 0).length;
+      return short ? ['wait', `還缺 ${fmt(short)} 樣`] : ['ok', '這週的料都有'];
+    }
     // A shop: every character's limit used up is 已買滿.
     if (n.kind === 'shop') {
       const per = n.items.flatMap((i) => i.buy.per), B = per.reduce((t, x) => t + x.bought, 0), L = per.length * SHOP.limit;
@@ -577,7 +600,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 
   /* ---------- blocks: every point as a card, one column per stage ---------- */
   const STAGES = [['out', W.outside], ['warehouse', W.warehouse], ['machine', '加工'], ['assembly', '組裝'], ['fg', W.fg]];
-  const stageOf = (n) => (n.zone === 'out' ? 'out' : n.kind);
+  const stageOf = (n) => (n.zone === 'out' ? 'out' : n.kind === 'bag' ? 'warehouse' : n.kind);
 
   // The few lines that say what a point needs this week and how far it has got; the panel has the rest.
   function blockLines(n) {
@@ -590,6 +613,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return line(i.name, left ? `還能買 ${fmt(left)}` : '買滿', i.mat.short ? 'bad' : left ? '' : 'ok');
     }).join('');
     if (n.kind === 'field' || n.kind === 'unknown') return n.items.map((i) => line(i.name, i.mat.get ? `還要採 ${fmt(i.mat.get)}` : '齊', i.mat.get ? '' : 'ok')).join('');
+    // 背包: one line, how many kinds the week still takes and how many it doesn't; the panel lists them
+    if (n.kind === 'bag') {
+      const g = bagGroups();
+      return line(`這週要用 ${fmt([...g.raw, ...g.made].filter((name) => bagSplit(name).used).length)} 種`, g.other.length ? `用不到 ${fmt(g.other.length)} 種` : '');
+    }
     if (n.kind === 'warehouse') return n.outs.map((o) => {
       if (o.none) return line(o.name, '這週做不了', 'bad');
       if (!o.left) return line(o.name, outDone(n, o), 'ok');
@@ -615,9 +643,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     return `<div class="flow">${STAGES.map(([key, title]) => {
       const list = NODES.filter((n) => stageOf(n) === key);
       if (!list.length) return '';
-      // 暫存區's heading carries the one place the stock is typed in
-      const stock = key === 'warehouse' ? '<button class="btn small stock-open" type="button" data-stockopen>填現有庫存</button>' : '';
-      return `<section class="stage"><h3>${esc(title)}${stock}</h3>${list.map((n) => {
+      return `<section class="stage"><h3>${esc(title)}</h3>${list.map((n) => {
         const [k, text] = statusOf(n);
         return `<button class="blk ${k}${sel === n.id ? ' sel' : ''}" type="button" data-go="${esc(n.id)}" data-blk="${esc(n.id)}">
           <span class="blk-head"><span class="blk-name">${esc(n.title)}</span><span class="badge ${k}">${esc(text)}</span></span>
@@ -672,7 +698,24 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const list = (title, items) => (items.length ? `<h4>${title}</h4><ul class="rows">${items.map(mat).join('')}</ul>` : '');
     const mats = list('原料', n.items.filter((i) => !i.made)) + list('加工品', n.items.filter((i) => i.made));
     return `<div class="sec"><h3>${n.asm ? '料理' : '加工品'}</h3>${outs ? `<ul class="rows">${outs}</ul>` : `<p class="muted" style="margin:0">這週不用${n.asm ? '製作' : '加工'}，不用備料。</p>`}</div>
-      ${mats ? `<div class="sec"><h3>要投的料</h3>${mats}<p class="note">數量照背包算；要改庫存，按「暫存區」標題旁的「填現有庫存」。</p></div>` : ''}`;
+      ${mats ? `<div class="sec"><h3>要投的料</h3>${mats}<p class="note">數量照背包算；要改庫存，到暫存區的${BAG_LINK}。</p></div>` : ''}`;
+  }
+  // 背包 in the panel: 填現有庫存 (the one place the stock is typed in), then everything in the bag — what the week still
+  // takes, each with its share in each 投料區, what is short and what is over — then what the week doesn't take.
+  function bagHTML() {
+    const g = bagGroups();
+    const row = (name) => {
+      const b = bagSplit(name);
+      const sub = !b.used ? '這週不用再投' : [`分給 ${esc(b.parts.join('・'))}`, b.lack ? `<span class="bad-text">還缺 ${fmt(b.lack)}</span>` : '', b.over > 0 ? `多 ${fmt(b.over)}` : ''].filter(Boolean).join('・');
+      return `<li><span>${nameHTML(name)}</span><span class="num">${fmt(held(name))}</span><span class="sub">${sub}</span></li>`;
+    };
+    const list = (title, names) => (names.length ? `<h4>${title}</h4><ul class="rows">${names.map(row).join('')}</ul>` : '');
+    const other = g.other.map((name) => `<li><span>${nameHTML(name)}</span><span class="num">${fmt(held(name))}</span></li>`).join('');
+    return `<div class="sec"><button class="btn primary buy-open" type="button" data-stockopen>填現有庫存</button>
+        <p class="note">照遊戲背包現在的數量填。購買、開工、領料和已入庫會自動加減。</p></div>
+      <div class="sec"><h3>這週要用</h3>${list('原料', g.raw) + list('加工品', g.made) || '<p class="muted" style="margin:0">需求清單還沒有要用的料。</p>'}</div>
+      ${other ? `<div class="sec"><h3 class="ord-h">這週用不到<span>${fmt(g.other.length)} 種</span></h3><ul class="rows">${other}</ul>
+        <p class="note">之前留下來的。不需要的話，在「填現有庫存」填 0 清掉。</p></div>` : ''}`;
   }
   // A shop in the panel: what it sells and how many have been bought this week; 填已購買 opens the form.
   function shopHTML(n) {
@@ -738,9 +781,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       // Only how many are still to gather; what is gathered goes into the stock on 暫存區's 填現有庫存.
       return head + `<div class="sec"><ul class="rows">${n.items.map((i) => `<li><span>${nameHTML(i.name)}</span>
           <span class="num${i.mat.get ? '' : ' ok-text'}">${i.mat.get ? `${n.kind === 'field' ? '要採' : '要拿'} ${fmt(i.mat.get)}` : '✓ 齊了'}</span></li>`).join('')}</ul>
-        <p class="note">${n.kind === 'unknown' ? '還不知道在哪拿，先當成不限量。拿到後' : '採回來後'}按「暫存區」標題旁的「填現有庫存」填數量，這裡就會跟著減少。</p></div>`;
+        <p class="note">${n.kind === 'unknown' ? '還不知道在哪拿，先當成不限量。拿到後' : '採回來後'}到暫存區的${BAG_LINK}填數量，這裡就會跟著減少。</p></div>`;
     }
     // the 異常 alarms open the 投料區 a shortage lands on (zoneFor), so each shortage is told there
+    if (n.kind === 'bag') return head + bagHTML();
     if (n.kind === 'warehouse') return head + storeHTML(n) + n.items.filter((i) => i.mat && i.mat.short && zoneFor(i.name) === n.id).map((i) => shortageHTML(i.mat)).join('');
     if (n.kind === 'machine') {
       // 已完成: the week's 領料, newest first; 退回 puts one back
@@ -860,7 +904,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       ${rows || '<p class="muted">這週不用原物料。</p>'}
       ${madeRows ? `<div class="mats-head mats-sub"><h3>加工品</h3><span class="muted">${made.length} 種，要做 ${fmt(sum(made, (s) => s.batches))} 批：做出 ${fmt(sum(made, (s) => s.made))} 個、要用 ${fmt(sum(made, (s) => s.need))} 個</span></div>
       <div class="table-wrap"><table><thead><tr><th>加工品</th><th class="r">要做</th><th class="r">庫存</th><th class="r">做出</th><th class="r">要用</th><th>設備</th></tr></thead><tbody>${madeRows}</tbody></table></div>` : ''}
-      <p class="note">庫存照背包算，要改請按「暫存區」標題旁的「填現有庫存」。</p>
+      <p class="note">庫存照背包算，要改請到暫存區的${BAG_LINK}。</p>
     </section>`;
   }
 
@@ -1047,22 +1091,21 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const first = $('sheet-form').querySelector('input');
     if (first) first.select();
   }
-  // 填現有庫存, the one place the stock is typed in: every raw material the week takes, then every made item (one made
-  // ahead cuts the batches still to make), each as many as the game's bag holds now (data-sm). Purchases, 開工, 領料
-  // and 已入庫 move it by themselves.
+  // 填現有庫存, the one place the stock is typed in (from 背包): every raw material the week takes, every made item (one
+  // made ahead cuts the batches still to make), then anything else in the bag, each as many as the game's bag holds now
+  // (data-sm). Purchases, 開工, 領料 and 已入庫 move it by themselves.
   function openStock() {
     const need = new Map();
     for (const z of ZONES) for (const i of z.items) need.set(i.name, (need.get(i.name) || 0) + i.need);
     const row = (name) => `<div class="bm-row"><span class="bm-name">${nameHTML(name)}<small class="muted">${need.get(name) ? `還要用 ${fmt(need.get(name))}` : '這週不用再投'}</small></span>
       <input class="have" data-sm="${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 現有庫存"></div>`;
-    const dishSet = new Set(A.rows.map((o) => o.dish));
-    const raw = A.mats.filter((m) => m.need || m.short).map((m) => m.name);
-    const made = [...new Set(ZONES.flatMap((z) => z.station.lane.steps.map((s) => s.name)))].filter((name) => !dishSet.has(name));
+    const { raw, made, other } = bagGroups();
     $('sheet-form').dataset.kind = 'stock';
     $('sheet-form').innerHTML = `<h2>填現有庫存</h2><p class="muted">照遊戲背包現在的數量填，每樣一個數字。兩區都要用的料，會照需求清單的順序自動分。</p>
       ${raw.length ? `<fieldset class="bm-char"><legend>原料</legend>${raw.map(row).join('')}</fieldset>` : ''}
       ${made.length ? `<fieldset class="bm-char"><legend>加工品・做好放著的，填了會少做幾批</legend>${made.map(row).join('')}</fieldset>` : ''}
-      ${raw.length || made.length ? '' : '<p class="muted">需求清單還沒有要用的料。</p>'}
+      ${other.length ? `<fieldset class="bm-char"><legend>這週用不到・填 0 就清掉</legend>${other.map(row).join('')}</fieldset>` : ''}
+      ${raw.length || made.length || other.length ? '' : '<p class="muted">背包是空的，需求清單也還沒有要用的料。</p>'}
       <div class="bm-act"><span class="grow"></span><button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
     $('sheet').showModal();
     const first = $('sheet-form').querySelector('input');
