@@ -309,10 +309,11 @@
 
   // A station (see S.done.proc) has `queue` places, each empty (null) or holding one batch { name, at, took }: at null
   // while it waits for 開工, else when the batch starts (ms). It makes one batch at a time, in the order started, and a
-  // finished batch keeps its place until it is collected (領料); an empty place stays empty until a batch is put in.
-  // took is what 開工 really took from the stock (less than the inputs when the stock was short), so taking the batch
-  // back out gives back no more than that. log is the week's 領料, oldest first: { name, k (its place), at, took, done
-  // (when collected), test (finished at once in 測試) }.
+  // finished batch keeps its place until it is collected (領料). The batches fill the places from the top: one taken
+  // out lets those below move up, and the empty places stay at the bottom until a batch is put in. took is what 開工
+  // really took from the stock (less than the inputs when the stock was short), so taking the batch back out gives back
+  // no more than that. log is the week's 領料, oldest first: { name, at, took, done (when collected), test (finished
+  // at once in 測試) }.
   const procOf = (lane) => (S.done.proc[lane] && typeof S.done.proc[lane] === 'object' ? S.done.proc[lane] : (S.done.proc[lane] = {}));
   const secsFor = (name) => (REC.has(name) ? stepInfo(name).secs || 0 : 0) * 1000;
   // null until the places are first used this week (the page then shows the first batches in them, waiting).
@@ -351,6 +352,8 @@
     }
   }
   const logOf = (lane) => (Array.isArray(procOf(lane).log) ? procOf(lane).log : (procOf(lane).log = []));
+  // Place k emptied: the batches below move up, the empty place goes to the bottom.
+  const takeOut = (slots, k) => { slots.splice(k, 1); slots.push(null); };
   // The started batches not yet under way move up behind the others (one under way keeps its start).
   function rechain(slots, now) {
     let free = -Infinity;
@@ -359,7 +362,7 @@
       free = endOf(y);
     }
   }
-  // 領料: a finished batch counts as processed, its output joins the stock, it goes on the log and its place empties.
+  // 領料: a finished batch counts as processed, its output joins the stock, it goes on the log and leaves its place.
   // test: finished at once (測試), without waiting for its time; one still waiting for 開工 takes its inputs first.
   function collectSlot(lane, k, now, test = false) {
     const slots = slotsOf(lane), x = slots && slots[k];
@@ -372,29 +375,28 @@
     }
     S.done.processed[x.name] = (Math.floor(Number(S.done.processed[x.name])) || 0) + 1;
     if (r) bump(x.name, yieldOf(r), { make: x.name });
-    logOf(lane).push({ name: x.name, k, at: x.at, took: x.took || {}, done: now, ...(test ? { test: true } : {}) });
-    slots[k] = null;
+    logOf(lane).push({ name: x.name, at: x.at, took: x.took || {}, done: now, ...(test ? { test: true } : {}) });
+    takeOut(slots, k);
     if (test) rechain(slots, now);
   }
-  // 退回 a 領料 (log entry i): its output leaves the stock again and the batch goes back to its place, finished; when
-  // that place has been taken, it goes back to the front of the queue and what it took returns to the stock.
+  // 退回 a 領料 (log entry i): its output leaves the stock again, what it took goes back to the station's 投料區, and
+  // the batch goes back to the front of the queue.
   function uncollect(lane, i) {
-    const log = logOf(lane), e = log[i], slots = slotsOf(lane);
-    if (!e || !slots) return;
+    const log = logOf(lane), e = log[i];
+    if (!e) return;
     log.splice(i, 1);
     const r = REC.get(e.name), n = (Math.floor(Number(S.done.processed[e.name])) || 0) - 1;
     if (n > 0) S.done.processed[e.name] = n; else delete S.done.processed[e.name];
     if (r) bump(e.name, -yieldOf(r), { make: e.name });
-    if (!slots[e.k]) { slots[e.k] = { name: e.name, at: e.test ? e.done - secsFor(e.name) : e.at, took: e.took }; return; }
-    procOf(lane).order = [e.name, ...(procOf(lane).order || [])];
     for (const [item, qty] of Object.entries(e.took || {})) bump(item, qty, { lane });
+    procOf(lane).order = [e.name, ...(procOf(lane).order || [])];
   }
   // Taking a batch back out of its place: what 開工 took returns to the stock, the batch goes back to the front of the
   // queue, and the started batches behind it move up.
   function cancelSlot(lane, k, now) {
     const slots = slotsOf(lane), x = slots && slots[k];
     if (!x) return;
-    slots[k] = null;
+    takeOut(slots, k);
     procOf(lane).order = [x.name, ...(procOf(lane).order || [])];
     if (x.at == null) return;
     for (const [item, qty] of Object.entries(x.took || {})) bump(item, qty, { lane });

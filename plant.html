@@ -164,6 +164,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
    in; ⠿ drags one to another order or into an empty place */
 .ok-text { color: var(--ok); }
 .slot { display: grid; grid-template-columns: 28px 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 44px; padding: 5px 6px; margin-top: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.slot.place { grid-template-columns: 16px minmax(0, 1fr) auto; }
 .slot.empty { background: transparent; border-style: dashed; color: var(--muted); font-size: 13px; }
 .slot.run, .slot.queue { border-color: rgba(201, 138, 12, .45); background: var(--wait-soft); }
 .slot.queue { background: var(--panel); }
@@ -255,7 +256,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .tips li { margin: 3px 0; }
 .loading, .fail { padding: 24px 16px; }
 
+/* the panel stays on the right, fixed in view, down to 720px; narrower, it goes under the plant */
 @media (max-width: 1000px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+@media (max-width: 720px) {
   .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "plant" "panel" "rest"; }
   .panel { position: static; max-height: none; }
 }
@@ -435,10 +440,12 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const L = n.lane, steps = L.steps.filter((x) => !quick(x)), size = Math.max(1, L.queue || 1), stored = slotsOf(L.name);
       const left = new Map(steps.map((x) => [x.name, Math.max(0, x.batches - (Math.floor(Number(S.done.processed[x.name])) || 0))]));
       const take = (name) => { if (!(left.get(name) > 0)) return false; left.set(name, left.get(name) - 1); return true; };
-      // a started batch is real; a waiting one the plan no longer wants drops out
+      // a started batch is real; a waiting one the plan no longer wants drops out; the batches fill from the top
       const places = Array.from({ length: size }, (_, k) => (stored && stored[k]) || null);
       for (const x of places) if (x && x.at != null) take(x.name);
       places.forEach((x, k) => { if (x && x.at == null && !take(x.name)) places[k] = null; });
+      const filled = places.filter(Boolean);
+      places.splice(0, size, ...filled, ...Array(size - filled.length).fill(null));
       const seq = [];
       for (const name of (S.done.proc[L.name] || {}).order || []) if (take(name)) seq.push(name);
       for (const x of steps) while (take(x.name)) seq.push(x.name);
@@ -638,8 +645,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       ? `<div class="sec"><div class="round-act"><button class="btn primary" type="button" data-start="${lane}">開工</button><span>按下去就從現在開始算</span></div>
         ${q.short.length ? `<p class="note bad-text">庫存不夠：${esc(q.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</p>` : ''}</div>` : '';
     const places = q.slots.map((s, k) => (!s
-      ? `<div class="slot empty" data-place="${k}" data-lane="${lane}"><span></span><span class="no">${k + 1}</span><span>空</span></div>`
-      : `<div class="slot ${s.state}"><span></span><span class="no">${k + 1}</span><span class="what">${nameHTML(s.name)}<small>${esc(placeNote(s))}</small></span>
+      ? `<div class="slot place empty" data-place="${k}" data-lane="${lane}"><span class="no">${k + 1}</span><span>空</span></div>`
+      : `<div class="slot place ${s.state}"><span class="no">${k + 1}</span><span class="what">${nameHTML(s.name)}<small>${esc(placeNote(s))}</small></span>
         <span class="mv">${s.state === 'done' ? `<button class="btn primary small" type="button" data-collect="${lane}|${k}">領料</button>`
           : `${testing ? `<button class="btn small" type="button" data-finish="${lane}|${k}">直接完成</button>` : ''}<button class="btn small" type="button" data-unslot="${lane}|${k}" aria-label="取消${esc(s.name)}，原料退回">✕</button>`}</span></div>`)).join('');
     const lock = `<button class="btn small" type="button" data-testlock aria-pressed="${testing}" title="打開後設備裡的批數可以直接完成，測試用">${testing ? '🔓 測試' : '🔒'}</button>`;
@@ -849,18 +856,23 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     }
   }
 
+  // Another point opens at the top of the panel; only where the panel sits under the plant (≤720px) does the page
+  // scroll to it.
+  const stacked = () => window.matchMedia('(max-width: 720px)').matches;
   function select(id) {
+    const was = sel;
     sel = id || null;
     document.querySelectorAll('[data-blk]').forEach((el) => el.classList.toggle('sel', el.dataset.blk === sel));
     renderPanel();
-    if (window.matchMedia('(max-width: 1000px)').matches && sel) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (sel !== was) $('panel').scrollTop = 0;
+    if (stacked() && sel) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // The summary's 可做／訂單 and 入庫, and the 訂單 point, bring the orders back into the panel.
   function showOrders() {
     select(null);
     $('panel').scrollTop = 0;
-    $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (stacked()) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   const pick = (id) => (id === 'fg' ? showOrders() : select(id));
 
@@ -882,10 +894,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     save();
     render();
   }
-  // Puts the batch at `from` among those still to put in into the empty place k, waiting for 開工.
-  function placeBatch(lane, from, k) {
-    const q = PL.get(lane);
-    if (!q || k < 0 || q.places[k] || from < 0 || from >= q.seq.length) return;
+  // Puts the batch at `from` among those still to put in into the station, waiting for 開工: the first empty place,
+  // right below the batches already there.
+  function placeBatch(lane, from) {
+    const q = PL.get(lane), k = q ? q.places.indexOf(null) : -1;
+    if (k < 0 || from < 0 || from >= q.seq.length) return;
     keep(q);
     const seq = q.seq.slice(), [name] = seq.splice(from, 1);
     slotsOf(lane)[k] = { name, at: null };
@@ -901,7 +914,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const v = b.dataset.collect || b.dataset.finish || b.dataset.unslot || b.dataset.placeIn || b.dataset.unlog || '', bar = v.lastIndexOf('|');
     const lane = b.dataset.start || v.slice(0, bar), k = Number(v.slice(bar + 1)), q = PL.get(lane), now = Date.now();
     if (!q) return;
-    if (b.dataset.placeIn) { placeBatch(lane, k, q.places.findIndex((x) => !x)); return; }
+    if (b.dataset.placeIn) { placeBatch(lane, k); return; }
     keep(q);
     if (b.dataset.start) startSlots(lane, now);
     else if (b.dataset.collect) collectSlot(lane, k, now);
@@ -941,7 +954,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const d = drag;
     drag = null;
     clearDrop();
-    if (d.on && d.place != null) placeBatch(d.lane, d.from, d.place);
+    if (d.on && d.place != null) placeBatch(d.lane, d.from);
     else if (d.on && d.to != null && d.to !== d.from) moveBatch(d.lane, d.from, d.to);
     else { d.el.classList.remove('dragging'); d.el.style.transform = ''; }
   };
