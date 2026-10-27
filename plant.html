@@ -305,8 +305,8 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.10</small></h1>
-    <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.11</small></h1>
+    <nav><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
 <main id="app"><div class="box loading">讀取資料中…</div></main>
@@ -317,8 +317,8 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
 <script src="line-core.js"></script>
 <script id="plant-script">
 (() => {
-  // The plant page: the planner's week (same wish list, holdings and characters) as a factory floor. Click a point to
-  // see what it needs and how it stands. The plant is shown as blocks, one column per stage.
+  // The plant page: the week (wish list, holdings and characters) as a factory floor. Click a point to see what it
+  // needs and how it stands. The plant is shown as blocks, one column per stage.
   const {
     LINE, SHOP, S, save, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, charsFromBoard, held,
     allocate, makePlan, makeSchedule, progress, yieldOf, dishes, dishOptions, wireList, gathers, setBought, setDone, stepInfo,

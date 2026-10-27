@@ -1,4 +1,4 @@
-// 生產線 core, shared by factory.html (the planner) and plant.html (the plant map): the week's wish list, shop limits,
+// 生產線 core for plant.html (廠區): the week's wish list, shop limits,
 // the plan they allow and the schedule the stations run. Recipes, item sources and the board's gathering scrolls come
 // from index.html, so every page reads one set of data. Exposed as window.LineCore.
 (() => {
