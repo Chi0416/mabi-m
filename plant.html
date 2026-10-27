@@ -6,274 +6,297 @@
 <meta name="color-scheme" content="light">
 <title>廠區</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232f6fde'/%3E%3Cpath d='M12 50V28l12 8v-8l12 8v-8l12 8V14h6v36z' fill='%23fff'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&amp;family=Noto+Sans+TC:wght@400;500;700&amp;display=swap">
 <style>
-/* Plant: the week's plan as a factory floor in blocks, flow left to right — suppliers outside the fence, then 暫存區,
-   the stations, assembly and 訂單 (the finished dishes). Light palette only; status colours are the andon lights'. */
+/* 廠區: the week's plan as a factory board — one card per point in stage columns, flow left to right (suppliers
+   outside the fence, 暫存區, the stations, assembly, 訂單). Clicking a card opens it over the board as a bigger card with
+   the same head. One kind of card and one kind of row everywhere: a row with a done and a need reads 「done／need」 with a
+   thin bar under it. Light palette only; every colour is set here in :root, the andon lights' included. */
 :root {
-  --bg: #eef1f4;
-  --panel: #ffffff;
-  --panel-2: #f5f7f9;
-  --ink: #1f2933;
-  --muted: #5f6b7a;
-  --line: #d5dbe1;
-  --accent: #2f6fde;
-  --accent-soft: #e3ecfc;
-  --ok: #2e9b5b;   --ok-soft: #dff3e7;
-  --wait: #c98a0c; --wait-soft: #fbf0d6;
-  --bad: #d64545;  --bad-soft: #fbe3e3;
-  --done: #3b7ddd; --done-soft: #e0ebfb;
-  --idle: #8a96a3; --idle-soft: #eceff2;
+  color-scheme: light;
+  --bg: #e7ebef; --panel: #fff; --panel-2: #f3f5f7; --ink: #18222c; --muted: #566472;
+  --line: #cbd3db; --dot: #d3dae1; --ctl: #b6c0ca; --plate: #2a3642; --accent: #2f6fde;
+  --track: #e1e6eb; --fill: #56657a;
   --grade-green: #2a7a3b; --grade-blue: #2560b0; --grade-purple: #7840c0; --grade-pink: #b0307a; --grade-orange: #a8530c;
   --font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
-  --r: 10px;
+  --mono: "JetBrains Mono", "Noto Sans TC", ui-monospace, monospace;
   --gutter-l: max(16px, env(safe-area-inset-left, 0px));
   --gutter-r: max(16px, env(safe-area-inset-right, 0px));
-  color-scheme: light;
+  /* the andon lights: each a lamp, a text colour and a tint; .ok .wait .bad .idle switch them for whatever they sit on */
+  --st: #66727f; --st-lamp: #a3adb8; --st-soft: #edf0f3; --bad-text: #c73636; --ok-text: #1f7a45;
 }
+.ok { --st: #1f7a45; --st-lamp: #2fa35f; --st-soft: #e3f4ea; }
+.wait { --st: #8a5a00; --st-lamp: #f0b429; --st-soft: #fcf1d6; }
+.bad { --st: #c73636; --st-lamp: #e04848; --st-soft: #fde7e7; }
+.idle { --st: #66727f; --st-lamp: #a3adb8; --st-soft: #edf0f3; }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; scrollbar-gutter: stable; }
+html:has(dialog[open]) { overflow: hidden; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 15px; line-height: 1.55; }
+button, input, select { font: inherit; }
 a { color: var(--accent); }
-h1, h2, h3 { margin: 0; line-height: 1.3; }
+h1, h2, h3, h4 { margin: 0; line-height: 1.3; }
 .grade-綠 { color: var(--grade-green); } .grade-藍 { color: var(--grade-blue); } .grade-紫 { color: var(--grade-purple); }
 .grade-粉 { color: var(--grade-pink); } .grade-橙 { color: var(--grade-orange); }
 .muted { color: var(--muted); }
 
-.top { background: #1f2933; color: #fff; }
-.top-in { max-width: 1440px; margin: 0 auto; padding: 10px var(--gutter-r) 10px var(--gutter-l); display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.top h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
-.top h1 small { font-size: 13px; font-weight: 400; color: #b7c2cd; }
-.top h1 .ver { padding: 1px 8px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.top { background: var(--plate); color: #fff; }
+.top-in { max-width: 1440px; margin: 0 auto; padding: 10px var(--gutter-r) 10px var(--gutter-l); display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
+.top h1 { font-size: 20px; font-weight: 700; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.top h1 small { font-size: 13px; font-weight: 400; color: #b4bfca; }
+.top h1 .ver { padding: 1px 8px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 3px; font-family: var(--mono); font-size: 12px; }
 .top nav { margin-left: auto; display: flex; gap: 6px; }
-.top nav a, .top nav .nav-btn { font: inherit; color: #fff; text-decoration: none; padding: 6px 12px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .1); font-size: 14px; cursor: pointer; }
+.top nav a, .top nav .nav-btn { color: #fff; text-decoration: none; padding: 6px 12px; border: 0; border-radius: 4px; background: rgba(255, 255, 255, .1); font-size: 14px; cursor: pointer; }
 .top nav a:hover, .top nav .nav-btn:hover { background: rgba(255, 255, 255, .2); }
 
-main { max-width: 1440px; margin: 0 auto; padding: 16px var(--gutter-r) 48px var(--gutter-l); }
-/* the plant on the left, the info panel (orders by default) on the right, the lists under the plant */
-.layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; grid-template-rows: auto 1fr; grid-template-areas: "plant panel" "rest panel"; gap: 16px; align-items: start; }
-.layout > .plant-card { grid-area: plant; } .layout > .panel { grid-area: panel; } .layout > .left { grid-area: rest; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); }
-.summary { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 12px; margin-bottom: 16px; }
-.sum { font: inherit; color: inherit; text-align: left; display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; background: none; }
-button.sum { cursor: pointer; }
-button.sum:hover { background: var(--accent-soft); border-color: rgba(47, 111, 222, .3); }
-button.sum:hover b { color: var(--accent); }
-.sum b { font-size: 18px; }
-.sum .k { font-size: 13px; color: var(--muted); }
-.sum.bad b { color: var(--bad); }
-.sum.edit { align-items: center; margin-left: auto; }
-.sum-hint { flex: 1 1 100%; margin: 0 10px; font-size: 12px; color: var(--muted); }
-
-/* the plant */
-.plant-card { overflow: hidden; }
-.view-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-.view-bar h2 { font-size: 18px; }
-/* blocks: one column per stage, flow left to right */
-.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 14px; background: var(--panel-2); }
-.stage { display: grid; gap: 8px; align-content: start; min-width: 0; }
-.stage h3 { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; display: flex; align-items: center; gap: 6px; }
-.stage + .stage h3::before { content: "→"; color: var(--idle); }
-.blk { font: inherit; color: var(--ink); text-align: left; display: grid; gap: 3px; width: 100%; padding: 9px 10px 10px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--idle); border-radius: 8px; cursor: pointer; }
-.blk.ok { border-left-color: var(--ok); } .blk.wait { border-left-color: var(--wait); } .blk.bad { border-left-color: var(--bad); background: #fff8f8; }
-.blk:hover { border-color: rgba(47, 111, 222, .45); }
-.blk.sel { outline: 3px solid var(--accent); outline-offset: 1px; }
-/* the light always on its own line under the name, whatever the name's length */
-.blk-head { display: grid; justify-items: start; gap: 4px; margin-bottom: 2px; }
-.blk-name { font-weight: 700; font-size: 15px; }
-.blk .badge { padding: 0 8px; font-size: 12px; }
-.blk .ln { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 1.5; }
-.blk .ln span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; }
-.blk .ln.bad { color: var(--bad); }
-.blk-cut { margin: 3px 0; border-top: 1px dashed #b9c3cd; }
-/* a dish's material collection on the assembly card: its name, then a bar and the count */
-.blk-dish { display: block; font-size: 13px; line-height: 1.5; }
-.blk-prog { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-.blk-bar { flex: 1 1 auto; display: block; height: 6px; border-radius: 3px; background: var(--idle-soft); overflow: hidden; }
-.blk-bar i { display: block; height: 100%; background: var(--wait); border-radius: 3px; }
-.blk-prog .n { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.blk-dish.ok .blk-bar i { background: var(--ok); }
-.blk-dish.bad .n { color: var(--bad); }
-.blk .foot { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
-.btn { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
-.btn:hover { background: #e9edf1; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.primary:hover { background: #2a62c6; }
-.btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
-.btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn.primary:disabled { opacity: 1; color: var(--muted); background: var(--idle-soft); border-color: var(--line); }
-.btn:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 14px 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
-.legend span { display: inline-flex; align-items: center; gap: 6px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
-
-/* 訂單 in the panel: the wish list, shown only — one line per order, the dish and how many, what the week can make
-   and its status in small type under it; 編輯 opens the whole list in one form */
-.ord-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.ord-h span { font-weight: 400; letter-spacing: 0; }
-.ord-h b { font-size: 16px; color: var(--ink); }
-.ord-h .btn { letter-spacing: 0; }
-.orders-sec > .bar { height: 8px; }
-/* an order: number | dish, its light (and how many the week can make) | how many, 完成 */
-.ord-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--line); }
-.ord-row .wish-n { grid-row: span 2; }
-.ord-name { min-width: 0; font-size: 15px; }
-.ord-qty { justify-self: end; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ord-state { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
-.ord-state .badge { padding: 0 8px; font-size: 12px; }
-.ord-state small { font-size: 12px; }
-.ord-row > .btn { justify-self: end; min-width: 56px; }
-.ord-cut { color: var(--bad); }
-/* the order form: the whole wish list at once — ⠿ (or ▲▼) moves a line, ✕ takes it off, 上限 in small type under
-   the count; nothing is kept until 完成 */
-.sheet.wide { width: min(520px, calc(100% - 32px)); }
-.oe-row { display: grid; grid-template-columns: 22px 22px minmax(0, 1fr) 76px 38px; gap: 6px; align-items: start; padding: 8px 0; border-bottom: 1px dashed var(--line); background: var(--panel); }
-.oe-row .wish-n { width: 22px; height: 22px; margin-top: 8px; font-size: 12px; }
-.oe-grip { height: 38px; display: grid; place-items: center; border-radius: 6px; font-size: 18px; color: var(--idle); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
-.oe-grip:hover { background: var(--idle-soft); color: var(--ink); }
-.oe-qty input { width: 100%; min-height: 38px; }
-.oe-qty small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); text-align: right; }
-.oe-qty small.ord-cut { color: var(--bad); font-weight: 700; }
-.oe-del { min-height: 38px; padding: 0; }
-.oe-row.dragging { position: relative; z-index: 5; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
-.oe-row.dragging .oe-grip { cursor: grabbing; }
-.oe-row.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
-@media (max-width: 480px) {
-  #sheet-form { padding: 14px 14px 12px; }
-  .oe-row { grid-template-columns: 18px minmax(0, 1fr) 60px 34px; }
-  .oe-row .wish-n { display: none; }
-}
-.wish-n { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
-select { font: inherit; font-size: 15px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 38px; min-width: 0; width: 100%; }
-.stepper { display: inline-flex; align-items: stretch; }
-.stepper .btn { border-radius: 0; min-width: 44px; padding: 4px 8px; }
-.stepper .btn:first-child { border-radius: 8px 0 0 8px; }
-.stepper .btn:last-child { border-radius: 0 8px 8px 0; }
-.stepper input { width: 64px; font: inherit; font-size: 15px; text-align: center; border: 1px solid var(--line); border-left: 0; border-right: 0; border-radius: 0; color: var(--ink); }
-.btn.small { min-height: 30px; padding: 2px 10px; font-size: 13px; }
-.ord-add { width: 100%; margin: 8px 0 4px; }
-.left { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
-.mats { padding: 12px 16px 16px; }
-.mats-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 8px; }
-.mats-head h2 { font-size: 18px; }
-.mats-head .muted { font-size: 13px; }
-.mats-sub { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
-.mats-sub h3 { font-size: 16px; margin: 0; }
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 14px; }
-th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; white-space: nowrap; }
-thead th { font-size: 12px; font-weight: 500; color: var(--muted); background: var(--panel-2); }
-thead th.r { text-align: right; }
-tbody th { font-weight: 400; }
-td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
-td.num small { font-weight: 400; color: var(--muted); }
-td.num .bar { min-width: 90px; }
-td.src { white-space: normal; min-width: 160px; font-size: 13px; color: var(--muted); }
-input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
-
-/* a station: its `queue` places (one batch made at a time, each collected on its own), then the batches still to put
-   in; ⠿ drags one to another order or into an empty place */
-.ok-text { color: var(--ok); }
-/* every place and batch the same height, empty or not, so the lists don't shift as they fill */
-.slot { display: grid; grid-template-columns: 28px 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; height: 48px; padding: 5px 6px; margin-top: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
-.slot.place { grid-template-columns: 16px minmax(0, 1fr) auto; }
-.slot.empty { background: transparent; border-style: dashed; color: var(--muted); font-size: 13px; }
-.slot.run, .slot.queue { border-color: rgba(201, 138, 12, .45); background: var(--wait-soft); }
-.slot.queue { background: var(--panel); }
-.slot.done { border-color: rgba(46, 155, 91, .45); background: var(--ok-soft); }
-.slot.drop { outline: 2px dashed var(--accent); outline-offset: 1px; }
-.slot.dragging { opacity: .35; }
-.slot.ghost { position: fixed; z-index: 50; margin: 0; pointer-events: none; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
-/* the panel's lists show at most five (renderPanel sets the height) and scroll inside */
-.list5 { overflow-y: auto; overscroll-behavior: contain; }
-/* a station's panel is one screen high and never scrolls as a whole: 排程 and 已完成 share what is left under 設備 and
-   scroll inside (side by side layout only; under the plant it is as tall as it needs) */
-@media (min-width: 721px) {
-  .panel.station { height: calc(100vh - 24px); overflow: hidden; display: flex; flex-direction: column; }
-  .panel.station > * { flex: none; }
-  .panel.station > .sec.grow { flex: 3 1 0; min-height: 0; display: flex; flex-direction: column; }
-  .panel.station > .sec.grow ~ .sec.grow { flex-grow: 2; }
-  .panel.station > .sec.grow > .list5 { flex: 1 1 auto; min-height: 0; max-height: none !important; }
-}
-.slot .grip { height: 32px; display: grid; place-items: center; border-radius: 6px; font-size: 18px; color: var(--idle); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
-.slot .grip:hover { background: var(--idle-soft); color: var(--ink); }
-.slot.dragging .grip { cursor: grabbing; }
-.slot .no { font-size: 12px; color: var(--muted); text-align: center; }
-.slot .what { min-width: 0; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.slot .what small { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
-.slot.done .what small { color: var(--ok); font-weight: 700; }
-.slot .mv { display: inline-flex; gap: 2px; }
-.slot .mv .btn { min-height: 32px; min-width: 36px; padding: 2px 10px; }
-.round-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--muted); }
-.note.bad-text { font-weight: 500; }
-/* a line with a tick, what it is, the plan and what is done or in stock */
-/* a shop in the panel, and the 填已購買 form over the page */
-.buy-line { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
-.buy-line .num { font-weight: 700; font-variant-numeric: tabular-nums; }
-.buy-open { width: 100%; margin-top: 10px; }
-.sheet { width: min(440px, calc(100% - 32px)); max-height: calc(100vh - 48px); overflow: auto; padding: 0; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 50px rgba(31, 41, 51, .25); }
-.sheet::backdrop { background: rgba(31, 41, 51, .45); }
-#sheet-form { padding: 16px 18px 14px; }
-#sheet-form h2 { font-size: 18px; }
-#sheet-form > .muted { margin: 4px 0 6px; font-size: 13px; }
-.bm-name small { display: block; font-size: 12px; }
-.bm-char { margin: 10px 0 0; padding: 0; border: 0; }
-.bm-char legend { margin-bottom: 2px; padding: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
-.bm-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
-.bm-name { flex: 1 1 auto; min-width: 0; }
-.bm-row > .muted { white-space: nowrap; }
-.bm-act { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
-.bm-act .grow { flex: 1; }
-.set-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
-.set-row small { display: block; margin-top: 2px; font-size: 12px; }
-.set-row .btn { flex: none; white-space: nowrap; }
-.btn.danger { color: #fff; background: var(--bad); border-color: var(--bad); }
-
-/* the side panel */
-.panel { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
-.panel-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
-.panel-head .kind { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
-.panel-head h2 { font-size: 20px; margin-top: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.panel-head .back { font: inherit; font-size: 13px; background: none; border: 0; color: var(--accent); padding: 0; cursor: pointer; }
-.sec { padding: 12px 16px; border-bottom: 1px solid var(--line); }
-.sec:last-child { border-bottom: 0; }
-.sec h3 { font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 8px; letter-spacing: .04em; }
-.badge { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: 999px; }
-.badge.ok { color: var(--ok); background: var(--ok-soft); } .badge.wait { color: var(--wait); background: var(--wait-soft); }
-.badge.bad { color: var(--bad); background: var(--bad-soft); } .badge.done { color: var(--done); background: var(--done-soft); }
-.badge.idle { color: var(--idle); background: var(--idle-soft); }
-.badge.tag { padding: 0 6px; font-size: 11px; vertical-align: 1px; }
-.rows { list-style: none; margin: 0; padding: 0; }
-.rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
-.rows li:last-child { border-bottom: 0; }
-.rows .num { font-variant-numeric: tabular-nums; font-weight: 700; text-align: right; }
-.rows .sub { grid-column: 1 / -1; font-size: 13px; color: var(--muted); }
-.bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--idle-soft); overflow: hidden; margin-top: 4px; }
-.bar i { display: block; height: 100%; background: var(--ok); }
-.bar.full i { background: var(--bad); } .bar.cap i { background: var(--wait); } .bar.done i { background: var(--done); }
-.go { font: inherit; text-align: left; width: 100%; background: none; border: 0; padding: 0; cursor: pointer; color: inherit; }
-.go.go-link { display: inline; width: auto; text-align: right; font-size: 13px; color: var(--accent); }
-.note.dish-recipe { margin: 4px 0 2px; }
-.go:hover b { color: var(--accent); text-decoration: underline; }
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 14px; }
-.kv dt { color: var(--muted); }
-.kv dd { margin: 0; font-weight: 500; }
-.note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
-.sec.alert { background: var(--bad-soft); }
-.sec.alert h3 { color: var(--bad); }
-.sec h4 { font-size: 13px; margin: 12px 0 4px; }
-.bad-text { color: var(--bad); font-weight: 700; }
-.tips { margin: 0; padding-left: 18px; font-size: 14px; }
-.tips li { margin: 3px 0; }
+main { max-width: 1440px; margin: 0 auto; padding: 16px var(--gutter-r) 48px var(--gutter-l); display: grid; gap: 16px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-width: 0; }
+.box-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 16px; border-bottom: 2px solid var(--plate); }
+.box-head h2 { font-size: 18px; }
+.box-head h3 { font-size: 15px; }
+.box-head .muted { font-size: 13px; }
+.box-head.sub { border-top: 1px solid var(--line); border-bottom: 0; }
 .loading, .fail { padding: 24px 16px; }
 
-/* the panel stays on the right, fixed in view, down to 720px; narrower, it goes under the plant */
-@media (max-width: 1000px) {
-  .layout { grid-template-columns: minmax(0, 1fr) 320px; }
+/* the summary: the week's figures in a row, each opening where it comes from; a done／need one has the rows' bar */
+.summary { display: flex; flex-wrap: wrap; align-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.kpi { color: inherit; text-align: left; display: grid; align-content: center; padding: 8px 18px; border: 0; border-right: 1px solid var(--line); background: none; }
+button.kpi { cursor: pointer; }
+button.kpi:hover { background: var(--panel-2); }
+.kpi .k { font-size: 12px; color: var(--muted); }
+.kpi b { font-family: var(--mono); font-size: 18px; line-height: 1.35; }
+.kpi .m-bar { min-width: 96px; margin-top: 5px; }
+.kpi.bad { box-shadow: inset 0 3px 0 var(--st-lamp); }
+.kpi.bad b { color: var(--bad-text); }
+.kpi.edit { margin-left: auto; border-right: 0; border-left: 1px solid var(--line); }
+.hint { flex: 1 1 100%; margin: 0; padding: 5px 18px 6px; font-size: 12px; color: var(--muted); background: var(--panel-2); border-top: 1px solid var(--line); }
+.stepper { display: inline-flex; margin-top: 2px; }
+.stepper .btn { min-width: 40px; border-radius: 0; }
+.stepper .btn:first-child { border-radius: 4px 0 0 4px; }
+.stepper .btn:last-child { border-radius: 0 4px 4px 0; }
+.stepper input { width: 52px; min-height: 36px; text-align: center; font-family: var(--mono); font-weight: 700; color: var(--ink); background: #fff; border: 1px solid var(--ctl); border-left: 0; border-right: 0; border-radius: 0; }
+
+/* the board: a floor grid, the stage titles as flow arrows; wide, 廠外 takes two columns of cards */
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-left: auto; font-size: 12px; color: var(--muted); }
+.lg { display: inline-flex; align-items: center; gap: 6px; }
+.board { display: grid; grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr)); gap: 14px; padding: 16px; background-color: #eef1f4; background-image: linear-gradient(#dde3e9 1px, transparent 1px), linear-gradient(90deg, #dde3e9 1px, transparent 1px); background-size: 20px 20px; }
+.stage { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.stage > h3 { color: #fff; background: var(--plate); font-size: 13px; font-weight: 700; letter-spacing: .12em; padding: 5px 14px 5px 18px; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%, 8px 50%); }
+.stage.s-out > h3 { padding-left: 10px; clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 0 100%); }
+.cards { display: grid; gap: 10px; align-content: start; }
+.s-out .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* a card: its head (tower light, name, its light on the line under the name), its rows, a foot */
+.c { color: inherit; text-align: left; width: 100%; display: flex; flex-direction: column; padding: 0; margin: 0; cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; box-shadow: 0 1px 0 rgba(24, 34, 44, .06); }
+.c:hover { border-color: #8fa6c2; box-shadow: 0 4px 14px rgba(24, 34, 44, .12); }
+.c-head { display: grid; grid-template-columns: 10px minmax(0, 1fr); grid-template-areas: "light name" "light state"; column-gap: 9px; align-items: center; }
+.c .c-head { padding: 7px 10px 6px; background: var(--st-soft); border-top: 3px solid var(--st-lamp); border-bottom: 1px solid var(--line); }
+.c-name { grid-area: name; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.35; }
+.c-state { grid-area: state; font-size: 12px; font-weight: 700; line-height: 1.5; color: var(--st); }
+/* the tower light: red, yellow, green; the one lit is the card's light, none for 無使用 */
+.light { grid-area: light; display: grid; gap: 2px; align-self: center; }
+.lg .light { display: inline-grid; }
+.light i { display: block; width: 10px; height: 7px; border-radius: 2px; background: #cdd4db; }
+.bad .light i:nth-child(1), .wait .light i:nth-child(2), .ok .light i:nth-child(3) { background: var(--st-lamp); box-shadow: 0 0 6px var(--st-lamp); }
+.c-body { display: grid; padding: 4px 10px 7px; }
+/* a row: a name on the left, a number on the right; one with a done and a need has a thin bar under it, the number
+   and the bar slate while under way, green with ✓ once met, red for a material the week is short of (異常) */
+.m { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 10px; padding: 3px 0; font-size: 13px; line-height: 1.5; }
+.m-l { min-width: 0; }
+.m-v { font-family: var(--mono); font-size: 12.5px; font-weight: 500; text-align: right; white-space: nowrap; }
+.m-bar { grid-column: 1 / -1; display: block; height: 3px; margin: 3px 0 1px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.m-bar i { display: block; height: 100%; border-radius: 2px; background: var(--fill); }
+.m-sub { grid-column: 1 / -1; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.m.met .m-v { color: var(--ok-text); }
+.m.met .m-bar i { background: #2fa35f; }
+.m.short { color: var(--bad-text); }
+.m.short .m-bar i { background: #e04848; }
+.m.none .m-v, .m.none .m-l { color: var(--muted); }
+/* what a card's numbers are, in small type over its rows */
+.m-head { display: flex; justify-content: flex-end; font-size: 11px; letter-spacing: .04em; color: var(--muted); }
+.cut { display: block; margin: 4px 0 2px; border-top: 1px dashed #9aa6b2; }
+.foot { margin-top: auto; padding: 5px 10px; background: var(--panel-2); border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+/* a station's places on its card: a small light each — 做好 and 等開工 yellow, 做中 green, 排隊 faint green, empty dashed */
+.strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; padding: 7px 0 3px; }
+.strip i { display: block; height: 9px; border-radius: 2px; background: var(--st-lamp); }
+.strip i.queued { opacity: .45; }
+.strip i.empty { background: transparent; border: 1px dashed #9aa6b2; }
+.no, .wish-n { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 3px; background: var(--plate); color: #fff; font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.q { font-family: var(--mono); font-size: 13px; margin-left: 4px; }
+.st { font-size: 12px; font-weight: 700; color: var(--st); display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.lamp { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--st-lamp); flex: none; }
+.cutnote { color: var(--bad-text); }
+
+/* the card that opens over the board (and the forms): the same head, the middle scrolls, the foot stays put — along
+   the flow on the left, the card's own action on the right */
+.modal { padding: 0; border: 0; background: transparent; color: var(--ink); width: min(560px, calc(100vw - 32px)); max-width: none; max-height: none; overflow: visible; }
+.modal.wide { width: min(900px, calc(100vw - 32px)); }
+.modal::backdrop { background: rgba(24, 34, 44, .5); }
+.modal[open] { animation: fade .14s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .modal[open] { animation: none; } }
+.mc { display: flex; flex-direction: column; max-height: min(88vh, 800px); background: var(--panel); border-radius: 8px; overflow: hidden; border-top: 4px solid var(--st-lamp); box-shadow: 0 24px 60px rgba(24, 34, 44, .35); }
+.mc.plain { border-top-color: var(--plate); }
+.mc-head { flex: none; padding: 8px 12px 12px 18px; background: var(--st-soft); border-bottom: 1px solid var(--line); }
+.mc.plain .mc-head { background: var(--panel-2); }
+.mc-top { display: flex; align-items: center; gap: 10px; min-height: 30px; }
+.mc-kind { font-size: 12px; color: var(--muted); letter-spacing: .06em; }
+.mc-x { margin-left: auto; width: 34px; height: 34px; border: 0; border-radius: 4px; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
+.mc-x:hover { background: rgba(24, 34, 44, .08); color: var(--ink); }
+.mc .c-head { grid-template-columns: 12px minmax(0, 1fr); column-gap: 10px; margin-top: 2px; }
+.mc .c-name, .mc-title { font-size: 20px; }
+.mc .c-state { font-size: 13px; }
+.mc .light i { width: 12px; height: 9px; }
+.mc-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.mc-body.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+.mc-body.cols > .col + .col { border-left: 1px solid var(--line); }
+.mc-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; background: var(--panel-2); border-top: 1px solid var(--line); }
+.mc-nav { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.mc-act { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px 10px; margin-left: auto; }
+.mc-act .note { margin: 0; font-size: 12px; }
+/* a station's card is one screen high and never scrolls as a whole: 設備 on the left, 排程 and 已完成 share the right
+   and scroll inside (on a narrow screen it is as tall as it needs) */
+@media (min-width: 761px) {
+  .modal.station .mc { height: min(88vh, 800px); }
+  .modal.station .mc-body.cols { overflow: hidden; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+  .modal.station .col { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .modal.station .col > .sec { flex: none; }
+  .modal.station .col > .sec.grow { flex: 3 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .modal.station .col > .sec.grow ~ .sec.grow { flex-grow: 2; }
+  .modal.station .sec.grow > .list5 { flex: 1 1 auto; min-height: 0; max-height: none !important; }
+  .modal.station .sec.grow > :not(.list5) { flex: none; }
 }
-@media (max-width: 720px) {
-  .layout { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "plant" "panel" "rest"; }
-  .panel { position: static; max-height: none; }
+
+/* inside a card: sections, rows (the same row as on the board, a size up), notes */
+.sec { padding: 14px 18px; }
+.sec + .sec { border-top: 1px solid var(--line); }
+.sec-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; padding-left: 8px; border-left: 3px solid var(--plate); font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--plate); }
+.sec-h .meta { display: inline-flex; align-items: center; gap: 8px; font-weight: 400; letter-spacing: .04em; color: var(--muted); }
+.sub-h { margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+.sec-h + .sub-h { margin-top: 0; }
+.note { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.note0 { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.note.pad { margin: 0; padding: 10px 16px 14px; }
+.sec.alert { background: var(--st-soft); }
+.sec.alert .sec-h { color: var(--st); border-left-color: var(--st-lamp); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 14px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-weight: 500; }
+.tips { margin: 0; padding-left: 18px; font-size: 14px; }
+.tips li { margin: 3px 0; }
+.link { border: 0; background: none; padding: 0; color: var(--accent); font-size: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.bad-text { color: var(--bad-text); font-weight: 700; }
+.tag { display: inline-flex; align-items: center; padding: 0 6px; margin-left: 6px; border-radius: 3px; font-size: 11px; font-weight: 700; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); vertical-align: 1px; }
+.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.rows .m { padding: 6px 0; font-size: 14px; }
+.rows .m-l { font-weight: 500; }
+.rows .m-l small { font-weight: 400; color: var(--muted); }
+.rows .m-v { font-size: 13px; }
+.rows .m.act { align-items: center; }
+.rows .m.dish .m-l { font-size: 15px; font-weight: 700; }
+.rows .m.dish:not(:first-child) { margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.rows .m.in { margin-left: 14px; }
+/* a station's places and the batches still to put in: every one the same 48px, empty or not, so nothing shifts as they
+   fill — 做好 (to collect) and 等開工 yellow, 做中 green, 排隊 a green frame, an empty place hatched */
+.slots { display: grid; gap: 6px; align-content: start; }
+.list5 { overflow-y: auto; overscroll-behavior: contain; }
+.slot { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; height: 48px; padding: 0 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; }
+.slot.ok, .slot.wait { background: var(--st-soft); border-color: color-mix(in srgb, var(--st-lamp) 50%, var(--line)); }
+.slot.queued { background: var(--panel); }
+.slot .no { justify-self: center; }
+.slot .what { min-width: 0; font-size: 14px; font-weight: 500; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot .what small { display: block; font-family: var(--mono); font-size: 11.5px; color: var(--st); overflow: hidden; text-overflow: ellipsis; }
+.slot.empty { background: repeating-linear-gradient(135deg, #f4f6f8 0 7px, #eaedf1 7px 14px); border-style: dashed; }
+.slot.empty .no { background: #a9b3bd; }
+.slot.empty .what { color: var(--muted); font-size: 13px; font-weight: 400; }
+.slot.seq { grid-template-columns: 16px 24px minmax(0, 1fr) auto; }
+.slot .mv { display: inline-flex; gap: 4px; }
+.slot.drop { outline: 2px dashed var(--accent); outline-offset: 1px; }
+.slot.dragging { opacity: .35; }
+.slot.ghost { position: fixed; z-index: 50; margin: 0; pointer-events: none; box-shadow: 0 6px 18px rgba(24, 34, 44, .22); }
+.grip { color: #9aa5b1; text-align: center; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.slot.dragging .grip { cursor: grabbing; }
+/* 訂單: the wish list — number, dish ×count and 完成, its light under the dish */
+.ords { list-style: none; margin: 0; padding: 0; }
+.ord { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; grid-template-areas: "no nm act" "no st act"; gap: 2px 12px; align-items: center; padding: 10px 0; }
+.ord + .ord { border-top: 1px dotted var(--dot); }
+.ord .no { grid-area: no; align-self: start; margin-top: 1px; }
+.ord .nm { grid-area: nm; font-size: 15px; font-weight: 700; min-width: 0; }
+.ord .st { grid-area: st; }
+.ord .act, .ord > .btn { grid-area: act; justify-self: end; min-width: 56px; }
+/* the forms: a block per character or group, a row per item with its number at the end */
+.bm-char { border: 0; margin: 0 0 4px; padding: 0; min-width: 0; }
+.bm-char legend { padding: 0; margin: 8px 0 2px; font-size: 12px; font-weight: 700; letter-spacing: .06em; color: var(--plate); }
+.bm-row, .set-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px dotted var(--dot); }
+.set-row { gap: 12px; padding: 10px 0; }
+.set-row .btn { flex: none; }
+.bm-name { flex: 1 1 auto; min-width: 0; }
+.bm-name small { display: block; font-size: 12px; color: var(--muted); }
+.bm-row > .muted { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+input.have { width: 76px; min-height: 34px; padding: 4px 8px; font-family: var(--mono); font-size: 14px; text-align: right; color: var(--ink); background: #fff; border: 1px solid var(--ctl); border-radius: 4px; }
+select { width: 100%; min-width: 0; min-height: 34px; padding: 4px 8px; font-size: 15px; color: var(--ink); background: #fff; border: 1px solid var(--ctl); border-radius: 4px; }
+/* the order form: ⠿ moves a line, ✕ takes it off, 上限 in small type under the count; nothing is kept until 完成 */
+.oe-row { display: grid; grid-template-columns: 22px 22px minmax(0, 1fr) 80px 38px; gap: 6px; align-items: start; padding: 8px 0; border-bottom: 1px dotted var(--dot); background: var(--panel); }
+.oe-row .wish-n { margin-top: 6px; }
+.oe-grip { height: 34px; display: grid; place-items: center; border-radius: 4px; font-size: 18px; color: #9aa5b1; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.oe-grip:hover { background: var(--panel-2); color: var(--ink); }
+.oe-qty input { width: 100%; }
+.oe-qty small { display: block; margin-top: 2px; font-size: 12px; text-align: right; color: var(--muted); }
+.oe-qty small.ord-cut { color: var(--bad-text); font-weight: 700; }
+.oe-del { min-height: 34px; padding: 0; }
+.oe-row.dragging { position: relative; z-index: 5; box-shadow: 0 6px 18px rgba(24, 34, 44, .22); }
+.oe-row.dragging .oe-grip { cursor: grabbing; }
+.oe-row.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
+/* buttons: the main action dark, the rest white; blue is for links and focus only */
+.btn { color: var(--ink); background: var(--panel); border: 1px solid var(--ctl); border-radius: 4px; font-size: 14px; font-weight: 500; min-height: 36px; padding: 4px 14px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: #eef1f4; }
+.btn.primary { color: #fff; background: var(--plate); border-color: var(--plate); }
+.btn.primary:hover { background: #3a4856; }
+.btn[aria-pressed="true"] { color: #fff; background: var(--plate); border-color: var(--plate); }
+.btn:disabled, .btn.primary:disabled { cursor: not-allowed; color: #8d98a4; background: #eef1f4; border-color: #d3d9df; }
+.btn.small { min-height: 30px; padding: 2px 10px; font-size: 13px; }
+.btn.ghost { border-color: transparent; background: none; color: var(--accent); padding: 4px 8px; max-width: 16em; overflow: hidden; text-overflow: ellipsis; }
+.btn.ghost:hover { background: rgba(47, 111, 222, .08); }
+.btn.danger { color: #fff; background: #e04848; border-color: #e04848; }
+.btn.full { width: 100%; margin-bottom: 4px; }
+.btn:focus-visible, .link:focus-visible, .mc-x:focus-visible, .c:focus-visible, button.kpi:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+/* 原物料: the done／need columns use the cards' row */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line); vertical-align: middle; }
+thead th { background: #e9edf1; font-size: 12px; font-weight: 700; letter-spacing: .04em; border-bottom: 2px solid var(--plate); }
+thead th.r { text-align: right; }
+tbody th { font-weight: 500; }
+tbody tr:nth-child(even) { background: #f7f9fa; }
+td.num { text-align: right; font-family: var(--mono); font-size: 13px; }
+td .m { grid-template-columns: minmax(0, 1fr); min-width: 104px; padding: 0; }
+td .m .m-v { font-size: 13px; }
+td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--muted); }
+.lamp-t { display: inline-flex; align-items: center; gap: 5px; margin-left: 6px; font-size: 12px; font-weight: 700; color: var(--st); vertical-align: 1px; }
+
+/* narrower than five columns in a row: 廠外 moves to a row of its own on top, the plant's four columns under it; on a
+   phone one column after another, and the card that opens comes up from the bottom */
+@media (max-width: 1199px) {
+  .board { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .stage.s-out { grid-column: 1 / -1; }
+  .stage.s-out > h3 { justify-self: start; width: min(100%, 220px); }
+  .s-out .cards { grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); }
+}
+@media (max-width: 760px) {
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .cards, .s-out .cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .mc-body.cols { grid-template-columns: minmax(0, 1fr); }
+  .mc-body.cols > .col + .col { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 600px) {
+  .kpi { flex: 1 1 50%; border-bottom: 1px solid var(--line); }
+  .kpi.edit { margin-left: 0; border-left: 0; }
+  .modal, .modal.wide { width: 100vw; margin: auto 0 0; }
+  .mc { max-height: 92vh; border-radius: 12px 12px 0 0; }
+}
+@media (max-width: 480px) {
+  .oe-row { grid-template-columns: 18px minmax(0, 1fr) 64px 34px; }
+  .oe-row .wish-n { display: none; }
 }
 
 </style>
@@ -282,12 +305,14 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.9</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.10</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
-<main id="app"><div class="card loading">讀取資料中…</div></main>
-<dialog id="sheet" class="sheet"><form id="sheet-form" method="dialog"></form></dialog>
+<main id="app"><div class="box loading">讀取資料中…</div></main>
+<!-- a point's card over the board, and the forms over that -->
+<dialog id="point" class="modal" aria-labelledby="mc-title"></dialog>
+<dialog id="sheet" class="modal" aria-labelledby="sheet-title"><form id="sheet-form" method="dialog"></form></dialog>
 
 <script src="line-core.js"></script>
 <script id="plant-script">
@@ -302,16 +327,20 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   const $ = (id) => document.getElementById(id);
 
   // One look for one kind of plant. The plan underneath doesn't change between themes, so a car or wafer plant only
-  // needs its own words and colours here.
+  // needs its own words here (and its colours in the stylesheet's :root).
   const THEME = {
     words: {
       outside: '廠外', shop: '供應商', field: '自有採集', unknown: '來源待補', warehouse: '暫存區', bag: '暫存區', machine: '加工站',
       assembly: '組裝站', fg: '訂單',
     },
-    status: { ok: '#2e9b5b', wait: '#e0a526', bad: '#d64545', idle: '#9aa5b1' },
   };
   const W = THEME.words;
   const STATUS_TEXT = { ok: '運行', wait: '要處理', bad: '異常', idle: '無使用' };
+  // What kind of point a card that opens is, over its name: the board's stage, and for 廠外 which kind of supplier.
+  const KIND = {
+    shop: `${W.outside}・${W.shop}`, field: `${W.outside}・${W.field}`, unknown: `${W.outside}・${W.unknown}`, bag: W.warehouse,
+    warehouse: W.warehouse, machine: '加工', assembly: '組裝', fg: W.fg,
+  };
 
   /* ---------- the plan and its points ---------- */
   let A, P, SCH, PR, PL = new Map(), NODES = [], BY = new Map(), ZONES = [], sel = null;
@@ -495,11 +524,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const known = new Set([...raw, ...made]);
     return { raw, made, other: Object.keys(S.have).filter((name) => held(name) && !known.has(name)) };
   }
-  // An item in the bag: its share in each 投料區 that still takes it, what they miss and what is over.
+  // An item in the bag: its share in each 投料區 that still takes it, what they need, miss and what is over.
   function bagSplit(name) {
     const zs = ZONES.map((z) => [z, z.items.find((i) => i.name === name)]).filter(([, i]) => i);
     return {
-      used: zs.length > 0, parts: zs.map(([z, i]) => `${z.station.title} ${fmt(i.have)}`),
+      used: zs.length > 0, parts: zs.map(([z, i]) => `${z.station.title} ${fmt(i.have)}`), need: zs.reduce((t, [, i]) => t + i.need, 0),
       lack: zs.reduce((t, [, i]) => t + i.lack, 0), over: held(name) - zs.reduce((t, [, i]) => t + i.have, 0),
     };
   }
@@ -507,7 +536,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // has to make), a shop with some left this week, the place to gather it, or 來源待補; a shop-only one every shop has
   // sold out of says so.
   function whereFrom(item) {
-    const go = (id, text) => `<button class="go go-link" type="button" data-go="${esc(id)}">→ ${esc(text)}</button>`;
+    const go = (id, text) => `<button class="link" type="button" data-go="${esc(id)}">→ ${esc(text)}</button>`;
     const m = A.mats.find((x) => x.name === item);
     if (!m) {
       if (!REC.has(item)) return '';
@@ -521,7 +550,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     return m.buys.length ? '<span class="bad-text">商店已售完</span>' : '';
   }
   // Where the stock is typed in, for the notes that point there.
-  const BAG_LINK = '<button class="go" type="button" data-go="bag" style="display:inline;width:auto"><b>背包</b></button>';
+  const BAG_LINK = '<button class="link" type="button" data-go="bag">背包</button>';
 
   /* ---------- stations' queues ---------- */
   // Clock times in this browser's time zone: 14:05, 明天 01:20, 10/28 09:00.
@@ -637,7 +666,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (n.kind === 'fg') {
       const all = PR.assemble.length, done = PR.assemble.filter((r) => r.done >= r.plan).length;
       if (!all) return ['idle', '沒有訂單'];
-      return done >= all ? ['idle', '✓ 全部完成'] : [done ? 'ok' : 'idle', `完成 ${fmt(done)}/${fmt(all)} 道`];
+      return done >= all ? ['idle', '✓ 全部完成'] : [done ? 'ok' : 'idle', `完成 ${fmt(done)}／${fmt(all)} 道`];
     }
     // A food station: as soon as one dish not done yet has all its materials (the card's ✓ 可以組裝), 可組裝 — yellow,
     // someone has to go and make it.
@@ -649,254 +678,312 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (!rows.length) return ['idle', n.kind === 'assembly' ? '沒有訂單' : '—'];
     const [d, p] = tally(rows);
     if (d >= p) return ['idle', `✓ ${{ machine: '加工完成', assembly: '組裝完成' }[n.kind] || `完成 ${fmt(d)}`}`];
-    if (d > 0) return ['ok', `${VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
+    if (d > 0) return ['ok', `${VERB[rows[0].kind]} ${fmt(d)}／${fmt(p)}`];
     if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
     return ['idle', '未開始'];
   }
 
-  /* ---------- blocks: every point as a card, one column per stage ---------- */
+  /* ---------- rows: one kind for the board's cards, the card that opens and the tables ---------- */
+  // A row is a name on the left and a number on the right. One with a done and a need reads 「done／need unit」 — done
+  // first, a full-width slash, the unit last (materials have none) — with a thin bar under it: slate while under way,
+  // green with ✓ once met, red for a material the week is short of (異常). A row that only knows what is left
+  // (還要採 N) has no bar.
+  const LIGHT = '<span class="light" aria-hidden="true"><i></i><i></i><i></i></span>';
+  const barOf = (f) => `<span class="m-bar" aria-hidden="true"><i style="width:${Math.round(Math.max(0, Math.min(1, f)) * 100)}%"></i></span>`;
+  const rowHTML = (tag, label, value, { cls = '', f = null, sub = '' } = {}) => `<${tag} class="m${cls ? ` ${cls}` : ''}">${label == null ? '' : `<span class="m-l">${label}</span>`}<span class="m-v">${value}</span>${f == null ? '' : barOf(f)}${sub ? `<span class="m-sub">${sub}</span>` : ''}</${tag}>`;
+  const meterHTML = (tag, label, done, need, { unit = '', short = false, sub = '', cls = '' } = {}) => {
+    const met = done >= need;
+    return rowHTML(tag, label, `${met ? '✓ ' : ''}${fmt(done)}／${fmt(need)}${unit ? ` ${unit}` : ''}`,
+      { cls: [cls, met ? 'met' : short ? 'short' : ''].filter(Boolean).join(' '), f: need ? done / need : 1, sub });
+  };
+  const rowsHTML = (list) => (list.length ? `<ul class="rows">${list.join('')}</ul>` : '');
+  const sec = (title, meta, inner, cls = '') => `<section class="sec${cls ? ` ${cls}` : ''}">${title ? `<h3 class="sec-h"><span>${title}</span>${meta ? `<span class="meta">${meta}</span>` : ''}</h3>` : ''}${inner}</section>`;
+  const subh = (title) => `<h4 class="sub-h">${title}</h4>`;
+  // A food station's dishes, in wish list order.
+  const dishOuts = (n) => {
+    const z = ZONES.find((x) => x.station === n), at = (name) => A.rows.findIndex((o) => o.dish === name);
+    return z ? z.outs.slice().sort((a, b) => at(a.name) - at(b.name)) : [];
+  };
+  // A station's places by what they are doing: 做好 (to collect) and 等開工 yellow, 做中 green, 排隊 a fainter green.
+  const SLOT_CLS = { wait: 'wait', queue: 'ok queued', run: 'ok', done: 'wait' };
+
+  /* ---------- the board: every point as a card, one column per stage ---------- */
   const STAGES = [['out', W.outside], ['warehouse', W.warehouse], ['machine', '加工'], ['assembly', '組裝'], ['fg', W.fg]];
   const stageOf = (n) => (n.zone === 'out' ? 'out' : n.kind === 'bag' ? 'warehouse' : n.kind);
 
-  // The few lines that say what a point needs this week and how far it has got; the panel has the rest.
+  // The few rows that say what a point needs this week and how far it has got, under a small line naming its numbers;
+  // the card that opens has the rest.
   function blockLines(n) {
-    const line = (name, v, cls = '') => `<span class="ln ${cls}"><span>${esc(name)}</span><span>${v}</span></span>`;
-    const dp = (r) => `${fmt(r.done)}／${fmt(r.plan)}`;
-    // a dish on the assembly and 訂單 cards: its name, then a bar (f of it full) and a count on one line, the same
-    // shape for every dish
-    const dish = (name, f, text, cls = '') => `<span class="blk-dish${cls ? ` ${cls}` : ''}"><span class="nm">${esc(name)}</span>
-        <span class="blk-prog"><span class="blk-bar" aria-hidden="true"><i style="width:${Math.round(f * 100)}%"></i></span><span class="n">${text}</span></span></span>`;
-    // a shop: what every character can still buy there; gathering: what is still to gather
-    if (n.kind === 'shop') return n.items.map((i) => {
-      const left = i.buy.per.length * SHOP.limit - i.buy.bought;
-      return line(i.name, left ? `還能買 ${fmt(left)}` : '已售完', i.mat.short ? 'bad' : '');
-    }).join('');
-    if (n.kind === 'field' || n.kind === 'unknown') return n.items.map((i) => line(i.name, i.mat.get ? `還要採 ${fmt(i.mat.get)}` : '齊', i.mat.get ? '' : 'ok')).join('');
-    // 背包: one line, how many kinds the week still takes and how many it doesn't; the panel lists them
+    const head = (title) => `<span class="m-head">${title}</span>`;
+    const cl = (label, v, o) => rowHTML('span', esc(label), v, o), cm = (label, done, need, o) => meterHTML('span', esc(label), done, need, o);
+    // a shop: what has been bought of what the week wants from it
+    if (n.kind === 'shop') {
+      return head('已買／要買') + n.items.map((i) => (i.buy.bought + i.buy.qty
+        ? cm(i.name, i.buy.bought, i.buy.bought + i.buy.qty, { short: !!i.mat.short }) : cl(i.name, '不用買', { cls: 'none' }))).join('');
+    }
+    // gathering: only what is still to get (nothing to count it against but the stock)
+    if (n.kind === 'field' || n.kind === 'unknown') {
+      return n.items.map((i) => (i.mat.get ? cl(i.name, `${n.kind === 'field' ? '還要採' : '還要拿'} ${fmt(i.mat.get)}`) : cl(i.name, '✓ 齊了', { cls: 'met' }))).join('');
+    }
+    // 背包: of the kinds the week takes, how many it holds in full (what it holds that the week doesn't take is in the foot)
     if (n.kind === 'bag') {
-      const g = bagGroups();
-      return line(`這週要用 ${fmt([...g.raw, ...g.made].filter((name) => bagSplit(name).used).length)} 種`, g.other.length ? `用不到 ${fmt(g.other.length)} 種` : '');
+      const g = bagGroups(), use = [...g.raw, ...g.made].filter((name) => bagSplit(name).used);
+      return use.length ? head('齊了／要用') + cm('這週的料', use.filter((name) => !bagSplit(name).lack).length, use.length, { unit: '樣' }) : cl('沒有要用的料', '', { cls: 'none' });
     }
+    // a 投料區: each material, its share of the bag against what its station still takes — raw materials, a dashed
+    // line, then made items (what each made item or dish still misses is in the card that opens)
     if (n.kind === 'warehouse') {
-      // each material its share of the bag against what its station still takes: raw materials, a dashed line, then
-      // made items (what each made item or dish still misses is in the panel)
-      const ln = (i) => line(i.name, `${fmt(i.have)}／${fmt(i.need)}`, n.cut.has(i.name) ? 'bad' : i.lack ? '' : 'ok');
-      const rawLines = n.items.filter((i) => !i.made).map(ln).join(''), madeLines = n.items.filter((i) => i.made).map(ln).join('');
-      return [rawLines, madeLines].filter(Boolean).join('<span class="blk-cut" aria-hidden="true"></span>') || line('不用備料', '');
+      const ln = (i) => cm(i.name, i.have, i.need, { short: n.cut.has(i.name) });
+      const raw = n.items.filter((i) => !i.made).map(ln).join(''), made = n.items.filter((i) => i.made).map(ln).join('');
+      return raw || made ? head('現有／需要') + [raw, made].filter(Boolean).join('<span class="cut" aria-hidden="true"></span>') : cl('不用備料', '', { cls: 'none' });
     }
+    // a station: each made item's batches, then its places as small lights
     if (n.kind === 'machine') {
-      const L = n.lane, q = PL.get(L.name);
-      const now = !q || !q.busy ? (rowsOf(n).length ? '都做完了' : '沒有要排的了') : `設備 ${q.slots.filter(Boolean).length}/${q.size} 格・排程還有 ${q.seq.length} 批`;
-      return rowsOf(n).map((x) => line(x.item, `${dp(x)} 批`, x.done >= x.plan ? 'ok' : '')).join('')
-        + `<span class="foot">${esc(now)}${L.queue == null ? '・排程上限待補' : ''}</span>`;
+      const q = PL.get(n.lane.name), rows = rowsOf(n);
+      return (rows.length ? head('做好／要做') + rows.map((x) => cm(x.item, x.done, x.plan, { unit: '批' })).join('') : '')
+        + (q ? `<span class="strip" style="grid-template-columns:repeat(${q.size},minmax(0,1fr))" aria-hidden="true">${q.slots.map((s, k) => (s
+          ? `<i class="${SLOT_CLS[s.state]}" title="${k + 1} ${esc(s.name)}・${esc(placeNote(s))}"></i>` : '<i class="empty"></i>')).join('')}</span>` : '');
     }
-    // assembly: each dish on its own, wish list order — how many of its materials its share of the bag covers in full,
-    // with a bar, until they all are and it says 可以組裝 (or ✓ 完成 once it is marked done)
+    // assembly: each dish on its own, wish list order — how many of its materials its own share of the bag covers in
+    // full, until they all are (✓ 可以組裝) or it is marked done (✓ 完成)
     if (n.kind === 'assembly') {
-      const z = ZONES.find((x) => x.station === n), at = (name) => A.rows.findIndex((o) => o.dish === name);
-      const outs = z ? z.outs.slice().sort((a, b) => at(a.name) - at(b.name)) : [];
-      if (!outs.length) return line('沒有要組裝的', '');
-      return outs.map((o) => {
-        if (o.none) return dish(o.name, 0, '這週做不了', 'bad');
-        if (!o.left) return dish(o.name, 1, '✓ 完成', 'ok');
-        if (o.can >= o.left) return dish(o.name, 1, '✓ 可以組裝', 'ok');
-        const mats = [...(o.mats || new Map()).values()], ok = mats.filter((m) => m.have >= m.need).length;
-        return dish(o.name, mats.length ? ok / mats.length : 0, `材料 ${fmt(ok)}／${fmt(mats.length)} 樣`);
+      const outs = dishOuts(n);
+      if (!outs.length) return cl('沒有要組裝的', '', { cls: 'none' });
+      return head('備齊／材料') + outs.map((o) => {
+        if (o.none) return cl(o.name, '這週做不了', { cls: 'short', f: 0 });
+        if (!o.left) return cl(o.name, '✓ 完成', { cls: 'met', f: 1 });
+        if (o.can >= o.left) return cl(o.name, '✓ 可以組裝', { cls: 'met', f: 1 });
+        const mats = [...(o.mats || new Map()).values()];
+        return cm(o.name, mats.filter((m) => m.have >= m.need).length, mats.length, { unit: '樣' });
       }).join('');
     }
-    // 訂單: each dish (wish list order, a dish ordered twice as one) with how many are done of how many are ordered
+    // 訂單: each dish (a dish ordered twice as one), how many are done of how many are ordered — one the week can't
+    // make in full is done (✓) once what it can make is
     const ordered = new Map();
     for (const o of A.rows) ordered.set(o.dish, (ordered.get(o.dish) || 0) + o.qty);
-    if (!ordered.size) return line('沒有訂單', '');
-    return [...ordered].map(([name, qty]) => {
+    if (!ordered.size) return cl('沒有訂單', '', { cls: 'none' });
+    return head('完成／訂單') + [...ordered].map(([name, qty]) => {
       const r = PR.assemble.find((x) => x.item === name);
-      if (!r) return dish(name, 0, `做不了・0／${fmt(qty)}`, 'bad');
-      const done = Math.min(r.done, qty), all = r.done >= r.plan;
-      return dish(name, qty ? done / qty : 0, `${all ? '✓ ' : ''}完成 ${fmt(done)}／${fmt(qty)}`, all ? 'ok' : '');
+      if (!r) return cl(name, `做不了・0／${fmt(qty)} 份`, { cls: 'short', f: 0 });
+      const done = Math.min(r.done, qty);
+      return r.done >= r.plan ? cl(name, `✓ ${fmt(done)}／${fmt(qty)} 份`, { cls: 'met', f: qty ? done / qty : 1 }) : cm(name, done, qty, { unit: '份' });
     }).join('');
   }
+  // A card's foot: what 背包 holds that the week doesn't take; a station's places and what is still to put in.
+  function blockFoot(n) {
+    if (n.kind === 'bag') { const k = bagGroups().other.length; return k ? `用不到 ${fmt(k)} 樣` : ''; }
+    if (n.kind !== 'machine') return '';
+    const L = n.lane, q = PL.get(L.name);
+    return (!q || !q.busy ? (rowsOf(n).length ? '都做好了' : '沒有要排的了') : `設備 ${q.slots.filter(Boolean).length}／${q.size} 格・排程還有 ${q.seq.length} 批`)
+      + (L.queue == null ? '・排程上限待補' : '');
+  }
   function blocksHTML() {
-    return `<div class="flow">${STAGES.map(([key, title]) => {
+    return `<div class="board">${STAGES.map(([key, title]) => {
       const list = NODES.filter((n) => stageOf(n) === key);
-      // 廠外 keeps its column when there is nothing to buy or gather, so the plant doesn't shift
-      if (!list.length) return key === 'out' ? `<section class="stage"><h3>${esc(title)}</h3><p class="muted" style="margin:0;font-size:13px">沒有要買或採的</p></section>` : '';
-      return `<section class="stage"><h3>${esc(title)}</h3>${list.map((n) => {
-        const [k, text] = statusOf(n);
-        return `<button class="blk ${k}${sel === n.id ? ' sel' : ''}" type="button" data-go="${esc(n.id)}" data-blk="${esc(n.id)}">
-          <span class="blk-head"><span class="blk-name">${esc(n.title)}</span><span class="badge ${k}">${esc(text)}</span></span>
-          ${blockLines(n)}</button>`;
-      }).join('')}</section>`;
+      // 廠外 keeps its column when there is nothing to buy or gather, so the board doesn't shift
+      if (!list.length && key !== 'out') return '';
+      return `<section class="stage s-${key}"><h3>${esc(title)}</h3><div class="cards">${list.map((n) => {
+        const [k, text] = statusOf(n), foot = blockFoot(n);
+        return `<button class="c ${k}" type="button" data-go="${esc(n.id)}">
+          <span class="c-head">${LIGHT}<b class="c-name">${esc(n.title)}</b><span class="c-state">${esc(text)}</span></span>
+          <span class="c-body">${blockLines(n)}</span>${foot ? `<span class="foot">${esc(foot)}</span>` : ''}</button>`;
+      }).join('') || '<p class="note0">沒有要買或採的</p>'}</div></section>`;
     }).join('')}</div>`;
   }
 
-  /* ---------- the side panel ---------- */
-  const badge = ([k, text]) => `<span class="badge ${k}"><i class="dot" style="background:${THEME.status[k]}"></i>${esc(text)}</span>`;
-  const barHTML = (f, cls = '') => `<div class="bar ${cls}"><i style="width:${Math.max(0, Math.min(100, f * 100)).toFixed(0)}%"></i></div>`;
-  const goHTML = (id, label, sub) => `<button class="go" type="button" data-go="${esc(id)}"><b>${label}</b>${sub ? `<div class="muted">${sub}</div>` : ''}</button>`;
+  /* ---------- the card that opens over the board ---------- */
+  // The same head as the board's card (its kind above the name), the point's details in the middle, and a foot that
+  // stays put: along the material flow to the point before and after on the left, the card's own action on the right.
+  // The flow: 背包, each processing station's 投料區 and the station, the food station's 投料區 and the station, 訂單; a
+  // supplier outside the fence leads to 背包.
+  function flowOf(n) {
+    if (n.zone === 'out') return { next: 'bag' };
+    const line = ['bag', ...ZONES.flatMap((z) => [z.id, z.station.id]), 'fg'].filter((id) => BY.has(id)), k = line.indexOf(n.id);
+    return k < 0 ? {} : { prev: line[k - 1], next: line[k + 1] };
+  }
+  function cardHTML(n, body, { act = '', wide = false } = {}) {
+    const [k, text] = statusOf(n), { prev, next } = flowOf(n);
+    const step = (id, label) => `<button class="btn ghost" type="button" data-go="${esc(id)}">${label}</button>`;
+    const nav = (prev ? step(prev, `← ${esc(BY.get(prev).title)}`) : '') + (next ? step(next, `${esc(BY.get(next).title)} →`) : '');
+    return `<div class="mc ${k}"><div class="mc-head"><div class="mc-top"><span class="mc-kind">${esc(KIND[n.kind] || '')}</span>
+        <button class="mc-x" type="button" data-close aria-label="關閉">✕</button></div>
+        <div class="c-head">${LIGHT}<b class="c-name" id="mc-title">${esc(n.title)}</b><span class="c-state">${esc(text)}</span></div></div>
+      <div class="mc-body${wide ? ' cols' : ''}">${body}</div>
+      ${nav || act ? `<div class="mc-foot"><span class="mc-nav">${nav}</span><span class="mc-act">${act}</span></div>` : ''}</div>`;
+  }
 
   // Ways out of a shortage of a shop-only material, worked out from the numbers.
   function remedies(m) {
     const perChar = m.s.shops.length * SHOP.limit, toBuy = Math.max(0, m.want - m.base), tips = [];
     const need = chars() + Math.ceil(m.short / perChar);
-    if (chars() < MAX_CHARS) tips.push(need <= MAX_CHARS ? `加到 ${need} 隻角色去買就夠（每多一隻，這樣東西本週多 ${fmt(perChar)} 個）。` : `角色加到上限 ${MAX_CHARS} 隻也還缺 ${fmt(m.short - (MAX_CHARS - chars()) * perChar)}。`);
+    if (chars() < MAX_CHARS) tips.push(need <= MAX_CHARS ? `加到 ${need} 隻角色去買就夠（每多一隻，${m.name}本週多 ${fmt(perChar)} 個）。` : `角色加到上限 ${MAX_CHARS} 隻也還缺 ${fmt(m.short - (MAX_CHARS - chars()) * perChar)}。`);
     tips.push(`分週做：照現在 ${chars()} 隻角色，要 ${Math.ceil(toBuy / (perChar * chars()))} 週才買得齊；這週先做上限，剩的下週再排。`);
-    tips.push('到訂單按「編輯」，把數量改成上限，或把比較要緊的料理往上移，讓它先分到。');
+    tips.push('到訂單按「編輯訂單」，把數量改成上限，或把比較要緊的料理往上移，讓它先分到。');
     const other = m.s.src.filter((x) => x.kind === 'barter' || x.kind === 'loot');
     if (other.length) tips.push(`還有其他來源沒算進去：${other.map(sourceText).join('、')}。`);
-    tips.push('手上有庫存的話，在暫存區填「現有庫存」。');
+    tips.push('手上有的話，到背包填「現有庫存」。');
     return tips;
   }
   function shortageHTML(m) {
     const cut = A.rows.filter((o) => o.n < o.qty && o.stuck.includes(m.name));
-    return `<div class="sec alert"><h3>異常・${esc(m.name)}原物料不足</h3>
-      <dl class="kv">
+    return sec(`異常・${esc(m.name)}原物料不足`, '', `<dl class="kv">
         <dt>訂單要</dt><dd>${fmt(m.want)}</dd>
-        <dt>本週最多</dt><dd>${fmt(m.s.cap)}（已有 ${fmt(m.base)} ＋ 還能買 ${fmt(m.s.buyCap)}：${esc(m.s.shops.map((x) => x.who).join('＋'))}，每家每隻 ${SHOP.limit} 個 × ${chars()} 隻）</dd>
+        <dt>本週最多</dt><dd>${fmt(m.s.cap)}（現有 ${fmt(m.base)} ＋ 還能買 ${fmt(m.s.buyCap)}：${esc(m.s.shops.map((x) => x.who).join('＋'))}，每家每隻 ${SHOP.limit} 個 × ${chars()} 隻）</dd>
         <dt>缺</dt><dd class="bad-text">${fmt(m.short)}</dd>
       </dl>
-      ${cut.length ? `<h4>影響</h4><ul class="rows">${cut.map((o) => `<li><span>${nameHTML(o.dish)}<span class="muted">・想做 ${fmt(o.qty)}，只能做 ${fmt(o.n)}</span></span></li>`).join('')}</ul>` : ''}
-      <h4>可以怎麼做</h4><ul class="tips">${remedies(m).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
-    </div>`;
+      ${cut.length ? subh('影響') + rowsHTML(cut.map((o) => meterHTML('li', nameHTML(o.dish), o.n, o.qty, { unit: '份', short: true, sub: `可以做／想做：這週只做得出 ${fmt(o.n)} 份` }))) : ''}
+      ${subh('可以怎麼做')}<ul class="tips">${remedies(m).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`, 'alert bad');
   }
 
-  // A 投料區 in the panel, shown only: what its station makes and how many its share covers, then each material — what
-  // the station still takes, what this 投料區's share of the bag is and what is missing. The stock itself is typed in
-  // on 暫存區's 填現有庫存.
+  // A 投料區: what its station makes and how many of those its share covers, then each material — its share of the bag
+  // against what the station still takes. The stock itself is typed in on 背包's 填現有庫存.
   function storeHTML(n) {
-    const unit = n.asm ? '份' : '批';
+    const unit = n.asm ? '份' : '批', verb = n.asm ? '製作' : '加工';
     const outs = n.outs.map((o) => {
-      const miss = o.left && o.can < o.left ? missText(n, o) : '';
-      const right = o.none ? '<span class="bad-text">這週做不了</span>' : !o.left ? `<span class="ok-text">${outDone(n, o)}</span>`
-        : o.can >= o.left ? `<span class="ok-text">✓ ${fmt(o.left)} ${unit}都可以${n.asm ? '製作' : '加工'}</span>` : `可以${n.asm ? '製作' : '加工'} ${fmt(o.can)}／${fmt(o.left)} ${unit}`;
-      return `<li><span>${nameHTML(o.name)}</span><span class="num">${right}</span>${miss ? `<span class="sub">${esc(miss)}</span>` : ''}</li>`;
-    }).join('');
+      if (o.none) return rowHTML('li', nameHTML(o.name), '這週做不了', { cls: 'short' });
+      if (!o.left) return rowHTML('li', nameHTML(o.name), outDone(n, o), { cls: 'met' });
+      return meterHTML('li', nameHTML(o.name), o.can, o.left, { unit, sub: o.can < o.left ? esc(missText(n, o)) : '' });
+    });
     // an item another 投料區 takes too gets a small 共用 tag (how it is split is in its title and on 背包)
-    const tag = (i) => (takers(i.name).length > 1 ? ` <span class="badge idle tag" title="背包 ${fmt(held(i.name))}，別區也要用，照需求清單順序這區分到 ${fmt(i.have)}">共用</span>` : '');
-    const mat = (i) => `<li><span>${nameHTML(i.name)}${tag(i)}</span><span class="num">${i.lack ? `<span class="bad-text">還缺 ${fmt(i.lack)}</span>` : '<span class="ok-text">✓ 夠了</span>'}</span>
-      <span class="sub">需要 ${fmt(i.need)}・現有 ${fmt(i.have)}</span></li>`;
-    const list = (title, items) => (items.length ? `<h4>${title}</h4><ul class="rows">${items.map(mat).join('')}</ul>` : '');
+    const tag = (i) => (takers(i.name).length > 1 ? `<span class="tag" title="背包 ${fmt(held(i.name))}，別區也要用，照需求清單順序這區分到 ${fmt(i.have)}">共用</span>` : '');
+    const mat = (i) => {
+      const cut = n.cut.has(i.name), lack = i.lack > 0 ? `還缺 ${fmt(i.lack)}` : '';
+      return meterHTML('li', nameHTML(i.name) + tag(i), i.have, i.need, { short: cut, sub: cut && lack ? `<span class="bad-text">${lack}</span>` : lack });
+    };
+    const list = (title, items) => (items.length ? subh(title) + rowsHTML(items.map(mat)) : '');
     const mats = list('原料', n.items.filter((i) => !i.made)) + list('加工品', n.items.filter((i) => i.made));
-    return `<div class="sec"><h3>${n.asm ? '料理' : '加工品'}</h3>${outs ? `<ul class="rows">${outs}</ul>` : `<p class="muted" style="margin:0">這週不用${n.asm ? '製作' : '加工'}，不用備料。</p>`}</div>
-      ${mats ? `<div class="sec"><h3>要投的料</h3>${mats}<p class="note">數量照背包算；要改庫存，到暫存區的${BAG_LINK}。</p></div>` : ''}`;
+    return sec(n.asm ? '料理' : '加工品', n.outs.length ? `可以${verb}／還要做` : '', n.outs.length ? rowsHTML(outs) : `<p class="note0">這週不用${verb}，不用備料。</p>`)
+      + (mats ? sec('要投的料', '現有／需要', `${mats}<p class="note">數量照背包算；要改，到${BAG_LINK}填現有庫存。</p>`) : '');
   }
-  // 背包 in the panel: 填現有庫存 (the one place the stock is typed in), then everything in the bag — what the week still
-  // takes, each with its share in each 投料區, what is short and what is over — then what the week doesn't take.
+  // 背包: everything in the bag — what the week takes, each against what the 投料區 need, with its share in each, what is
+  // short and what is over — then what the week doesn't take. 填現有庫存 (in the foot) is the one place it is typed in.
   function bagHTML() {
     const g = bagGroups();
-    const row = (name) => {
-      const b = bagSplit(name);
-      const sub = !b.used ? '這週不用再投' : [`分給 ${esc(b.parts.join('・'))}`, b.lack ? `<span class="bad-text">還缺 ${fmt(b.lack)}</span>` : '', b.over > 0 ? `多 ${fmt(b.over)}` : ''].filter(Boolean).join('・');
-      return `<li><span>${nameHTML(name)}</span><span class="num">${fmt(held(name))}</span><span class="sub">${sub}</span></li>`;
+    const item = (name) => {
+      const b = bagSplit(name), m = A.mats.find((x) => x.name === name), short = !!(m && m.short);
+      if (!b.used) return rowHTML('li', nameHTML(name), fmt(held(name)), { sub: '這週不用再投' });
+      const lack = b.lack ? (short ? `<span class="bad-text">還缺 ${fmt(b.lack)}</span>` : `還缺 ${fmt(b.lack)}`) : '';
+      return meterHTML('li', nameHTML(name), held(name), b.need, { short, sub: [`分給 ${esc(b.parts.join('・'))}`, lack, b.over > 0 ? `多 ${fmt(b.over)}` : ''].filter(Boolean).join('・') });
     };
-    const list = (title, names) => (names.length ? `<h4>${title}</h4><ul class="rows">${names.map(row).join('')}</ul>` : '');
-    const other = g.other.map((name) => `<li><span>${nameHTML(name)}</span><span class="num">${fmt(held(name))}</span></li>`).join('');
-    return `<div class="sec"><button class="btn primary buy-open" type="button" data-stockopen>填現有庫存</button>
-        <p class="note">照遊戲背包現在的數量填，買了東西、做完料理都要來這裡改。只有加工設備的開工和領料會自動加減。</p></div>
-      <div class="sec"><h3>這週要用</h3>${list('原料', g.raw) + list('加工品', g.made) || '<p class="muted" style="margin:0">需求清單還沒有要用的料。</p>'}</div>
-      ${other ? `<div class="sec"><h3 class="ord-h">這週用不到<span>${fmt(g.other.length)} 種</span></h3><ul class="rows">${other}</ul>
-        <p class="note">之前留下來的。不需要的話，在「填現有庫存」填 0 清掉。</p></div>` : ''}`;
+    const list = (title, names) => (names.length ? subh(title) + rowsHTML(names.map(item)) : '');
+    const other = g.other.map((name) => rowHTML('li', nameHTML(name), fmt(held(name))));
+    return sec('這週要用', '現有／需要', `${list('原料', g.raw) + list('加工品', g.made) || '<p class="note0">需求清單還沒有要用的料。</p>'}
+        <p class="note">照遊戲背包現在的數量填，買了東西、做完料理都要來這裡改。只有加工設備的開工和領料會自動加減。</p>`)
+      + (other.length ? sec('這週用不到', `${fmt(other.length)} 樣`, `${rowsHTML(other)}<p class="note">之前留下來的。不需要的話，在「填現有庫存」填 0 清掉。</p>`) : '');
   }
-  // A shop in the panel: what it sells and how many have been bought this week; 填已購買 opens the form.
+  // A shop: each item, what has been bought of what the week wants from it, with the limit and what can still be bought
+  // under it; 填已購買 (in the foot) opens the form.
   function shopHTML(n) {
-    const rows = n.items.map((i) => `<li><button class="go buy-line" type="button" data-buyopen="${esc(n.id)}"><span>${nameHTML(i.name)}</span>
-      <span class="num">${i.buy.bought >= i.buy.per.length * SHOP.limit ? '已售完' : '已買'} ${fmt(i.buy.bought)}／${fmt(i.buy.per.length * SHOP.limit)}</span></button></li>`).join('');
-    return `<div class="sec"><ul class="rows">${rows}</ul><button class="btn primary buy-open" type="button" data-buyopen="${esc(n.id)}">填已購買</button></div>`;
+    const rows = n.items.map((i) => {
+      const L = i.buy.per.length * SHOP.limit, want = i.buy.bought + i.buy.qty, left = L - i.buy.bought;
+      const sub = [`上限 ${fmt(L)}（${fmt(i.buy.per.length)} 隻角色 × ${SHOP.limit}）`, left ? `還能買 ${fmt(left)}` : '已售完',
+        i.mat.short ? `<span class="bad-text">這週還缺 ${fmt(i.mat.short)}</span>・<button class="link" type="button" data-go="${esc(zoneFor(i.name))}">看對策</button>` : ''].filter(Boolean).join('・');
+      return want ? meterHTML('li', nameHTML(i.name), i.buy.bought, want, { short: !!i.mat.short, sub }) : rowHTML('li', nameHTML(i.name), '不用買', { cls: 'none', sub });
+    });
+    return sec('這週的額度', '已買／要買', `${rowsHTML(rows)}<p class="note">這裡只記商店額度，背包請另外更新。</p>`);
   }
 
-  // A station in the panel: 開工 and what the 投料區 lacks on top (while batches wait in its places), then its places —
-  // empty, 等開工 (with each batch's time), 排隊 or 做中 (with when it is made), or 做好了 with 領料; any not finished can
-  // be taken back out (✕), and with the lock open (測試) finished at once (直接完成) — then the batches still to put in,
-  // dragged by ⠿ into another order or into an empty place, or put in with 加入 (no times there).
+  // A station: 設備, its places — empty, 等開工 (with each batch's time), 排隊 or 做中 (with when it is made), or 做好了
+  // with 領料; any not finished can be taken back out (✕), and with the lock open (測試) finished at once (直接完成) —
+  // then 排程, the batches still to put in, dragged by ⠿ into another order or into an empty place, or put in with 加入
+  // (no times there), and 已完成, the week's 領料 (退回 puts one back). 開工 sits in the foot.
   let testing = false;
   function placeNote(s) {
     if (s.state === 'wait') { const x = secsOf(s.name); return `等開工・${x == null ? '時間待補' : `每批 ${fmtDur(x)}`}`; }
     if (s.end == null) return `${s.state === 'done' ? '做好了' : s.state === 'run' ? '做中' : '排隊'}・時間待補`;
-    return s.state === 'done' ? `${hm(s.end)} 做好` : `${s.state === 'run' ? '做中' : '排隊'}・${hm(s.end)} 好`;
+    return s.state === 'done' ? `${hm(s.end)} 做好` : `${s.state === 'run' ? '做中' : '排隊'}・${hm(s.end)} 做好`;
   }
-  function queueHTML(q) {
-    const lane = esc(q.lane.name), empty = q.slots.some((s) => !s), waiting = q.slots.some((s) => s && s.state === 'wait');
-    // 開工 and the line under it are always there, greyed out while no batch waits, so putting a batch in doesn't move
-    // the panel
-    const note = !waiting ? '<p class="note">設備裡有等開工的批數才能按。</p>'
-      : q.short.length ? `<p class="note bad-text">庫存不夠：${esc(q.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</p>` : '<p class="note">料都夠，可以開工。</p>';
-    const top = `<div class="sec"><div class="round-act"><button class="btn primary" type="button" data-start="${lane}"${waiting ? '' : ' disabled'}>開工</button><span>按下去就從現在開始算</span></div>${note}</div>`;
+  function stationHTML(n) {
+    const L = n.lane, q = PL.get(L.name), lane = esc(L.name), empty = q.slots.some((s) => !s);
     const places = q.slots.map((s, k) => (!s
-      ? `<div class="slot place empty" data-place="${k}" data-lane="${lane}"><span class="no">${k + 1}</span><span>空</span></div>`
-      : `<div class="slot place ${s.state}"><span class="no">${k + 1}</span><span class="what">${nameHTML(s.name)}<small>${esc(placeNote(s))}</small></span>
+      ? `<div class="slot place empty" data-place="${k}" data-lane="${lane}"><span class="no">${k + 1}</span><span class="what">空</span></div>`
+      : `<div class="slot place ${SLOT_CLS[s.state]}"><span class="no">${k + 1}</span><span class="what">${nameHTML(s.name)}<small>${esc(placeNote(s))}</small></span>
         <span class="mv">${s.state === 'done' ? `<button class="btn primary small" type="button" data-collect="${lane}|${k}">領料</button>`
           : `${testing ? `<button class="btn small" type="button" data-finish="${lane}|${k}">直接完成</button>` : ''}<button class="btn small" type="button" data-unslot="${lane}|${k}" aria-label="取消${esc(s.name)}，原料退回">✕</button>`}</span></div>`)).join('');
     const lock = `<button class="btn small" type="button" data-testlock aria-pressed="${testing}" title="打開後設備裡的批數可以直接完成，測試用">${testing ? '🔓 測試' : '🔒'}</button>`;
-    const seq = q.seq.map((name, i) => `<div class="slot" data-slot="${i}" data-lane="${lane}">
+    const seq = q.seq.map((name, i) => `<div class="slot seq" data-slot="${i}" data-lane="${lane}">
         <span class="grip" title="拖拉換順序" aria-hidden="true">⠿</span><span class="no">${i + 1}</span><span class="what">${nameHTML(name)}</span>
         <span class="mv"><button class="btn small" type="button" data-place-in="${lane}|${i}"${empty ? '' : ' disabled'}>加入</button></span></div>`).join('');
-    return `${top}<div class="sec"><h3 class="ord-h">設備<span>${q.slots.filter(Boolean).length}/${q.size} 格${q.lane.queue == null ? '・上限待補，先當 1 格' : ''} ${lock}</span></h3><div class="list5" data-keep="places">${places}</div></div>
-      <div class="sec grow"><h3 class="ord-h">排程<span>還有 ${fmt(q.seq.length)} 批</span></h3>${seq ? `<div class="list5" data-keep="seq">${seq}</div>` : '<p class="muted" style="margin:0">沒有要排的了。</p>'}
-        ${q.seq.length ? '<p class="note">拖 ⠿ 換順序，或拖進上面的空格。</p>' : ''}</div>`;
+    const log = logOf(L.name).map((e, i) => [e, i]).reverse().map(([e, i]) => rowHTML('li', `${nameHTML(e.name)} ×${fmt(yieldOf(REC.get(e.name)))}<small>・${esc(hm(e.done))} 領料${e.test ? '・測試' : ''}</small>`,
+      `<button class="btn small" type="button" data-unlog="${lane}|${i}">退回</button>`, { cls: 'act' })).join('');
+    const done = rowsHTML(rowsOf(n).map((r) => meterHTML('li', nameHTML(r.item), r.done, r.plan, { unit: '批' })));
+    return `<div class="col">${sec('設備', `${q.slots.filter(Boolean).length}／${q.size} 格${L.queue == null ? '・上限待補，先當 1 格' : ''} ${lock}`, `<div class="slots list5" data-keep="places">${places}</div>`)}</div>
+      <div class="col">${sec('排程', `還有 ${fmt(q.seq.length)} 批`, `${seq ? `<div class="slots list5" data-keep="seq">${seq}</div>` : '<p class="note0">沒有要排的了。</p>'}${q.seq.length ? '<p class="note">拖 ⠿ 換順序，或拖進設備的空格。</p>' : ''}`, 'grow')}
+        ${sec('已完成', '做好／要做', `${done}${log ? `<ul class="rows list5" data-keep="log">${log}</ul>` : ''}`, 'grow')}</div>`;
+  }
+  // 開工 and the line next to it are always there, greyed out while no batch waits, so the card doesn't move.
+  function startHTML(q) {
+    const waiting = q.slots.some((s) => s && s.state === 'wait');
+    const note = !waiting ? '設備裡有等開工的批數才能按'
+      : q.short.length ? `<span class="bad-text">料不夠：${esc(q.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</span>` : '料都夠，按下去就從現在開始算';
+    return `<span class="note">${note}</span><button class="btn primary" type="button" data-start="${esc(q.lane.name)}"${waiting ? '' : ' disabled'}>開工</button>`;
   }
 
-  // 訂單, the panel's default view: the wish list alone — shortages and missing data show on the cards and the summary.
-  function overviewHTML() {
-    return `<div class="panel-head"><h2 class="ord-h">訂單<button class="btn small" type="button" data-oopen>編輯</button></h2></div>${ordersHTML()}`;
+  // A food station: each dish (wish list order) — how many are ordered, how many of its materials are in hand and what
+  // one portion takes — and under it each material still missing, with where to get it. 完成 stays on 訂單.
+  function asmHTML(n) {
+    const outs = dishOuts(n);
+    if (!outs.length) return sec('', '', '<p class="note0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯訂單」增加訂單。</p>');
+    const rows = outs.flatMap((o) => {
+      const qty = A.rows.filter((x) => x.dish === o.name).reduce((t, x) => t + x.qty, 0), y = yieldOf(o.r);
+      const mats = [...(o.mats || new Map())], ok = mats.filter(([, m]) => m.have >= m.need).length;
+      const label = `${nameHTML(o.name)}<small> ×${fmt(qty)}</small>`, recipe = `${esc(o.r.inputs.map((i) => `${i.item} ${i.qty}`).join('、'))}${y > 1 ? `（一次做出 ${y} 份）` : ''}`;
+      const head = o.none ? rowHTML('li', label, '這週做不了', { cls: 'dish short', f: 0, sub: recipe })
+        : !o.left ? rowHTML('li', label, '✓ 完成', { cls: 'dish met', f: 1, sub: recipe })
+          : o.can >= o.left ? rowHTML('li', label, '✓ 可以組裝', { cls: 'dish met', f: 1, sub: recipe })
+            : meterHTML('li', label, ok, mats.length, { unit: '樣', cls: 'dish', sub: recipe });
+      const miss = o.left && o.can < o.left ? mats.filter(([, m]) => m.have < m.need) : [];
+      return [head, ...miss.map(([item, m]) => {
+        const short = !!(A.mats.find((x) => x.name === item) || {}).short, lack = `還缺 ${fmt(m.need - m.have)}`;
+        return meterHTML('li', nameHTML(item), m.have, m.need, { cls: 'in', short, sub: [short ? `<span class="bad-text">${lack}</span>` : lack, whereFrom(item)].filter(Boolean).join('・') });
+      })];
+    });
+    return sec('料理', '備齊／材料', `${rowsHTML(rows)}<p class="note">組裝只要十幾秒，不計時；料齊了一次做完。完成在訂單按。</p>`);
   }
 
   function nodeHTML(n) {
-    const st = statusOf(n);
-    const head = `<div class="panel-head"><button class="back" type="button" data-go="">◀ 訂單</button><div class="kind">${esc(W[n.kind])}</div><h2>${esc(n.title)} ${badge(st)}</h2></div>`;
-    if (n.kind === 'shop') {
-      return head + shopHTML(n);
-    }
+    if (n.kind === 'shop') return cardHTML(n, shopHTML(n), { act: `<button class="btn primary" type="button" data-buyopen="${esc(n.id)}">填已購買</button>` });
     if (n.kind === 'field' || n.kind === 'unknown') {
-      // Only how many are still to gather; what is gathered goes into the stock on 暫存區's 填現有庫存.
-      return head + `<div class="sec"><ul class="rows">${n.items.map((i) => `<li><span>${nameHTML(i.name)}</span>
-          <span class="num${i.mat.get ? '' : ' ok-text'}">${i.mat.get ? `${n.kind === 'field' ? '要採' : '要拿'} ${fmt(i.mat.get)}` : '✓ 齊了'}</span></li>`).join('')}</ul>
-        <p class="note">${n.kind === 'unknown' ? '還不知道在哪拿，先當成不限量。拿到後' : '採回來後'}到暫存區的${BAG_LINK}填數量，這裡就會跟著減少。</p></div>`;
+      // only how many are still to get; what is got goes into the stock on 背包's 填現有庫存
+      const verb = n.kind === 'field' ? '還要採' : '還要拿';
+      const rows = n.items.map((i) => (i.mat.get ? rowHTML('li', nameHTML(i.name), `${verb} ${fmt(i.mat.get)}`) : rowHTML('li', nameHTML(i.name), '✓ 齊了', { cls: 'met' })));
+      return cardHTML(n, sec(n.kind === 'field' ? '要採' : '要拿', '', `${rowsHTML(rows)}<p class="note">${n.kind === 'unknown' ? '還不知道在哪拿，先當成不限量。拿到後' : '採回來後'}到${BAG_LINK}填現有數量，這裡就會跟著減少。</p>`),
+        { act: '<button class="btn" type="button" data-go="bag">到背包填數量</button>' });
     }
+    if (n.kind === 'bag') return cardHTML(n, bagHTML(), { act: '<button class="btn primary" type="button" data-stockopen>填現有庫存</button>' });
     // the 異常 alarms open the 投料區 a shortage lands on (zoneFor), so each shortage is told there
-    if (n.kind === 'bag') return head + bagHTML();
-    if (n.kind === 'warehouse') return head + storeHTML(n) + n.items.filter((i) => i.mat && i.mat.short && zoneFor(i.name) === n.id).map((i) => shortageHTML(i.mat)).join('');
-    if (n.kind === 'machine') {
-      // 已完成: the week's 領料, newest first; 退回 puts one back
-      const L = n.lane, q = PL.get(L.name), lane = esc(L.name);
-      const log = logOf(L.name).map((e, i) => [e, i]).reverse().map(([e, i]) => `<li><span>${nameHTML(e.name)} ×${fmt(yieldOf(REC.get(e.name)))}<span class="muted">・${esc(hm(e.done))} 領料${e.test ? '・測試' : ''}</span></span>
-          <span><button class="btn small" type="button" data-unlog="${lane}|${i}">退回</button></span></li>`).join('');
-      const tally = rowsOf(n).map((r) => `${r.item} ${fmt(r.done)}/${fmt(r.plan)} 批`).join('・');
-      return head + (q ? queueHTML(q) : '') + `<div class="sec grow"><h3 class="ord-h">已完成<span>${esc(tally)}</span></h3>
-        ${log ? `<ul class="rows list5" data-keep="log">${log}</ul>` : ''}</div>`;
+    if (n.kind === 'warehouse') {
+      return cardHTML(n, storeHTML(n) + n.items.filter((i) => i.mat && i.mat.short && zoneFor(i.name) === n.id).map((i) => shortageHTML(i.mat)).join(''),
+        { act: '<button class="btn" type="button" data-go="bag">到背包改數量</button>' });
     }
-    // A food station: each dish (wish list order) — how many, where it stands, what one portion takes, and under that
-    // what is still missing and where to get it. 完成 stays on 訂單.
-    if (n.kind === 'assembly') {
-      const z = ZONES.find((x) => x.station === n), at = (name) => A.rows.findIndex((o) => o.dish === name);
-      const outs = z ? z.outs.slice().sort((a, b) => at(a.name) - at(b.name)) : [];
-      if (!outs.length) return head + '<div class="sec"><p class="muted" style="margin:0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯」增加訂單。</p></div>';
-      return head + outs.map((o) => {
-        const qty = A.rows.filter((x) => x.dish === o.name).reduce((t, x) => t + x.qty, 0), y = yieldOf(o.r);
-        const mats = [...(o.mats || new Map())], ok = mats.filter(([, m]) => m.have >= m.need).length;
-        const state = o.none ? '<span class="bad-text">這週做不了</span>' : !o.left ? '<span class="ok-text">✓ 完成</span>'
-          : o.can >= o.left ? '<span class="ok-text">✓ 可以組裝</span>' : `材料 ${fmt(ok)}／${fmt(mats.length)} 樣`;
-        const miss = o.left && o.can < o.left ? mats.filter(([, m]) => m.have < m.need) : [];
-        return `<div class="sec"><h3 class="ord-h"><span>${nameHTML(o.name)} ×${fmt(qty)}</span><span>${state}</span></h3>
-          <p class="note dish-recipe">${esc(o.r.inputs.map((i) => `${i.item} ${i.qty}`).join('、'))}${y > 1 ? `（一次做出 ${y} 份）` : ''}</p>
-          ${miss.length ? `<ul class="rows">${miss.map(([item, m]) => `<li><span>${nameHTML(item)} <span class="bad-text">還缺 ${fmt(m.need - m.have)}</span></span><span>${whereFrom(item)}</span></li>`).join('')}</ul>` : ''}</div>`;
-      }).join('');
-    }
-    // 訂單 is the panel's default view (see pick).
-    return head;
+    if (n.kind === 'machine') return cardHTML(n, stationHTML(n), { act: startHTML(PL.get(n.lane.name)), wide: true });
+    if (n.kind === 'assembly') return cardHTML(n, asmHTML(n));
+    // 訂單: the wish list
+    return cardHTML(n, ordersHTML(), { act: '<button class="btn" type="button" data-oopen>編輯訂單</button>' });
   }
 
-  // Where the panel's lists are scrolled to, while it still shows the same point (data-shows).
-  const keptLists = () => ($('panel') && $('panel').dataset.shows === String(sel) ? [...$('panel').querySelectorAll('[data-keep]')].map((el) => [el.dataset.keep, el.scrollTop]) : []);
+  // Where the open card's lists are scrolled to, while it still shows the same point (data-shows).
+  const keptLists = () => ($('point').open && $('point').dataset.shows === String(sel) ? [...$('point').querySelectorAll('[data-keep]')].map((el) => [el.dataset.keep, el.scrollTop]) : []);
   function renderPanel(lists = keptLists()) {
-    const n = sel && BY.get(sel);
-    $('panel').innerHTML = n ? nodeHTML(n) : overviewHTML();
-    $('panel').dataset.shows = String(sel);
-    $('panel').classList.toggle('station', !!n && n.kind === 'machine');
-    // a list in the panel (.list5) shows at most five; more scroll inside it, and stay where they were
-    for (const box of $('panel').querySelectorAll('.list5')) {
+    const d = $('point'), n = sel && BY.get(sel);
+    if (!n) { if (d.open) d.close(); return; }
+    const was = d.querySelector('.mc-body'), top = d.open && d.dataset.shows === String(sel) && was ? was.scrollTop : 0;
+    // focus stays in the card across the rebuild: on the same button where there is one, else on ✕
+    const a = document.activeElement, focus = a && a !== d && d.contains(a)
+      ? [...a.attributes].filter((x) => x.name.startsWith('data-')).map((x) => `[${x.name}="${CSS.escape(x.value)}"]`).join('') : null;
+    d.innerHTML = nodeHTML(n);
+    d.dataset.shows = String(sel);
+    d.classList.toggle('wide', n.kind === 'machine');
+    d.classList.toggle('station', n.kind === 'machine');
+    if (!d.open) d.showModal();
+    // a list in the card (.list5) shows at most five; more scroll inside it, and stay where they were
+    for (const box of d.querySelectorAll('.list5')) {
       const six = box.children[5];
       box.style.maxHeight = six ? `${six.getBoundingClientRect().top - box.getBoundingClientRect().top}px` : '';
     }
-    for (const [k, v] of lists) { const el = $('panel').querySelector(`[data-keep="${CSS.escape(k)}"]`); if (el) el.scrollTop = v; }
+    for (const [k, v] of lists) { const el = d.querySelector(`[data-keep="${CSS.escape(k)}"]`); if (el) el.scrollTop = v; }
+    d.querySelector('.mc-body').scrollTop = top;
+    if (focus != null) { const el = (focus && d.querySelector(`${focus}:not(:disabled)`)) || d.querySelector('.mc-x'); el.focus({ preventScroll: true }); }
   }
 
   /* ---------- the wish list and the materials it takes ---------- */
@@ -922,57 +1009,53 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   function ordersHTML() {
     const rows = A.rows.map((o) => {
       const r = PR.assemble.find((x) => x.item === o.dish), own = r && A.rows.find((x) => x.dish === o.dish).i === o.i;
-      const act = !own ? '<span></span>' : r.done >= r.plan
+      const act = !own ? '<span class="act"></span>' : r.done >= r.plan
         ? `<button class="btn small" type="button" data-odone="${esc(r.key)}|0">取消</button>`
         : `<button class="btn small primary" type="button" data-odone="${esc(r.key)}|${r.plan}"${canMake(o.dish) ? '' : ' disabled'}>完成</button>`;
-      return `<div class="ord-row">
-        <span class="wish-n">${o.i + 1}</span>
-        <span class="ord-name">${nameHTML(o.dish)}</span>
-        <span class="ord-qty">×${fmt(o.qty)}</span>
-        <span class="ord-state">${badge(orderStatus(o))}${o.n < o.qty ? `<small class="ord-cut">這週只做得出 ${fmt(o.n)}</small>` : ''}</span>
-        ${act}
-      </div>`;
+      const [k, text] = orderStatus(o);
+      return `<li class="ord ${k}"><span class="no">${o.i + 1}</span><span class="nm">${nameHTML(o.dish)}<span class="q">×${fmt(o.qty)}</span></span>${act}
+        <span class="st"><i class="lamp"></i>${esc(text)}${o.n < o.qty ? `<span class="cutnote">這週只做得出 ${fmt(o.n)}</span>` : ''}</span></li>`;
     }).join('');
-    return `<div class="sec orders-sec">
-      ${rows || '<p class="muted" style="margin:0">還沒有訂單，按「編輯」增加訂單。</p>'}
-      ${A.rows.length > 1 ? '<p class="note">越上面越先分到限購材料。</p>' : ''}
-    </div>`;
+    return sec('需求清單', A.rows.length > 1 ? '越上面越先分到限購材料' : '', rows
+      ? `<ol class="ords">${rows}</ol><p class="note">料齊了「完成」才按得下去；按了不會動背包。</p>` : '<p class="note0">還沒有訂單，按「編輯訂單」增加訂單。</p>');
   }
-  // 原物料: every raw material the week takes — what is still to use, the bag's stock (shown only; it is typed in on
-  // 暫存區's 填現有庫存), what to buy and gather — then the made items.
+  // 原物料: every raw material the week takes — what the bag holds against what is still to use (shown only; it is typed
+  // in on 背包's 填現有庫存), what to buy and gather — then the made items, their batches and what the bag holds of them.
   function matsHTML() {
     const rank = (m) => (m.s.limited ? 0 : m.s.buyCap ? 1 : m.s.gather ? 2 : 3);
     const mats = A.mats.filter((m) => m.need || m.short).sort((a, b) => rank(a) - rank(b) || b.util - a.util || b.need - a.need);
+    const rem = (m) => Math.max(0, m.need - m.used), cell = (done, need, o) => meterHTML('span', null, done, need, o);
+    const alarm = (text) => `<span class="lamp-t bad"><i class="lamp"></i>${esc(text)}</span>`;
     const row = (m) => {
-      const s = m.s, pct = Math.round(m.util * 100);
-      const tag = m.short ? badge(['bad', `異常・缺 ${fmt(m.short)}`]) : s.limited ? badge([m.util >= 0.9 ? 'wait' : 'ok', '限購']) : s.gather ? badge(['idle', '可採集']) : s.unknown ? badge(['bad', '來源待補']) : '';
+      const s = m.s;
+      const tag = m.short ? alarm(`異常・缺 ${fmt(m.short)}`) : s.limited ? '<span class="tag">限購</span>' : s.gather ? '<span class="tag">可採集</span>' : s.unknown ? alarm('來源待補') : '';
       const where = [...m.shops.map((sh) => `${sh.who} ${fmt(sh.qty)}`), m.get ? (s.gather ? `採：${s.src.find((x) => x.kind === 'gather').text}` : '來源待補') : ''].filter(Boolean);
       return `<tr>
-        <th scope="row">${nameHTML(m.name)} ${tag}</th>
-        <td class="num">${fmt(Math.max(0, m.need - m.used))}</td>
-        <td class="num">${fmt(m.stock)}</td>
-        <td class="num">${s.buyCap ? `${fmt(m.buy)}<small>／${fmt(s.buyCap)}</small>${barHTML(m.util, pct >= 100 ? (s.limited ? 'full' : 'cap') : '')}` : '—'}</td>
+        <th scope="row">${nameHTML(m.name)}${tag}</th>
+        <td class="num">${cell(m.stock, rem(m), { short: !!m.short })}</td>
+        <td class="num">${s.buyCap ? fmt(m.buy) : '—'}</td>
+        <td class="num">${s.buyCap ? fmt(s.buyCap) : '—'}</td>
         <td class="num">${m.get ? fmt(m.get) : '—'}</td>
-        <td class="src">${esc(where.join('、') || '用庫存')}</td>
+        <td class="src">${esc(where.join('、') || '用現有的')}</td>
       </tr>`;
     };
-    const rows = mats.length ? `<div class="table-wrap"><table><thead><tr><th>原物料</th><th class="r">還要用</th><th class="r">庫存</th><th class="r">建議買／還能買</th><th class="r">要採</th><th>去哪</th></tr></thead><tbody>${mats.map(row).join('')}</tbody></table></div>` : '';
-    const made = P.steps.filter((s) => !P.dishSet.has(s.name));
-    const madeRows = made.map((s) => `<tr>
+    const made = P.steps.filter((s) => !P.dishSet.has(s.name)), proc = (s) => PR.process.find((x) => x.item === s.name);
+    const madeRows = made.map((s) => {
+      const r = proc(s);
+      return `<tr>
         <th scope="row">${nameHTML(s.name)}</th>
-        <td class="num">${fmt(s.batches)} 批</td>
-        <td class="num">${fmt(held(s.name))}</td>
-        <td class="num">${fmt(s.made)}</td>
-        <td class="num">${fmt(s.need)}</td>
+        <td class="num">${cell(r ? r.done : 0, r ? r.plan : s.batches, { unit: '批' })}</td>
+        <td class="num">${cell(held(s.name), s.need)}</td>
         <td class="src">${esc(s.equip || '設備待補')}${A.pool.get(s.name) ? `・剩 ${fmt(A.pool.get(s.name))} 個留到下週` : ''}</td>
-      </tr>`).join('');
-    const sum = (list, f) => list.reduce((t, x) => t + f(x), 0), rem = (m) => Math.max(0, m.need - m.used);
-    return `<section class="card mats">
-      <div class="mats-head"><h2>原物料</h2><span class="muted">${mats.length} 種，還要用 ${fmt(sum(mats, rem))} 個：庫存有 ${fmt(sum(mats, (m) => Math.min(m.stock, rem(m))))}、建議買 ${fmt(sum(mats, (m) => m.buy))}、要採 ${fmt(sum(mats, (m) => m.get))}</span></div>
-      ${rows || '<p class="muted">這週不用原物料。</p>'}
-      ${madeRows ? `<div class="mats-head mats-sub"><h3>加工品</h3><span class="muted">${made.length} 種，要做 ${fmt(sum(made, (s) => s.batches))} 批：做出 ${fmt(sum(made, (s) => s.made))} 個、要用 ${fmt(sum(made, (s) => s.need))} 個</span></div>
-      <div class="table-wrap"><table><thead><tr><th>加工品</th><th class="r">要做</th><th class="r">庫存</th><th class="r">做出</th><th class="r">要用</th><th>設備</th></tr></thead><tbody>${madeRows}</tbody></table></div>` : ''}
-      <p class="note">庫存照背包算，要改請到暫存區的${BAG_LINK}。</p>
+      </tr>`;
+    }).join('');
+    const sum = (list, f) => list.reduce((t, x) => t + f(x), 0);
+    return `<section class="box mats-box">
+      <div class="box-head"><h2>原物料</h2><span class="muted">${fmt(mats.length)} 樣，還要用 ${fmt(sum(mats, rem))} 個：現有 ${fmt(sum(mats, (m) => Math.min(m.stock, rem(m))))}、建議買 ${fmt(sum(mats, (m) => m.buy))}、要採 ${fmt(sum(mats, (m) => m.get))}</span></div>
+      ${mats.length ? `<div class="tbl-wrap"><table><thead><tr><th>原物料</th><th class="r">現有／需要</th><th class="r">建議買</th><th class="r">還能買</th><th class="r">要採</th><th>去哪</th></tr></thead><tbody>${mats.map(row).join('')}</tbody></table></div>` : '<p class="note pad">這週不用原物料。</p>'}
+      ${madeRows ? `<div class="box-head sub"><h3>加工品</h3><span class="muted">${fmt(made.length)} 樣，要做 ${fmt(sum(made, (s) => s.batches))} 批：做好 ${fmt(sum(made, (s) => (proc(s) ? proc(s).done : 0)))} 批</span></div>
+      <div class="tbl-wrap"><table><thead><tr><th>加工品</th><th class="r">做好／要做</th><th class="r">現有／需要</th><th>設備</th></tr></thead><tbody>${madeRows}</tbody></table></div>` : ''}
+      <p class="note pad">現有數量照背包算，要改請到${BAG_LINK}填現有庫存。</p>
     </section>`;
   }
 
@@ -980,60 +1063,45 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     // Keep the focused field (by data-f) and its caret across the rebuild.
     const a = document.activeElement, f = a && a.dataset ? a.dataset.f : null;
     const caret = f && typeof a.selectionStart === 'number' ? [a.selectionStart, a.selectionEnd] : null;
-    const scroll = $('panel') ? $('panel').scrollTop : 0;
     const lists = keptLists();
     plan();
     if (sel && !BY.has(sel)) sel = null;
     const wk = shopWeek();
     $('week-line').textContent = `本週 ${wk.range}`;
     const short = A.mats.filter((m) => m.short);
-    // The summary's results open where they come from; the character count is edited right here.
+    // The summary's figures open the card they come from; the character count is edited right here.
     const station = NODES.find((n) => n.kind === 'machine'), ps = procSummary();
-    const sum = (k, v, go, cls = '') => (go != null ? `<button class="sum ${cls}" type="button" data-go="${esc(go)}"><span class="k">${k}</span><b>${v}</b></button>` : `<span class="sum ${cls}"><span class="k">${k}</span><b>${v}</b></span>`);
-    $('app').innerHTML = `<div class="card summary">
-        <button class="sum" type="button" data-jump="wish"><span class="k">可做／訂單</span><b>${fmt(P.qty)}／${fmt(A.rows.reduce((t, o) => t + o.qty, 0))}</b></button>
-        <button class="sum" type="button" data-jump="stock"><span class="k">完成</span><b>${fmt(PR.assemble.filter((r) => r.done >= r.plan).length)}／${fmt(PR.assemble.length)} 道</b></button>
-        ${sum('異常', short.length ? esc(short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')) : '沒有', short.length ? zoneFor(short[0].name) : null, short.length ? 'bad' : '')}
-        ${sum('加工', !ps.busy ? '都做完了' : ps.finish != null ? `${esc(hm(ps.finish))} 做完` : '時間待補', station ? station.id : null)}
-        <span class="sum edit"><span class="k">幾隻角色去買${charsFromBoard() ? '（照佈告欄）' : ''}</span>${stepper('chars', chars(), '角色數', 1)}</span>
-        <p class="sum-hint">可做、異常、加工是照你填的庫存、已購買、開工和完成算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
+    const total = A.rows.reduce((t, o) => t + o.qty, 0), done = PR.assemble.filter((r) => r.done >= r.plan).length;
+    const kpi = (k, v, go, { cls = '', f: part = null } = {}) => (go != null
+      ? `<button class="kpi${cls ? ` ${cls}` : ''}" type="button" data-go="${esc(go)}"><span class="k">${k}</span><b>${v}</b>${part == null ? '' : barOf(part)}</button>`
+      : `<span class="kpi${cls ? ` ${cls}` : ''}"><span class="k">${k}</span><b>${v}</b></span>`);
+    $('app').innerHTML = `<div class="summary">
+        ${kpi('可做／訂單', `${fmt(P.qty)}／${fmt(total)} 份`, 'fg', { f: total ? P.qty / total : 0 })}
+        ${kpi('完成／訂單', `${fmt(done)}／${fmt(PR.assemble.length)} 道`, 'fg', { f: PR.assemble.length ? done / PR.assemble.length : 0 })}
+        ${kpi('異常', short.length ? esc(short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')) : '沒有', short.length ? zoneFor(short[0].name) : null, { cls: short.length ? 'bad' : '' })}
+        ${kpi('加工', !ps.busy ? '都做好了' : ps.finish != null ? `${esc(hm(ps.finish))} 做好` : '時間待補', station ? station.id : null)}
+        <span class="kpi edit"><span class="k">幾隻角色去買${charsFromBoard() ? '（照佈告欄）' : ''}</span>${stepper('chars', chars(), '角色數', 1)}</span>
+        <p class="hint">可做、異常、加工是照你填的現有數量、已購買、開工和完成算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
       </div>
-      <div class="layout">
-        <div class="card plant-card">
-          <div class="view-bar"><h2>廠區</h2></div>
-          ${blocksHTML()}
-          <div class="legend">${Object.entries(STATUS_TEXT).map(([k, text]) => `<span><i class="dot" style="background:${THEME.status[k]}"></i>${text}</span>`).join('')}<span>紅色「異常」是原物料不足，點暫存區看對策；點一格看詳細。</span></div>
-        </div>
-        <aside class="card panel" id="panel"></aside>
-        <div class="left">${matsHTML()}</div>
-      </div>`;
+      <section class="box board-box">
+        <div class="box-head"><h2>廠區</h2><span class="muted">點一張卡看詳細・數字都是「完成／需求」</span>
+          <div class="legend">${Object.entries(STATUS_TEXT).map(([k, text]) => `<span class="lg ${k}">${LIGHT}${text}</span>`).join('')}</div></div>
+        ${blocksHTML()}
+      </section>
+      ${matsHTML()}`;
     renderPanel(lists);
-    $('panel').scrollTop = scroll;
     if (f) {
       const el = document.querySelector(`[data-f="${CSS.escape(f)}"]`);
       if (el) { el.focus({ preventScroll: true }); if (caret && el.setSelectionRange) try { el.setSelectionRange(...caret); } catch (_) {} }
     }
   }
 
-  // Another point opens at the top of the panel; only where the panel sits under the plant (≤720px) does the page
-  // scroll to it.
-  const stacked = () => window.matchMedia('(max-width: 720px)').matches;
+  // A point opens as a card over the board (訂單 is the point 'fg'); null closes it.
   function select(id) {
-    const was = sel;
     sel = id || null;
-    document.querySelectorAll('[data-blk]').forEach((el) => el.classList.toggle('sel', el.dataset.blk === sel));
-    renderPanel();
-    if (sel !== was) $('panel').scrollTop = 0;
-    if (stacked() && sel) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    renderPanel([]);
   }
-
-  // The summary's 可做／訂單 and 完成, and the 訂單 point, bring the orders back into the panel.
-  function showOrders() {
-    select(null);
-    $('panel').scrollTop = 0;
-    if (stacked()) $('panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-  const pick = (id) => (id === 'fg' ? showOrders() : select(id));
+  const pick = (id) => select(id || 'fg');
 
   /* ---------- a station: putting batches in, 開工, 領料 and taking them back out ---------- */
   // Before a change, the places as shown and the order of the batches still to put in are kept as they are (the places
@@ -1103,7 +1171,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const r = drag.el.getBoundingClientRect(), g = drag.el.cloneNode(true);
       g.classList.add('ghost');
       Object.assign(g.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
-      document.body.appendChild(g);
+      // inside the open card, which sits above everything else on the page
+      (drag.el.closest('dialog') || document.body).appendChild(g);
       drag.ghost = g;
     }
     drag.on = true;
@@ -1142,6 +1211,14 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   }, 30e3);
 
   /* ---------- forms over the page: 填已購買 for one shop (a block per character), 填現有庫存 for the whole bag ---------- */
+  // A form is the same card as a point's, with a plain head (what it is, its title, ✕), the fields in the middle and a
+  // foot that stays put: something for all the fields on the left, 取消 and 完成 on the right. It all sits in
+  // #sheet-form, so 完成 submits it.
+  const FORM_ACT = '<button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button>';
+  const formHTML = (kind, title, body, { lead = '', act = FORM_ACT } = {}) => `<div class="mc plain"><div class="mc-head"><div class="mc-top"><span class="mc-kind">${esc(kind)}</span>
+      <button class="mc-x" type="button" data-bmcancel aria-label="關閉">✕</button></div><h2 class="mc-title" id="sheet-title">${esc(title)}</h2></div>
+    <div class="mc-body"><div class="sec">${body}</div></div>
+    <div class="mc-foot"><span class="mc-nav">${lead}</span><span class="mc-act">${act}</span></div></div>`;
   function openBuy(id) {
     const n = BY.get(id);
     if (!n || n.kind !== 'shop') return;
@@ -1151,10 +1228,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         <input class="have" data-bm="${c}|${esc(i.buy.key)}" inputmode="numeric" value="${(i.buy.per[c] || {}).bought || ''}" placeholder="0" aria-label="${esc(i.name)}${many ? ` 角色 ${c + 1}` : ''} 已購買">
         <span class="muted">／${SHOP.limit}</span><button class="btn small" type="button" data-bmfill>滿</button></div>`).join('')}</fieldset>`).join('');
     $('sheet-form').dataset.kind = 'buy';
-    $('sheet-form').innerHTML = `<h2>${esc(n.title)}</h2><p class="muted">這週已經買了幾個？每樣最多 ${SHOP.limit} 個${many ? '，每隻角色分開算' : ''}。這裡只記額度，背包請另外更新。</p>
-      ${groups}
-      <div class="bm-act"><button class="btn small" type="button" data-bmall>全部填滿</button><span class="grow"></span>
-        <button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
+    $('sheet-form').innerHTML = formHTML('填已購買', n.title, `<p class="note0">這週已經買了幾個？每樣最多 ${SHOP.limit} 個${many ? '，每隻角色分開算' : ''}。這裡只記額度，背包請另外更新。</p>${groups}`,
+      { lead: '<button class="btn small" type="button" data-bmall>全部填滿</button>' });
     $('sheet').showModal();
     const first = $('sheet-form').querySelector('input');
     if (first) first.select();
@@ -1165,16 +1240,15 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   function openStock() {
     const need = new Map();
     for (const z of ZONES) for (const i of z.items) need.set(i.name, (need.get(i.name) || 0) + i.need);
-    const row = (name) => `<div class="bm-row"><span class="bm-name">${nameHTML(name)}<small class="muted">${need.get(name) ? `還要用 ${fmt(need.get(name))}` : '這週不用再投'}</small></span>
-      <input class="have" data-sm="${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 現有庫存"></div>`;
+    const row = (name) => `<div class="bm-row"><span class="bm-name">${nameHTML(name)}<small>${need.get(name) ? `需要 ${fmt(need.get(name))}` : '這週不用再投'}</small></span>
+      <input class="have" data-sm="${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 現有數量"></div>`;
     const { raw, made, other } = bagGroups();
     $('sheet-form').dataset.kind = 'stock';
-    $('sheet-form').innerHTML = `<h2>填現有庫存</h2><p class="muted">照遊戲背包現在的數量填，每樣一個數字。兩區都要用的料，會照需求清單的順序自動分。</p>
+    $('sheet-form').innerHTML = formHTML('填現有庫存', '背包', `<p class="note0">照遊戲背包現在的數量填，每樣一個數字。兩區都要用的料，會照需求清單的順序自動分。</p>
       ${raw.length ? `<fieldset class="bm-char"><legend>原料</legend>${raw.map(row).join('')}</fieldset>` : ''}
       ${made.length ? `<fieldset class="bm-char"><legend>加工品・做好放著的，填了會少做幾批</legend>${made.map(row).join('')}</fieldset>` : ''}
       ${other.length ? `<fieldset class="bm-char"><legend>這週用不到・填 0 就清掉</legend>${other.map(row).join('')}</fieldset>` : ''}
-      ${raw.length || made.length || other.length ? '' : '<p class="muted">背包是空的，需求清單也還沒有要用的料。</p>'}
-      <div class="bm-act"><span class="grow"></span><button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
+      ${raw.length || made.length || other.length ? '' : '<p class="note0">背包是空的，需求清單也還沒有要用的料。</p>'}`);
     $('sheet').showModal();
     const first = $('sheet-form').querySelector('input');
     if (first) first.select();
@@ -1216,12 +1290,12 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const row = (key, title, sub, n, label) => `<div class="set-row"><span class="bm-name"><b>${title}</b><small class="muted">${sub}</small></span>
       <button class="btn" type="button" data-clear="${key}"${n ? '' : ' disabled'}>${label}</button></div>`;
     $('sheet-form').dataset.kind = 'settings';
-    $('sheet-form').innerHTML = `<h2>設定</h2><p class="muted">${done || '清除後沒辦法復原，按鈕要按兩次才會清。'}</p>
+    $('sheet-form').innerHTML = formHTML('廠區', '設定', `<p class="note0">${done || '清除後沒辦法復原，按鈕要按兩次才會清。'}</p>
       ${row('bought', '清除已購買', bought ? `這週在商店填的已購買（${fmt(bought)} 筆）全部歸零，每家店的額度回到滿的。` : '目前沒有已購買的紀錄。', bought, '清除')}
-      ${row('have', '清空背包', have ? `背包裡的 ${fmt(have)} 種東西全部變成 0，之後再照遊戲重填。` : '背包已經是空的。', have, '清空')}
+      ${row('have', '清空背包', have ? `背包裡的 ${fmt(have)} 樣東西全部變成 0，之後再照遊戲重填。` : '背包已經是空的。', have, '清空')}
       ${row('proc', '清除加工台排程', proc ? `設備裡的 ${fmt(placed)} 批、排程順序和已完成的 ${fmt(logged)} 筆紀錄全部清掉，加工台回到還沒開始。背包不會動。` : '加工台還沒有排程。', proc, '清除')}
-      ${row('all', '清除全部', bought + have + proc + made ? '上面三項，加上訂單的完成標記，一次全部清掉。需求清單和角色數會留著。' : '目前沒有東西可以清。', bought + have + proc + made, '清除全部')}
-      <div class="bm-act"><span class="grow"></span><button class="btn" type="button" data-bmcancel>關閉</button></div>`;
+      ${row('all', '清除全部', bought + have + proc + made ? '上面三項，加上訂單的完成標記，一次全部清掉。需求清單和角色數會留著。' : '目前沒有東西可以清。', bought + have + proc + made, '清除全部')}`,
+    { act: '<button class="btn" type="button" data-bmcancel>關閉</button>' });
     if (!$('sheet').open) $('sheet').showModal();
   }
   $('sheet').addEventListener('click', (e) => {
@@ -1253,7 +1327,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       if (q) { q.scrollIntoView({ block: 'nearest' }); q.select(); }
     }
   });
-  $('sheet').addEventListener('close', () => { $('sheet').classList.remove('wide'); draft = null; });
+  $('sheet').addEventListener('close', () => { draft = null; });
 
   /* ---------- the order form: the whole wish list at once, kept as a draft until 完成 ---------- */
   let draft = null;
@@ -1279,7 +1353,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         <select data-oedish="${i}" aria-label="第 ${i + 1} 道料理">${dishOptions(o.dish)}</select>
         <span class="oe-qty"><input class="have" data-oeqty="${i}" inputmode="numeric" value="${o.qty || ''}" aria-label="第 ${i + 1} 道數量"><small data-oecap="${i}"></small></span>
         <button class="btn oe-del" type="button" data-oedel="${i}" aria-label="刪掉第 ${i + 1} 道">✕</button>
-      </div>`).join('') || '<p class="muted" style="margin:8px 0 0">還沒有訂單。</p>';
+      </div>`).join('') || '<p class="note">還沒有訂單。</p>';
     paintCaps();
   }
   function moveDraft(from, to) {
@@ -1289,12 +1363,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   }
   function openOrders() {
     draft = S.orders.map((o) => ({ dish: o.dish, qty: o.qty }));
-    $('sheet').classList.add('wide');
     $('sheet-form').dataset.kind = 'orders';
-    $('sheet-form').innerHTML = `<h2>編輯訂單</h2><p class="muted">拖 ⠿ 換順序，越上面越先分到限購材料；按「完成」才會存。</p>
-      <button class="btn ord-add" type="button" data-oeadd>＋ 增加訂單</button>
-      <div data-oelist></div>
-      <div class="bm-act"><span class="grow"></span><button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
+    $('sheet-form').innerHTML = formHTML('訂單', '編輯訂單', `<p class="note0">拖 ⠿ 換順序，越上面越先分到限購材料；按「完成」才會存。</p>
+      <button class="btn full" type="button" data-oeadd>＋ 增加訂單</button>
+      <div data-oelist></div>`);
     drawDraft();
     $('sheet').showModal();
   }
@@ -1358,13 +1430,18 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     // 完成 / 取消 on an order (data-odone 'dish|count'): only the count is kept, the bag stays as typed in
     const od = e.target.closest('[data-odone]');
     if (od) { const v = od.dataset.odone, a = v.lastIndexOf('|'); setDone('assembled', v.slice(0, a), v.slice(a + 1)); save(); render(); return; }
+    if (e.target.closest('[data-close]')) { $('point').close(); return; }
     const go = e.target.closest('[data-go]');
     if (go) { pick(go.dataset.go); return; }
-    const jump = e.target.closest('[data-jump]');
-    if (jump) { showOrders(); return; }
   });
+  // The open card closes with ✕, Esc or a click beside it; ← and → walk along the flow to the point before and after.
+  $('point').addEventListener('close', () => { sel = null; $('point').innerHTML = ''; delete $('point').dataset.shows; });
+  $('point').addEventListener('click', (e) => { if (e.target === $('point')) $('point').close(); });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && sel && !$('sheet').open) select(null);
+    const n = sel && BY.get(sel);
+    if (!n || !$('point').open || $('sheet').open || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') || (e.target.closest && e.target.closest('input, select, textarea'))) return;
+    const to = flowOf(n)[e.key === 'ArrowLeft' ? 'prev' : 'next'];
+    if (to) { e.preventDefault(); select(to); }
   });
   wireList(render);
   // The planner may change the plan in another tab.
@@ -1374,7 +1451,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     try {
       await window.LineCore.load();
     } catch (_) {
-      $('app').innerHTML = '<div class="card fail">這頁的配方是從佈告欄（index.html）讀進來的，要用網址開啟，例如 GitHub Pages；直接點開檔案的話瀏覽器不讓它讀。</div>';
+      $('app').innerHTML = '<div class="box fail">這頁的配方是從佈告欄（index.html）讀進來的，要用網址開啟，例如 GitHub Pages；直接點開檔案的話瀏覽器不讓它讀。</div>';
       return;
     }
     render();
