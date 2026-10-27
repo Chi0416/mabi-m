@@ -46,8 +46,8 @@ h1, h2, h3 { margin: 0; line-height: 1.3; }
 .top h1 small { font-size: 13px; font-weight: 400; color: #b7c2cd; }
 .top h1 .ver { padding: 1px 8px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; font-size: 12px; font-variant-numeric: tabular-nums; }
 .top nav { margin-left: auto; display: flex; gap: 6px; }
-.top nav a { color: #fff; text-decoration: none; padding: 6px 12px; border-radius: 8px; background: rgba(255, 255, 255, .1); font-size: 14px; }
-.top nav a:hover { background: rgba(255, 255, 255, .2); }
+.top nav a, .top nav .nav-btn { font: inherit; color: #fff; text-decoration: none; padding: 6px 12px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .1); font-size: 14px; cursor: pointer; }
+.top nav a:hover, .top nav .nav-btn:hover { background: rgba(255, 255, 255, .2); }
 
 main { max-width: 1440px; margin: 0 auto; padding: 16px var(--gutter-r) 48px var(--gutter-l); }
 /* the plant on the left, the info panel (orders by default) on the right, the lists under the plant */
@@ -119,24 +119,20 @@ button.sum:hover b { color: var(--accent); }
 /* the order form: the whole wish list at once — ⠿ (or ▲▼) moves a line, ✕ takes it off, 上限 in small type under
    the count; nothing is kept until 完成 */
 .sheet.wide { width: min(520px, calc(100% - 32px)); }
-.oe-row { display: grid; grid-template-columns: 22px 22px minmax(0, 1fr) 76px 28px 38px; gap: 6px; align-items: start; padding: 8px 0; border-bottom: 1px dashed var(--line); background: var(--panel); }
+.oe-row { display: grid; grid-template-columns: 22px 22px minmax(0, 1fr) 76px 38px; gap: 6px; align-items: start; padding: 8px 0; border-bottom: 1px dashed var(--line); background: var(--panel); }
 .oe-row .wish-n { width: 22px; height: 22px; margin-top: 8px; font-size: 12px; }
 .oe-grip { height: 38px; display: grid; place-items: center; border-radius: 6px; font-size: 18px; color: var(--idle); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .oe-grip:hover { background: var(--idle-soft); color: var(--ink); }
 .oe-qty input { width: 100%; min-height: 38px; }
 .oe-qty small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); text-align: right; }
 .oe-qty small.ord-cut { color: var(--bad); font-weight: 700; }
-.oe-mv { display: grid; height: 38px; }
-.oe-mv .btn { min-height: 0; padding: 0; font-size: 10px; line-height: 1; }
-.oe-mv .btn:first-child { border-radius: 6px 6px 0 0; }
-.oe-mv .btn:last-child { border-top: 0; border-radius: 0 0 6px 6px; }
 .oe-del { min-height: 38px; padding: 0; }
 .oe-row.dragging { position: relative; z-index: 5; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
 .oe-row.dragging .oe-grip { cursor: grabbing; }
 .oe-row.drop { outline: 2px dashed var(--accent); outline-offset: -2px; }
 @media (max-width: 480px) {
   #sheet-form { padding: 14px 14px 12px; }
-  .oe-row { grid-template-columns: 18px minmax(0, 1fr) 60px 28px 34px; }
+  .oe-row { grid-template-columns: 18px minmax(0, 1fr) 60px 34px; }
   .oe-row .wish-n { display: none; }
 }
 .wish-n { width: 26px; height: 26px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
@@ -147,7 +143,7 @@ select { font: inherit; font-size: 15px; color: var(--ink); background: #fff; bo
 .stepper .btn:last-child { border-radius: 0 8px 8px 0; }
 .stepper input { width: 64px; font: inherit; font-size: 15px; text-align: center; border: 1px solid var(--line); border-left: 0; border-right: 0; border-radius: 0; color: var(--ink); }
 .btn.small { min-height: 30px; padding: 2px 10px; font-size: 13px; }
-.ord-add { width: 100%; margin-top: 10px; }
+.ord-add { width: 100%; margin: 8px 0 4px; }
 .left { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 .mats { padding: 12px 16px 16px; }
 .mats-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 8px; }
@@ -220,6 +216,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .bm-row > .muted { white-space: nowrap; }
 .bm-act { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
 .bm-act .grow { flex: 1; }
+.set-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+.set-row small { display: block; margin-top: 2px; font-size: 12px; }
+.set-row .btn { flex: none; white-space: nowrap; }
+.btn.danger { color: #fff; background: var(--bad); border-color: var(--bad); }
 
 /* the side panel */
 .panel { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
@@ -272,8 +272,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.4</small></h1>
-    <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a></nav>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.5</small></h1>
+    <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
 <main id="app"><div class="card loading">讀取資料中…</div></main>
@@ -805,7 +805,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     }
     if (n.kind === 'assembly') {
       const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
-      if (!L.steps.length) return head + '<div class="sec"><p class="muted" style="margin:0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯」加一道菜。</p></div>';
+      if (!L.steps.length) return head + '<div class="sec"><p class="muted" style="margin:0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯」增加訂單。</p></div>';
       for (const s of L.steps) for (const i of s.r.inputs) need.set(i.item, (need.get(i.item) || 0) + s.batches * i.qty);
       return head + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
           <span class="sub">一個用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul><p class="note">組裝只要十幾秒，不計時。</p></div>
@@ -859,7 +859,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       </div>`;
     }).join('');
     return `<div class="sec orders-sec">
-      ${rows || '<p class="muted" style="margin:0">還沒有訂單，按「編輯」加一道菜。</p>'}
+      ${rows || '<p class="muted" style="margin:0">還沒有訂單，按「編輯」增加訂單。</p>'}
       ${A.rows.length > 1 ? '<p class="note">越上面越先分到限購材料。</p>' : ''}
     </div>`;
   }
@@ -1123,15 +1123,50 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     $('sheet').close();
     render();
   });
+  // 設定: wipe this week's purchases (every shop's limit back to full), the whole bag, the stations (their places, the
+  // order of what is still to put in, 已完成 and the finished batch counts) or all of these and the orders' 完成 —
+  // the wish list and the character count stay. None of it can be undone, so each button has to be pressed twice;
+  // `done` says what the last one cleared.
+  const CLEAR = {
+    bought: () => { S.done.bought = {}; },
+    have: () => { S.have = {}; },
+    proc: () => { S.done.proc = {}; S.done.processed = {}; },
+    all: () => { for (const k of ['bought', 'have', 'proc']) CLEAR[k](); S.done.assembled = {}; },
+  };
+  function openSettings(done) {
+    const bought = Object.keys(S.done.bought).length, have = Object.keys(S.have).filter((name) => held(name)).length;
+    const procs = Object.values(S.done.proc), placed = procs.reduce((t, p) => t + (Array.isArray(p.slots) ? p.slots.filter(Boolean).length : 0), 0);
+    const logged = procs.reduce((t, p) => t + (Array.isArray(p.log) ? p.log.length : 0), 0);
+    const proc = procs.filter((p) => Object.keys(p).length).length + Object.keys(S.done.processed).length, made = Object.keys(S.done.assembled).length;
+    const row = (key, title, sub, n, label) => `<div class="set-row"><span class="bm-name"><b>${title}</b><small class="muted">${sub}</small></span>
+      <button class="btn" type="button" data-clear="${key}"${n ? '' : ' disabled'}>${label}</button></div>`;
+    $('sheet-form').dataset.kind = 'settings';
+    $('sheet-form').innerHTML = `<h2>設定</h2><p class="muted">${done || '清除後沒辦法復原，按鈕要按兩次才會清。'}</p>
+      ${row('bought', '清除已購買', bought ? `這週在商店填的已購買（${fmt(bought)} 筆）全部歸零，每家店的額度回到滿的。` : '目前沒有已購買的紀錄。', bought, '清除')}
+      ${row('have', '清空背包', have ? `背包裡的 ${fmt(have)} 種東西全部變成 0，之後再照遊戲重填。` : '背包已經是空的。', have, '清空')}
+      ${row('proc', '清除加工台排程', proc ? `設備裡的 ${fmt(placed)} 批、排程順序和已完成的 ${fmt(logged)} 筆紀錄全部清掉，加工台回到還沒開始。背包不會動。` : '加工台還沒有排程。', proc, '清除')}
+      ${row('all', '清除全部', bought + have + proc + made ? '上面三項，加上訂單的完成標記，一次全部清掉。需求清單和角色數會留著。' : '目前沒有東西可以清。', bought + have + proc + made, '清除全部')}
+      <div class="bm-act"><span class="grow"></span><button class="btn" type="button" data-bmcancel>關閉</button></div>`;
+    if (!$('sheet').open) $('sheet').showModal();
+  }
   $('sheet').addEventListener('click', (e) => {
     const d = $('sheet');
     if (e.target === d || e.target.closest('[data-bmcancel]')) { d.close(); return; }
+    // 設定's 清除／清空: the first press turns the button red, the second clears
+    const clr = e.target.closest('[data-clear]');
+    if (clr) {
+      if (!clr.classList.contains('danger')) { clr.classList.add('danger'); clr.textContent = '再按一次確定'; return; }
+      const key = clr.dataset.clear;
+      CLEAR[key]();
+      save();
+      render();
+      openSettings({ bought: '已購買都清除了。', have: '背包清空了。', proc: '加工台排程清除了。', all: '全部清除了。' }[key]);
+      return;
+    }
     const one = e.target.closest('[data-bmfill]');
     if (one) { one.closest('.bm-row').querySelector('input').value = SHOP.limit; return; }
     if (e.target.closest('[data-bmall]')) d.querySelectorAll('[data-bm]').forEach((x) => { x.value = SHOP.limit; });
-    // the order form: ▲▼ moves a line, ✕ takes it off, ＋ 加一道菜 adds the first dish not on the list yet
-    const mv = e.target.closest('[data-oemove]');
-    if (mv) { const [i, k] = mv.dataset.oemove.split('|').map(Number); moveDraft(i, i + k); return; }
+    // the order form: ✕ takes a line off, ＋ 增加訂單 adds the first dish not on the list yet (lines move by dragging ⠿)
     const del = e.target.closest('[data-oedel]');
     if (del) { draft.splice(Number(del.dataset.oedel), 1); drawDraft(); return; }
     if (e.target.closest('[data-oeadd]')) {
@@ -1140,7 +1175,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       draft.push({ dish: next.name, qty: 10 });
       drawDraft();
       const q = d.querySelector(`[data-oeqty="${draft.length - 1}"]`);
-      if (q) q.select();
+      if (q) { q.scrollIntoView({ block: 'nearest' }); q.select(); }
     }
   });
   $('sheet').addEventListener('close', () => { $('sheet').classList.remove('wide'); draft = null; });
@@ -1163,13 +1198,11 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     }
   }
   function drawDraft() {
-    const last = draft.length - 1;
     $('sheet-form').querySelector('[data-oelist]').innerHTML = draft.map((o, i) => `<div class="oe-row" data-oerow="${i}">
         <span class="oe-grip" title="拖拉換順序" aria-hidden="true">⠿</span>
         <span class="wish-n">${i + 1}</span>
         <select data-oedish="${i}" aria-label="第 ${i + 1} 道料理">${dishOptions(o.dish)}</select>
         <span class="oe-qty"><input class="have" data-oeqty="${i}" inputmode="numeric" value="${o.qty || ''}" aria-label="第 ${i + 1} 道數量"><small data-oecap="${i}"></small></span>
-        <span class="oe-mv"><button class="btn" type="button" data-oemove="${i}|-1" aria-label="第 ${i + 1} 道往上"${i ? '' : ' disabled'}>▲</button><button class="btn" type="button" data-oemove="${i}|1" aria-label="第 ${i + 1} 道往下"${i < last ? '' : ' disabled'}>▼</button></span>
         <button class="btn oe-del" type="button" data-oedel="${i}" aria-label="刪掉第 ${i + 1} 道">✕</button>
       </div>`).join('') || '<p class="muted" style="margin:8px 0 0">還沒有訂單。</p>';
     paintCaps();
@@ -1183,9 +1216,9 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     draft = S.orders.map((o) => ({ dish: o.dish, qty: o.qty }));
     $('sheet').classList.add('wide');
     $('sheet-form').dataset.kind = 'orders';
-    $('sheet-form').innerHTML = `<h2>編輯訂單</h2><p class="muted">越上面越先分到限購材料；按「完成」才會存。</p>
+    $('sheet-form').innerHTML = `<h2>編輯訂單</h2><p class="muted">拖 ⠿ 換順序，越上面越先分到限購材料；按「完成」才會存。</p>
+      <button class="btn ord-add" type="button" data-oeadd>＋ 增加訂單</button>
       <div data-oelist></div>
-      <button class="btn ord-add" type="button" data-oeadd>＋ 加一道菜</button>
       <div class="bm-act"><span class="grow"></span><button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
     drawDraft();
     $('sheet').showModal();
@@ -1246,6 +1279,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (open) { openBuy(open.dataset.buyopen); return; }
     if (e.target.closest('[data-stockopen]')) { openStock(); return; }
     if (e.target.closest('[data-oopen]')) { openOrders(); return; }
+    if (e.target.closest('[data-settings]')) { openSettings(); return; }
     // 完成 / 取消 on an order (data-odone 'dish|count'): only the count is kept, the bag stays as typed in
     const od = e.target.closest('[data-odone]');
     if (od) { const v = od.dataset.odone, a = v.lastIndexOf('|'); setDone('assembled', v.slice(0, a), v.slice(a + 1)); save(); render(); return; }
