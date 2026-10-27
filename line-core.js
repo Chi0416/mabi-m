@@ -767,6 +767,31 @@
     });
   }
 
+  /* ---------- number boxes ---------- */
+  // Every box with inputmode="numeric" takes digits only. Typed letters and symbols are refused; what a paste or an
+  // input method brings (注音 ㄅㄉ, Chinese, full-width １２) is cut down to its digits once it's finished, and the page
+  // doesn't react to the box while 注音 is still composing.
+  const isNumBox = (t) => t.matches && t.matches('input[inputmode="numeric"]');
+  function keepDigits(t) {
+    const v = t.value.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0)), clean = v.replace(/\D/g, '');
+    if (clean === t.value) return;
+    const at = v.slice(0, t.selectionStart ?? v.length).replace(/\D/g, '').length;
+    t.value = clean;
+    if (t.selectionStart != null) t.setSelectionRange(at, at);
+  }
+  document.addEventListener('beforeinput', (e) => {
+    if (e.inputType === 'insertText' && !e.isComposing && e.data && !/[0-9０-９]/.test(e.data) && isNumBox(e.target)) e.preventDefault();
+  }, true);
+  document.addEventListener('input', (e) => {
+    if (!isNumBox(e.target)) return;
+    if (e.isComposing) e.stopImmediatePropagation(); else keepDigits(e.target);
+  }, true);
+  document.addEventListener('compositionend', (e) => {
+    if (!isNumBox(e.target)) return;
+    keepDigits(e.target);
+    e.target.dispatchEvent(new Event('input', { bubbles: true }));
+  }, true);
+
   window.LineCore = {
     wireList,
     LINE, SHOP, CITIES, MAX_CHARS, COLORS, S, save, REC, load, dishes, dishOptions, esc, fmt, posInt, readLS, writeLS,

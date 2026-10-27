@@ -769,7 +769,7 @@ h2[id] { scroll-margin-top: 16px; }
     const cur = Number(String(value).split('/')[0]);
     const by = step > 1 ? String(step) : '';
     const mid = input
-      ? `<input type="number" min="0" inputmode="numeric" value="${value}" ${attrs} data-role="set" data-focus-key="${esc(key)}:set" aria-label="${esc(label)}">`
+      ? `<input inputmode="numeric" value="${value}" ${attrs} data-role="set" data-focus-key="${esc(key)}:set" aria-label="${esc(label)}">`
       : `<output>${value}</output>`;
     const btn = (role, sign, word, off) => `<button type="button" ${attrs} data-role="${role}"${by ? ` data-step="${by}"` : ''} data-focus-key="${esc(key)}:${role}" aria-label="${esc(label)} ${word}${by ? ` ${by}` : ''}"${off ? ' disabled' : ''}>${sign}${by}</button>`;
     return `<span class="stepper${by ? ' step-big' : ''}">${btn('dec', '−', '減少', cur <= min)}${mid}${btn('inc', '+', '增加', cur >= max)}</span>`;
@@ -1010,7 +1010,7 @@ h2[id] { scroll-margin-top: 16px; }
     const price = q.price ? `・${fmt(q.price)} 金幣` : '';
     const req = qty
       ? `${scroll}${verb} ${fmt(qty)} ${esc(unit)}／張${price}${self ? ` <button type="button" class="link-btn" ${ref} data-role="qty-clear" data-focus-key="${esc(k)}:qc">（自填，改）</button>` : ''}`
-      : `${scroll}${verb} <input class="qty-input" type="number" min="1" inputmode="numeric" placeholder="?" ${ref} data-role="qty" data-focus-key="${esc(k)}:qty" aria-label="${esc(q.target)} 每張數量"> ${esc(unit)}／張${price}・數量待確認`;
+      : `${scroll}${verb} <input class="qty-input" inputmode="numeric" placeholder="?" ${ref} data-role="qty" data-focus-key="${esc(k)}:qty" aria-label="${esc(q.target)} 每張數量"> ${esc(unit)}／張${price}・數量待確認`;
     let chip = '';
     if (!per) chip = '<span class="chip done">不做</span>';
     else if (left === 0) chip = '<span class="chip done">已交付</span>';
@@ -1505,6 +1505,29 @@ h2[id] { scroll-margin-top: 16px; }
   };
   document.addEventListener('input', onSearch);
   document.addEventListener('compositionend', onSearch);
+  // Number boxes (inputmode="numeric") take digits only. Typed letters and symbols are refused; what a paste or an
+  // input method brings (注音 ㄅㄉ, Chinese, full-width １２) is cut down to its digits once it's finished, and the page
+  // doesn't react to the box while 注音 is still composing.
+  const isNumBox = (t) => t.matches && t.matches('input[inputmode="numeric"]');
+  const keepDigits = (t) => {
+    const v = t.value.replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xfee0)), clean = v.replace(/\D/g, '');
+    if (clean === t.value) return;
+    const at = v.slice(0, t.selectionStart ?? v.length).replace(/\D/g, '').length;
+    t.value = clean;
+    if (t.selectionStart != null) t.setSelectionRange(at, at);
+  };
+  document.addEventListener('beforeinput', (ev) => {
+    if (ev.inputType === 'insertText' && !ev.isComposing && ev.data && !/[0-9０-９]/.test(ev.data) && isNumBox(ev.target)) ev.preventDefault();
+  }, true);
+  document.addEventListener('input', (ev) => {
+    if (!isNumBox(ev.target)) return;
+    if (ev.isComposing) ev.stopImmediatePropagation(); else keepDigits(ev.target);
+  }, true);
+  document.addEventListener('compositionend', (ev) => {
+    if (!isNumBox(ev.target)) return;
+    keepDigits(ev.target);
+    ev.target.dispatchEvent(new Event('input', { bubbles: true }));
+  }, true);
 
   /* ---------- boot ---------- */
   render();
