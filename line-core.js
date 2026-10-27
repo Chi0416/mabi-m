@@ -260,13 +260,21 @@
   // The week's work moves the stock the way the game does: a purchase adds to it, a batch processed takes its inputs
   // and adds its output, a dish assembled takes its inputs. The plan works from base(): what would be in hand had none
   // of this week's processing or assembly happened, so the stock can be typed in from the game at any point.
-  const bump = (name, d) => { const n = Math.max(0, held(name) + Math.round(d)); if (n) S.have[name] = n; else delete S.have[name]; };
+  // A page may follow every move (onStock): the item, how much it really moved and why — { use: step } a step took (or
+  // gave back) its inputs, { make: step } a step's output, { lane } a station's round given back, { buy: true }.
+  let stockHook = null;
+  const onStock = (fn) => { stockHook = fn; };
+  const bump = (name, d, why = {}) => {
+    const old = held(name), n = Math.max(0, old + Math.round(d));
+    if (n) S.have[name] = n; else delete S.have[name];
+    if (stockHook && n !== old) stockHook(name, n - old, why);
+  };
   function worked(kind, name, d) {
     const r = REC.get(name);
     if (!r || !d) return;
     const per = kind === 'assembled' ? d / yieldOf(r) : d;
-    for (const i of r.inputs) bump(i.item, -i.qty * per);
-    if (kind === 'processed') bump(name, yieldOf(r) * d);
+    for (const i of r.inputs) bump(i.item, -i.qty * per, { use: name });
+    if (kind === 'processed') bump(name, yieldOf(r) * d, { make: name });
   }
   // What this week's finished batches, rounds still running and assembled dishes have taken (used) and made, by item.
   function usedThisWeek() {
@@ -289,8 +297,8 @@
     const list = boughtBy(key).slice(), old = Math.max(0, Math.floor(Number(list[c])) || 0);
     list[c] = n;
     while (list.length && !list[list.length - 1]) list.pop();
-    if (list.length) S.done.bought[key] = list.map((v) => v || 0); else delete S.done.bought[key];
-    bump(key.slice(key.lastIndexOf('|') + 1), n - old);
+    if (list.length) S.done.bought[key] = Array.from(list, (v) => v || 0); else delete S.done.bought[key];
+    bump(key.slice(key.lastIndexOf('|') + 1), n - old, { buy: true });
   }
   // A finished count: processed (batches) or assembled (dishes); the stock moves by the difference.
   function setDone(kind, key, n) {
@@ -313,7 +321,7 @@
     const took = {};
     for (const name of items) {
       const r = REC.get(name);
-      if (r) for (const i of r.inputs) { const k = Math.min(held(i.item), i.qty); took[i.item] = (took[i.item] || 0) + k; bump(i.item, -i.qty); }
+      if (r) for (const i of r.inputs) { const k = Math.min(held(i.item), i.qty); took[i.item] = (took[i.item] || 0) + k; bump(i.item, -i.qty, { use: name }); }
     }
     Object.assign(procOf(lane), { run: { at, items: items.slice(), took }, order: rest.slice() });
   }
@@ -323,7 +331,7 @@
     for (const name of run.items) {
       const r = REC.get(name);
       S.done.processed[name] = (Math.floor(Number(S.done.processed[name])) || 0) + 1;
-      if (r) bump(name, yieldOf(r));
+      if (r) bump(name, yieldOf(r), { make: name });
     }
     delete procOf(lane).run;
   }
@@ -331,7 +339,7 @@
   function cancelRound(lane) {
     const run = runOf(lane);
     if (!run) return;
-    for (const [item, qty] of Object.entries(run.took || {})) bump(item, qty);
+    for (const [item, qty] of Object.entries(run.took || {})) bump(item, qty, { lane });
     procOf(lane).order = [...run.items, ...(procOf(lane).order || [])];
     delete procOf(lane).run;
   }
@@ -395,8 +403,7 @@
       for (const [m, q] of x.left) add(pool, m, q);
       for (const [m, b] of x.batches) add(A.batches, m, b);
       for (const [m, q] of x.net) add(A.net, m, q);
-      // raw and batches are this line's own share (material → count, made item → batches), for 訂單需求.
-      A.rows.push({ i, dish: o.dish, qty: o.qty, n, max, stuck, raw: x.raw, batches: x.batches });
+      A.rows.push({ i, dish: o.dish, qty: o.qty, n, max, stuck });
     });
     // How each raw material is covered: its base first, then what the shops can still sell, in board town order and
     // first character first, the rest gathered (or from a source still to be filled in). stock is the bag now, used
@@ -707,6 +714,6 @@
     LINE, SHOP, CITIES, MAX_CHARS, COLORS, S, save, REC, load, dishes, dishOptions, esc, fmt, posInt, readLS, writeLS,
     fmtDur, clock, parseDur, shopWeek, yieldOf, gradeOf, nameHTML, sourcesOf, sourceText, townRank,
     stepInfo, quick, chars, charsFromBoard, held, allocate, makePlan, makeSchedule, countLE, jobAt, loginPlan, progress,
-    gathers, setBought, setDone, runOf, setOrder, startRound, collectRound, cancelRound, setRunAt,
+    gathers, setBought, setDone, runOf, setOrder, startRound, collectRound, cancelRound, setRunAt, onStock,
   };
 })();
