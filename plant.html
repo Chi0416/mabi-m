@@ -300,7 +300,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     status: { ok: '#2e9b5b', wait: '#e0a526', bad: '#d64545', idle: '#9aa5b1' },
   };
   const W = THEME.words;
-  const STATUS_TEXT = { ok: '完成', wait: '進行中・可以做了', bad: '異常', idle: '還沒開始' };
+  const STATUS_TEXT = { ok: '運行', wait: '要處理', bad: '異常', idle: '無使用' };
 
   /* ---------- the plan and its points ---------- */
   let A, P, SCH, PR, PL = new Map(), NODES = [], BY = new Map(), ZONES = [], sel = null;
@@ -351,7 +351,13 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     A.rows.forEach((o) => visit(o.dish));
     const lanes = SCH.lanes.map((L) => ({ ...L, steps: [...L.steps, ...more.filter((s) => s.lane === L.name)] }));
     for (const s of more) if (!lanes.some((L) => L.name === s.lane)) lanes.push({ name: s.lane, equip: s.equip, queue: s.queue, steps: more.filter((x) => x.lane === s.lane) });
-    const kinds = new Set(A.rows.map((o) => REC.get(o.dish).skill));
+    // A station doesn't go away for being idle: the 料理 plant (食物製作台 and what feeds it) stays even with nothing on
+    // the wish list, and so does the station of every other kind of dish on it.
+    const kinds = new Set(['料理', ...A.rows.map((o) => REC.get(o.dish).skill)]);
+    for (const k of kinds) {
+      const sk = LINE.skills[k];
+      if (sk && sk.equip && !lanes.some((L) => L.name === sk.equip)) lanes.push({ name: sk.equip, equip: sk.equip, queue: null, steps: [], asm: sk.secs === 0 });
+    }
     for (const r of REC.values()) {
       if (!kinds.has(r.skill)) continue;
       for (const i of r.inputs) {
@@ -364,7 +370,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     let asmNode = null;
     for (const L of lanes) {
       if (instant.includes(L)) continue;
-      const asm = L.steps.length > 0 && L.steps.every(quick);
+      const asm = L.asm || (L.steps.length > 0 && L.steps.every(quick));
       const n = { id: `lane:${L.name}`, kind: asm ? 'assembly' : 'machine', title: L.equip || '設備待補', todo: !L.equip, lane: L, zone: 'in' };
       if (asm && !asmNode) asmNode = n;
       stations.push(n);
@@ -547,34 +553,37 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   const tally = (rows) => [rows.reduce((t, r) => t + Math.min(r.done, r.plan), 0), rows.reduce((t, r) => t + r.plan, 0)];
   // [colour key, short text] for a point: red for a shortage or missing data, otherwise how far this week's actuals
   // have got — grey not started, yellow under way or ready to do, green done.
+  // Andon lights: ok (green) 運行 — running, or with everything in hand to run; wait (yellow) 要處理 — stopped until
+  // someone acts; bad (red) 異常; idle (grey) 無使用 — not in use, which takes in what is done (✓) as well.
   function statusOf(n) {
     // 背包: how many of the things the week still takes it is short of.
     if (n.kind === 'bag') {
-      const g = bagGroups(), short = [...g.raw, ...g.made].filter((name) => bagSplit(name).lack > 0).length;
+      const g = bagGroups(), use = [...g.raw, ...g.made].filter((name) => bagSplit(name).used), short = use.filter((name) => bagSplit(name).lack > 0).length;
+      if (!use.length) return ['idle', '沒有要用的料'];
       return short ? ['wait', `還缺 ${fmt(short)} 樣`] : ['ok', '這週的料都有'];
     }
     // A shop: every character's limit used up is 已買滿.
     if (n.kind === 'shop') {
       const per = n.items.flatMap((i) => i.buy.per), B = per.reduce((t, x) => t + x.bought, 0), L = per.length * SHOP.limit;
       if (n.items.some((i) => i.mat.short)) return ['bad', B >= L ? '買滿仍缺' : '異常'];
-      return B >= L ? ['ok', '已買滿'] : B ? ['wait', '買了一些'] : ['idle', '還沒買'];
+      return B >= L ? ['idle', '✓ 已買滿'] : B ? ['wait', '買了一些'] : ['idle', '還沒買'];
     }
     // Gathering: what the stock still lacks after the shops' share.
     if (n.kind === 'field' || n.kind === 'unknown') {
       const left = n.items.reduce((t, i) => t + i.mat.get, 0);
-      if (!left) return ['ok', n.kind === 'field' ? '已採齊' : '已取得'];
+      if (!left) return ['idle', n.kind === 'field' ? '✓ 已採齊' : '✓ 已取得'];
       if (n.kind === 'unknown') return ['bad', '來源待補'];
-      return [n.items.some((i) => i.mat.stock) ? 'wait' : 'idle', `還要採 ${fmt(left)}`];
+      return ['wait', `還要採 ${fmt(left)}`];
     }
     if (n.kind === 'machine' && n.lane.steps.some((s) => s.secs == null)) return ['bad', '時間待補'];
-    // A station: a batch to collect (領料), one under way, or batches waiting for 開工 (and whether the 投料區 has
-    // what they take).
+    // A station: running only while a batch is under way; a batch to collect (領料) or waiting for 開工 (and whether the
+    // 投料區 has what they take) needs someone.
     if (n.kind === 'machine') {
       const q = PL.get(n.lane.name), has = (st) => q.slots.some((s) => s && s.state === st);
-      if (!q || !q.busy) return rowsOf(n).length ? ['ok', '加工完成'] : ['ok', '這週不用加工'];
-      if (has('done')) return ['ok', '可領料'];
-      if (has('run') || has('queue')) return ['wait', '做中'];
-      if (has('wait')) return q.short.length ? ['idle', '等料'] : ['wait', '可開工'];
+      if (!q || !q.busy) return ['idle', rowsOf(n).length ? '✓ 加工完成' : '這週不用加工'];
+      if (has('run') || has('queue')) return ['ok', '做中'];
+      if (has('done')) return ['wait', '可領料'];
+      if (has('wait')) return ['wait', q.short.length ? '等料' : '可開工'];
       return ['idle', '設備空著'];
     }
     // A 投料區: how much of what its station still has to do its share of the bag covers — all of it at once, some, or
@@ -582,19 +591,19 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     // cover, or a dish can't be made at all this week.
     if (n.kind === 'warehouse') {
       const left = n.outs.reduce((t, o) => t + o.left, 0), can = n.outs.reduce((t, o) => t + o.can, 0), none = n.outs.some((o) => o.none);
-      if (!n.outs.length) return ['ok', '不用備料'];
-      if (!left && !none) return ['ok', '完成'];
+      if (!n.outs.length) return ['idle', '不用備料'];
+      if (!left && !none) return ['idle', '✓ 完成'];
       if (n.cut.size || none) return ['bad', '缺料'];
       if (n.outs.every((o) => o.can >= o.left)) return ['ok', n.asm ? '全部可以一次製作' : '全部可以一次加工'];
-      if (can) return ['wait', n.asm ? '部分可以製作' : `可以加工 ${fmt(can)}／${fmt(left)} 批`];
+      if (can) return ['ok', n.asm ? '部分可以製作' : `可以加工 ${fmt(can)}／${fmt(left)} 批`];
       return ['idle', n.asm && n.items.some((i) => i.made && i.lack) ? '等加工' : '還沒備料'];
     }
     const rows = rowsOf(n);
-    if (!rows.length) return ['idle', n.kind === 'fg' ? '沒有訂單' : '—'];
+    if (!rows.length) return ['idle', n.kind === 'fg' || n.kind === 'assembly' ? '沒有訂單' : '—'];
     const [d, p] = tally(rows);
-    if (d >= p) return ['ok', { machine: '加工完成', assembly: '組裝完成', fg: '全部入庫' }[n.kind] || `完成 ${fmt(d)}`];
-    if (d > 0) return ['wait', `${n.kind === 'fg' ? '入庫' : VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
-    if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : ['idle', PR.process.some((p) => p.done < p.plan) ? '等加工' : '等料'];
+    if (d >= p) return ['idle', `✓ ${{ machine: '加工完成', assembly: '組裝完成', fg: '全部入庫' }[n.kind] || `完成 ${fmt(d)}`}`];
+    if (d > 0) return ['ok', `${n.kind === 'fg' ? '入庫' : VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
+    if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['ok', '可組裝'] : PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
     return ['idle', n.kind === 'fg' ? `0/${fmt(p)}` : '未開始'];
   }
 
@@ -633,6 +642,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     }
     if (n.kind === 'assembly') {
       const made = new Set(P.steps.map((s) => s.name)), inputs = [...new Set(n.lane.steps.flatMap((s) => s.r.inputs.map((i) => i.item)))];
+      if (!PR.assemble.length) return line('沒有要組裝的', '');
       return PR.assemble.map((r) => line(r.item, dp(r), r.done >= r.plan ? 'ok' : '')).join('')
         + `<span class="foot">直接料 ${esc(inputs.filter((i) => !made.has(i)).join('、') || '—')}・加工料 ${esc(inputs.filter((i) => made.has(i)).join('、') || '—')}</span>`;
     }
@@ -642,7 +652,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   function blocksHTML() {
     return `<div class="flow">${STAGES.map(([key, title]) => {
       const list = NODES.filter((n) => stageOf(n) === key);
-      if (!list.length) return '';
+      // 廠外 keeps its column when there is nothing to buy or gather, so the plant doesn't shift
+      if (!list.length) return key === 'out' ? `<section class="stage"><h3>${esc(title)}</h3><p class="muted" style="margin:0;font-size:13px">沒有要買或採的</p></section>` : '';
       return `<section class="stage"><h3>${esc(title)}</h3>${list.map((n) => {
         const [k, text] = statusOf(n);
         return `<button class="blk ${k}${sel === n.id ? ' sel' : ''}" type="button" data-go="${esc(n.id)}" data-blk="${esc(n.id)}">
@@ -797,6 +808,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     }
     if (n.kind === 'assembly') {
       const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
+      if (!L.steps.length) return head + '<div class="sec"><p class="muted" style="margin:0">需求清單是空的，這週沒有要組裝的。到「訂單」按「編輯」加一道菜。</p></div>';
       for (const s of L.steps) for (const i of s.r.inputs) need.set(i.item, (need.get(i.item) || 0) + s.batches * i.qty);
       return head + actual + `<div class="sec"><h3>需求・本週組裝</h3><ul class="rows">${L.steps.map((s) => `<li><span>${nameHTML(s.name)}</span><span class="num">${fmt(s.batches)} 個</span>
           <span class="sub">一個用 ${esc(s.r.inputs.map((i) => `${i.item} ×${i.qty}`).join('、'))}</span></li>`).join('')}</ul><p class="note">組裝只要十幾秒，不計時。</p></div>
@@ -828,9 +840,9 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const r = PR.assemble.find((x) => x.item === o.dish), first = A.rows.find((x) => x.dish === o.dish).i;
     if (!r) return ['bad', '做不了'];
     if (first !== o.i) return ['idle', `跟第 ${first + 1} 道一起入庫`];
-    if (r.done >= r.plan) return ['ok', '已入庫'];
-    if (r.ready) return ['wait', '可以組裝'];
-    return ['idle', PR.process.some((p) => p.done < p.plan) ? '等加工' : '等料'];
+    if (r.done >= r.plan) return ['idle', '✓ 已入庫'];
+    if (r.ready) return ['ok', '可以組裝'];
+    return PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
   }
   // 訂單, the panel's default view, shown only: the wish list, each dish and how many, with what the week can make of
   // it and its status in small type, then 已入庫. 編輯 opens the whole list in one form, 填已入庫 the stock of dishes.
