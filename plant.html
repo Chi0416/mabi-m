@@ -160,17 +160,14 @@ td.num .bar { min-width: 90px; }
 td.src { white-space: normal; min-width: 160px; font-size: 13px; color: var(--muted); }
 input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
 
-/* a station's queue: rounds of `queue` places, one batch made at a time; ⠿ drags a batch to another place */
-.round { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px 10px; margin-top: 10px; background: var(--panel-2); }
-.round.running { border-color: rgba(201, 138, 12, .45); background: var(--wait-soft); }
-.round.ready { border-color: rgba(46, 155, 91, .45); background: var(--ok-soft); }
-.round-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-size: 13px; color: var(--muted); }
-.round-head b { color: var(--ink); font-size: 14px; }
+/* a station: its `queue` places (one batch made at a time, each collected on its own), then the batches still to put
+   in; ⠿ drags one to another order or into an empty place */
 .ok-text { color: var(--ok); }
 .slot { display: grid; grid-template-columns: 28px 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 44px; padding: 5px 6px; margin-top: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
 .slot.empty { background: transparent; border-style: dashed; color: var(--muted); font-size: 13px; }
-.slot.lock { background: rgba(255, 255, 255, .7); }
-.slot.bad { border-color: var(--bad); background: #fff8f8; }
+.slot.run, .slot.queue { border-color: rgba(201, 138, 12, .45); background: var(--wait-soft); }
+.slot.queue { background: var(--panel); }
+.slot.done { border-color: rgba(46, 155, 91, .45); background: var(--ok-soft); }
 .slot.drop { outline: 2px dashed var(--accent); outline-offset: 1px; }
 .slot.dragging { position: relative; z-index: 5; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
 .slot .grip { height: 32px; display: grid; place-items: center; border-radius: 6px; font-size: 18px; color: var(--idle); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -179,10 +176,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .slot .no { font-size: 12px; color: var(--muted); text-align: center; }
 .slot .what { min-width: 0; line-height: 1.35; }
 .slot .what small { display: block; font-size: 12px; color: var(--muted); }
-.slot .what em { display: block; font-style: normal; font-size: 12px; color: var(--bad); }
+.slot.done .what small { color: var(--ok); font-weight: 700; }
 .slot .mv { display: inline-flex; gap: 2px; }
-.slot .mv .btn { min-height: 30px; min-width: 30px; padding: 0 4px; font-size: 11px; }
-.round-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; font-size: 13px; color: var(--muted); }
+.slot .mv .btn { min-height: 32px; min-width: 36px; padding: 2px 10px; }
+.round-act { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--muted); }
 .note.bad-text { font-weight: 500; }
 /* a line with a tick, what it is, the plan and what is done or in stock */
 .done-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto auto; gap: 4px 12px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); }
@@ -283,7 +280,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   const {
     LINE, SHOP, S, save, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, charsFromBoard, held,
     allocate, makePlan, makeSchedule, progress, yieldOf, dishes, dishOptions, wireList, gathers, setBought, setDone,
-    REC, runOf, setOrder, startRound, collectRound, cancelRound, onStock,
+    REC, slotsOf, setSlots, setOrder, startSlots, collectSlot, uncollect, cancelSlot, logOf, onStock,
   } = window.LineCore;
   const $ = (id) => document.getElementById(id);
 
@@ -426,74 +423,48 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     return diff === 0 ? t : diff === 1 ? `明天 ${t}` : diff === -1 ? `昨天 ${t}` : `${d.getMonth() + 1}/${d.getDate()} ${t}`;
   };
   const secsOf = (name) => { const s = P.steps.find((x) => x.name === name); return s ? s.secs : null; };
-  // Every station from now: the round running (if any), then the batches still to line up — in the order chosen, the
-  // rest raw side first — cut into rounds of its queue size. Times assume each round is collected and the next one
-  // started as soon as it ends. A batch is marked (wait) when what it needs from other batches isn't made by its round,
-  // and the next round to start lists the raw materials the stock is short of (short).
+  // Every station from now: its places (`queue` of them, see slotsOf) and the batches still to put in (seq) — in the
+  // order chosen, the rest raw side first. Until the places are first used this week they hold the first batches,
+  // waiting for 開工 (stored false). A place's state: wait (等開工), queue (started, behind another), run, done (its time
+  // is up, or isn't known). short is what the station's 投料區 lacks for the waiting batches; end is when everything
+  // would be made, one batch after another (null when a time isn't known).
   function queues() {
     const now = Date.now(), out = new Map();
     for (const n of NODES) {
       if (n.kind !== 'machine') continue;
-      const L = n.lane, steps = L.steps.filter((x) => !quick(x)), size = Math.max(1, L.queue || 1), run = runOf(L.name);
-      const left = new Map(steps.map((x) => [x.name, Math.max(0, x.batches - (Math.floor(Number(S.done.processed[x.name])) || 0) - (run ? run.items.filter((y) => y === x.name).length : 0))]));
+      const L = n.lane, steps = L.steps.filter((x) => !quick(x)), size = Math.max(1, L.queue || 1), stored = slotsOf(L.name);
+      const left = new Map(steps.map((x) => [x.name, Math.max(0, x.batches - (Math.floor(Number(S.done.processed[x.name])) || 0))]));
+      const take = (name) => { if (!(left.get(name) > 0)) return false; left.set(name, left.get(name) - 1); return true; };
+      // a started batch is real; a waiting one the plan no longer wants drops out
+      const places = Array.from({ length: size }, (_, k) => (stored && stored[k]) || null);
+      for (const x of places) if (x && x.at != null) take(x.name);
+      places.forEach((x, k) => { if (x && x.at == null && !take(x.name)) places[k] = null; });
       const seq = [];
-      for (const name of (S.done.proc[L.name] || {}).order || []) if (left.get(name) > 0) { seq.push(name); left.set(name, left.get(name) - 1); }
-      for (const x of steps) for (let k = 0; k < left.get(x.name); k++) seq.push(x.name);
-      const rounds = run ? [{ running: true, items: run.items, from: -1, start: run.at }] : [];
-      for (let k = 0; k < seq.length; k += size) rounds.push({ running: false, items: seq.slice(k, k + size), from: k });
-      let t = now, known = true;
-      for (const r of rounds) {
-        if (!r.running) r.start = Math.max(t, now);
-        let c = r.start;
-        r.ends = r.items.map((name) => { const x = secsOf(name); if (x == null) known = false; c += (x || 0) * 1000; return known ? c : null; });
-        r.end = known ? c : null;
-        r.wait = r.items.map(() => []);
-        r.short = [];
-        t = c;
-      }
-      out.set(L.name, { node: n, lane: L, size, run, seq, rounds, end: rounds.length ? rounds[rounds.length - 1].end : now });
-    }
-    // Round by round on every station at once: what each needs from other batches against what is made by then.
-    const made = new Set(P.steps.map((x) => x.name)), avail = new Map([...made].map((name) => [name, held(name)]));
-    const all = [...out.values()], most = Math.max(0, ...all.map((q) => q.rounds.length));
-    for (let k = 0; k < most; k++) {
-      for (const q of all) {
-        const r = q.rounds[k];
-        if (!r || r.running) continue;
-        const need = new Map(), raw = new Map();
-        r.items.forEach((name, j) => {
-          for (const i of REC.get(name).inputs) {
-            const map = made.has(i.item) ? need : raw;
-            map.set(i.item, (map.get(i.item) || 0) + i.qty);
-            if (made.has(i.item) && need.get(i.item) > (avail.get(i.item) || 0) && !r.wait[j].includes(i.item)) r.wait[j].push(i.item);
-          }
-        });
-        // against what this station's 投料區 holds
-        const z = ZONES.find((x) => x.station === q.node), have = (item) => (z ? stockIn(z, item) : held(item));
-        if (r === q.rounds.find((x) => !x.running)) r.short = [...raw].filter(([item, qty]) => have(item) < qty).map(([item, qty]) => ({ item, lack: qty - have(item) }));
-      }
-      for (const q of all) {
-        const r = q.rounds[k];
-        if (!r) continue;
-        for (const name of r.items) {
-          const rec = REC.get(name);
-          if (!r.running) for (const i of rec.inputs) if (made.has(i.item)) avail.set(i.item, (avail.get(i.item) || 0) - i.qty);
-          avail.set(name, (avail.get(name) || 0) + yieldOf(rec));
-        }
-      }
+      for (const name of (S.done.proc[L.name] || {}).order || []) if (take(name)) seq.push(name);
+      for (const x of steps) while (take(x.name)) seq.push(x.name);
+      if (!stored) for (let k = 0; k < size && seq.length; k++) places[k] = { name: seq.shift(), at: null };
+      const slots = places.map((x, k) => {
+        if (!x) return null;
+        if (x.at == null) return { k, name: x.name, state: 'wait' };
+        const secs = secsOf(x.name), end = secs == null ? null : x.at + secs * 1000;
+        return { k, name: x.name, end, state: end == null || end <= now ? 'done' : x.at <= now ? 'run' : 'queue' };
+      });
+      // against what this station's 投料區 holds
+      const need = new Map(), z = ZONES.find((x) => x.station === n), have = (item) => (z ? stockIn(z, item) : held(item));
+      for (const s of slots) if (s && s.state === 'wait') for (const i of REC.get(s.name).inputs) need.set(i.item, (need.get(i.item) || 0) + i.qty);
+      const short = [...need].filter(([item, qty]) => have(item) < qty).map(([item, qty]) => ({ item, lack: qty - have(item) }));
+      let end = Math.max(now, ...slots.filter((s) => s && s.end != null).map((s) => s.end));
+      let known = slots.every((s) => !s || s.state === 'wait' || s.end != null);
+      for (const name of [...slots.filter((s) => s && s.state === 'wait').map((s) => s.name), ...seq]) { const x = secsOf(name); if (x == null) known = false; else end += x * 1000; }
+      out.set(L.name, { node: n, lane: L, size, stored: !!stored, places, slots, seq, short, end: known ? end : null, busy: slots.some(Boolean) || seq.length > 0 });
     }
     return out;
   }
-  // The stations together: logins still needed (one to start, one at every round's end), when everything is made, and
-  // the next time to log in (now when a station can start).
+  // The stations together: when everything is made (null when a time isn't known).
   function procSummary() {
-    const qs = [...PL.values()].filter((q) => q.rounds.length), now = Date.now();
-    const logins = Math.max(0, ...qs.map((q) => q.rounds.length + (q.run ? 0 : 1)));
-    const ends = qs.map((q) => q.end), finish = ends.length && ends.every((x) => x != null) ? Math.max(...ends) : null;
-    const nexts = qs.map((q) => (q.run ? q.rounds[0].end : now)).filter((x) => x != null);
-    return { busy: qs.length > 0, logins, rounds: Math.max(0, ...qs.map((q) => q.rounds.length)), finish, next: nexts.length ? Math.min(...nexts) : null };
+    const ends = [...PL.values()].filter((q) => q.busy).map((q) => q.end);
+    return { busy: ends.length > 0, finish: ends.length && ends.every((x) => x != null) ? Math.max(...ends) : null };
   }
-  const nextText = (t) => (t == null ? '時間待補' : t <= Date.now() + 30e3 ? '現在' : hm(t));
 
   /* ---------- statuses ---------- */
   const VERB = { processed: '已完成', assembled: '已組裝' };
@@ -523,13 +494,15 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return [n.items.some((i) => i.mat.stock) ? 'wait' : 'idle', `還要採 ${fmt(left)}`];
     }
     if (n.kind === 'machine' && n.lane.steps.some((s) => s.secs == null)) return ['bad', '時間待補'];
-    // A station: its round running (or done and waiting for 全部領取), or whether the next one can start.
+    // A station: a batch to collect (領料), one under way, or batches waiting for 開工 (and whether the 投料區 has
+    // what they take).
     if (n.kind === 'machine') {
-      const q = PL.get(n.lane.name);
-      if (!q || !q.rounds.length) return rowsOf(n).length ? ['ok', '加工完成'] : ['idle', '—'];
-      const r = q.rounds[0];
-      if (q.run) return r.end != null && r.end <= Date.now() ? ['ok', '可領取'] : ['wait', `做中${r.end != null ? `・${hm(r.end)} 好` : ''}`];
-      return r.short.length || r.wait.some((w) => w.length) ? ['idle', '等料'] : ['wait', '可開工'];
+      const q = PL.get(n.lane.name), has = (st) => q.slots.some((s) => s && s.state === st);
+      if (!q || !q.busy) return rowsOf(n).length ? ['ok', '加工完成'] : ['idle', '—'];
+      if (has('done')) return ['ok', '可領料'];
+      if (has('run') || has('queue')) return ['wait', '做中'];
+      if (has('wait')) return q.short.length ? ['idle', '等料'] : ['wait', '可開工'];
+      return ['idle', '設備空著'];
     }
     // A 投料區: its stock against what its station still takes in; 缺料 when a missing item is one the shop limits can't
     // cover.
@@ -571,11 +544,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return [rawLines, madeLines].filter(Boolean).join('<span class="blk-cut" aria-hidden="true"></span>') || line('都投料了', '');
     }
     if (n.kind === 'machine') {
-      const L = n.lane, q = PL.get(L.name), r = q && q.rounds[0];
-      const now = !r ? '都做完了' : q.run ? (r.end != null && r.end <= Date.now() ? '做好了，可以全部領取' : `第 1 輪做中${r.end != null ? `・${hm(r.end)} 好` : ''}`)
-        : `下一輪 ${r.items.length} 批・還有 ${q.rounds.length} 輪`;
+      const L = n.lane, q = PL.get(L.name);
+      const now = !q || !q.busy ? '都做完了' : `設備 ${q.slots.filter(Boolean).length}/${q.size} 格・排程還有 ${q.seq.length} 批`;
       return rowsOf(n).map((x) => line(x.item, `${dp(x)} 批`, x.done >= x.plan ? 'ok' : '')).join('')
-        + `<span class="foot">${esc(now)}・${L.queue == null ? '排程上限待補' : `排程 ${L.queue} 格`}</span>`;
+        + `<span class="foot">${esc(now)}${L.queue == null ? '・排程上限待補' : ''}</span>`;
     }
     if (n.kind === 'assembly') {
       const made = new Set(P.steps.map((s) => s.name)), inputs = [...new Set(n.lane.steps.flatMap((s) => s.r.inputs.map((i) => i.item)))];
@@ -650,36 +622,33 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     return `<div class="sec"><ul class="rows">${rows}</ul><button class="btn primary buy-open" type="button" data-buyopen="${esc(n.id)}">填已購買</button></div>`;
   }
 
-  // A station's queue in the panel: each round with its places, the running one locked, the rest draggable (⠿) or
-  // moved with ▲▼; 開工 starts the next round, 全部領取 finishes the running one.
+  // A station in the panel: 開工 and what the 投料區 lacks on top (while batches wait in its places), then its places —
+  // empty, 等開工 (with each batch's time), 排隊 or 做中 (with when it is made), or 做好了 with 領料; any not finished can
+  // be taken back out (✕), and with the lock open (測試) finished at once (直接完成) — then the batches still to put in,
+  // dragged by ⠿ into another order or into an empty place, or put in with 加入 (no times there).
+  let testing = false;
+  function placeNote(s) {
+    if (s.state === 'wait') { const x = secsOf(s.name); return `等開工・${x == null ? '時間待補' : `每批 ${fmtDur(x)}`}`; }
+    if (s.end == null) return `${s.state === 'done' ? '做好了' : s.state === 'run' ? '做中' : '排隊'}・時間待補`;
+    return s.state === 'done' ? `${hm(s.end)} 做好` : `${s.state === 'run' ? '做中' : '排隊'}・${hm(s.end)} 好`;
+  }
   function queueHTML(q) {
-    const L = q.lane, lane = esc(L.name), first = q.rounds.findIndex((r) => !r.running), now = Date.now();
-    const rounds = q.rounds.map((r, k) => {
-      const done = r.running && r.end != null && r.end <= now;
-      const head = r.running ? (done ? '<b class="ok-text">做好了，可以全部領取</b>' : `做中・${hm(r.start)} 開工${r.end != null ? ` → ${hm(r.end)} 全部好` : ''}`)
-        : `預計 ${k === first && !q.run ? '現在' : hm(r.start)} 開工${r.end != null ? ` → ${hm(r.end)} 好` : '・時間待補'}`;
-      const cells = Array.from({ length: q.size }, (_, j) => {
-        const name = r.items[j];
-        if (!name) return `<div class="slot empty"${!r.running && k === q.rounds.length - 1 ? ` data-slot="${q.seq.length - 1}" data-lane="${lane}"` : ''}><span></span><span class="no">${j + 1}</span><span>空</span></div>`;
-        const idx = r.from + j, x = secsOf(name), wait = r.wait[j];
-        const what = `<span class="what">${nameHTML(name)}<small>每批 ${x == null ? '時間待補' : esc(fmtDur(x))}${r.ends[j] != null ? `・${hm(r.ends[j])} 好` : ''}</small>${wait.length ? `<em>${esc(wait.join('、'))}還沒做好</em>` : ''}</span>`;
-        if (r.running) return `<div class="slot lock"><span></span><span class="no">${j + 1}</span>${what}<span></span></div>`;
-        return `<div class="slot${wait.length ? ' bad' : ''}" data-slot="${idx}" data-lane="${lane}">
-          <span class="grip" title="拖拉換順序" aria-hidden="true">⠿</span><span class="no">${j + 1}</span>${what}
-          <span class="mv"><button class="btn" type="button" data-smove="${lane}|${idx}|-1" aria-label="${esc(name)} 往前"${idx ? '' : ' disabled'}>▲</button><button class="btn" type="button" data-smove="${lane}|${idx}|1" aria-label="${esc(name)} 往後"${idx < q.seq.length - 1 ? '' : ' disabled'}>▼</button></span>
-        </div>`;
-      }).join('');
-      const act = r.running
-        ? `<div class="round-act"><button class="btn primary" type="button" data-collect="${lane}">全部領取</button><button class="btn small" type="button" data-unstart="${lane}">取消開工</button></div>`
-        : k === first && !q.run ? `<div class="round-act"><button class="btn primary" type="button" data-start="${lane}">開工</button><span>按下去就從現在開始算</span></div>` : '';
-      const short = r.short.length ? `<p class="note bad-text">庫存不夠：${esc(r.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</p>` : '';
-      return `<div class="round${r.running ? ' running' : ''}${done ? ' ready' : ''}"><div class="round-head"><b>第 ${k + 1} 輪</b><span>${head}</span></div>${cells}${short}${act}</div>`;
-    }).join('');
-    const sum = q.rounds.length ? `${q.rounds.length} 輪${q.end != null ? `・${hm(q.end)} 全部做完` : '・時間待補'}` : '都做完了';
-    return `<div class="sec"><h3 class="ord-h">排程<span>${esc(sum)}</span></h3>
-      ${rounds || '<p class="muted" style="margin:0">這週的批數都做完了。</p>'}
-      ${q.seq.length > 1 ? '<p class="note">拖 ⠿ 或按 ▲▼ 換順序，時間會跟著重算；開工後那一輪就鎖住。後面的輪次照「上一輪做完就接著開工」算。</p>' : ''}
-      <p class="note">開工會從庫存扣掉這一輪的原料，全部領取會把做好的加工品加進庫存。排程上限 ${L.queue == null ? '待補，先當 1 格' : `${q.size} 格，一次做一批`}。</p></div>`;
+    const lane = esc(q.lane.name), empty = q.slots.some((s) => !s);
+    const top = q.slots.some((s) => s && s.state === 'wait')
+      ? `<div class="sec"><div class="round-act"><button class="btn primary" type="button" data-start="${lane}">開工</button><span>按下去就從現在開始算</span></div>
+        ${q.short.length ? `<p class="note bad-text">庫存不夠：${esc(q.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</p>` : ''}</div>` : '';
+    const places = q.slots.map((s, k) => (!s
+      ? `<div class="slot empty" data-place="${k}" data-lane="${lane}"><span></span><span class="no">${k + 1}</span><span>空</span></div>`
+      : `<div class="slot ${s.state}"><span></span><span class="no">${k + 1}</span><span class="what">${nameHTML(s.name)}<small>${esc(placeNote(s))}</small></span>
+        <span class="mv">${s.state === 'done' ? `<button class="btn primary small" type="button" data-collect="${lane}|${k}">領料</button>`
+          : `${testing ? `<button class="btn small" type="button" data-finish="${lane}|${k}">直接完成</button>` : ''}<button class="btn small" type="button" data-unslot="${lane}|${k}" aria-label="取消${esc(s.name)}，原料退回">✕</button>`}</span></div>`)).join('');
+    const lock = `<button class="btn small" type="button" data-testlock aria-pressed="${testing}" title="打開後設備裡的批數可以直接完成，測試用">${testing ? '🔓 測試' : '🔒'}</button>`;
+    const seq = q.seq.map((name, i) => `<div class="slot" data-slot="${i}" data-lane="${lane}">
+        <span class="grip" title="拖拉換順序" aria-hidden="true">⠿</span><span class="no">${i + 1}</span><span class="what">${nameHTML(name)}</span>
+        <span class="mv"><button class="btn small" type="button" data-place-in="${lane}|${i}"${empty ? '' : ' disabled'}>加入</button></span></div>`).join('');
+    return `${top}<div class="sec"><h3 class="ord-h">設備<span>${q.slots.filter(Boolean).length}/${q.size} 格${q.lane.queue == null ? '・上限待補，先當 1 格' : ''} ${lock}</span></h3>${places}</div>
+      <div class="sec"><h3 class="ord-h">排程<span>還有 ${fmt(q.seq.length)} 批</span></h3>${seq || '<p class="muted" style="margin:0">沒有要排的了。</p>'}
+        ${q.seq.length ? '<p class="note">拖 ⠿ 換順序，或拖進上面的空格。</p>' : ''}</div>`;
   }
 
   function overviewHTML() {
@@ -717,8 +686,13 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     // the 異常 alarms open the 投料區 a shortage lands on (zoneFor), so each shortage is told there
     if (n.kind === 'warehouse') return head + storeHTML(n) + n.items.filter((i) => i.mat && i.mat.short && zoneFor(i.name) === n.id).map((i) => shortageHTML(i.mat)).join('');
     if (n.kind === 'machine') {
-      const L = n.lane, q = PL.get(L.name);
-      return head + (q ? queueHTML(q) : '') + actual;
+      // 已完成: the week's 領料, newest first; 退回 puts one back
+      const L = n.lane, q = PL.get(L.name), lane = esc(L.name);
+      const log = logOf(L.name).map((e, i) => [e, i]).reverse().map(([e, i]) => `<li><span>${nameHTML(e.name)} ×${fmt(yieldOf(REC.get(e.name)))}<span class="muted">・${esc(hm(e.done))} 領料${e.test ? '・測試' : ''}</span></span>
+          <span><button class="btn small" type="button" data-unlog="${lane}|${i}">退回</button></span></li>`).join('');
+      const tally = rowsOf(n).map((r) => `${r.item} ${fmt(r.done)}/${fmt(r.plan)} 批`).join('・');
+      return head + (q ? queueHTML(q) : '') + `<div class="sec"><h3 class="ord-h">已完成<span>${esc(tally)}</span></h3>
+        ${log ? `<ul class="rows">${log}</ul>` : '<p class="muted" style="margin:0">還沒有領料。做好的批數按「領料」會記在這裡。</p>'}</div>`;
     }
     if (n.kind === 'assembly') {
       const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
@@ -854,11 +828,9 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         <button class="sum" type="button" data-jump="wish"><span class="k">可做／訂單</span><b>${fmt(P.qty)}／${fmt(A.rows.reduce((t, o) => t + o.qty, 0))}</b></button>
         <button class="sum" type="button" data-jump="stock"><span class="k">入庫</span><b>${fmt(tally(PR.assemble)[0])}／${fmt(P.qty)}</b></button>
         ${sum('異常', short.length ? esc(short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')) : '沒有', short.length ? zoneFor(short[0].name) : null, short.length ? 'bad' : '')}
-        ${sum('下次上線', ps.busy ? esc(nextText(ps.next)) : '不用', station ? station.id : null)}
-        ${sum('還要上線', `${ps.logins} 次`, station ? station.id : null)}
         ${sum('加工', !ps.busy ? '都做完了' : ps.finish != null ? `${esc(hm(ps.finish))} 做完` : '時間待補', station ? station.id : null)}
         <span class="sum edit"><span class="k">幾隻角色去買${charsFromBoard() ? '（照佈告欄）' : ''}</span>${stepper('chars', chars(), '角色數', 1)}</span>
-        <p class="sum-hint">可做、異常、上線、加工是照你填的庫存、已購買、開工和入庫算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
+        <p class="sum-hint">可做、異常、加工是照你填的庫存、已購買、開工和入庫算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
       </div>
       <div class="layout">
         <div class="card plant-card">
@@ -892,35 +864,55 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   }
   const pick = (id) => (id === 'fg' ? showOrders() : select(id));
 
-  /* ---------- a station's queue: moving, starting and collecting rounds ---------- */
-  // Moves the batch at `from` in a station's queue to `to` (both places among the batches not yet started).
+  /* ---------- a station: putting batches in, 開工, 領料 and taking them back out ---------- */
+  // Before a change, the places as shown and the order of the batches still to put in are kept as they are (the places
+  // shown before their first use this week aren't stored yet).
+  function keep(q) {
+    setSlots(q.lane.name, q.places);
+    setOrder(q.lane.name, q.seq);
+  }
+  // Moves the batch at `from` among those still to put in to `to`.
   function moveBatch(lane, from, to) {
     const q = PL.get(lane);
     if (!q || from === to) return;
+    keep(q);
     const seq = q.seq.slice(), [x] = seq.splice(from, 1);
     seq.splice(Math.max(0, Math.min(seq.length, to)), 0, x);
     setOrder(lane, seq);
     save();
     render();
   }
-  function queueAction(b) {
-    const lane = b.dataset.start || b.dataset.collect || b.dataset.unstart, q = lane && PL.get(lane);
-    if (b.dataset.smove) {
-      const v = b.dataset.smove, c = v.lastIndexOf('|'), a = v.lastIndexOf('|', c - 1);
-      const from = Number(v.slice(a + 1, c));
-      moveBatch(v.slice(0, a), from, from + Number(v.slice(c + 1)));
-      return;
-    }
-    if (!q) return;
-    if (b.dataset.start) {
-      const r = q.rounds.find((x) => !x.running);
-      if (r) startRound(lane, r.items, Date.now(), q.seq.slice(r.items.length));
-    } else if (b.dataset.collect) collectRound(lane);
-    else cancelRound(lane);
+  // Puts the batch at `from` among those still to put in into the empty place k, waiting for 開工.
+  function placeBatch(lane, from, k) {
+    const q = PL.get(lane);
+    if (!q || k < 0 || q.places[k] || from < 0 || from >= q.seq.length) return;
+    keep(q);
+    const seq = q.seq.slice(), [name] = seq.splice(from, 1);
+    slotsOf(lane)[k] = { name, at: null };
+    setOrder(lane, seq);
     save();
     render();
   }
-  // Dragging a batch by its ⠿ to another place on the same station; works with a mouse or a finger.
+  // 開工 (data-start: the station), 領料, 直接完成 and ✕ (data-collect / data-finish / data-unslot: 'station|place'),
+  // 加入 (data-place-in: 'station|batch' into the first empty place), 退回 (data-unlog: 'station|log entry'), and the
+  // 測試 lock (data-testlock, not remembered).
+  function queueAction(b) {
+    if (b.dataset.testlock != null) { testing = !testing; renderPanel(); return; }
+    const v = b.dataset.collect || b.dataset.finish || b.dataset.unslot || b.dataset.placeIn || b.dataset.unlog || '', bar = v.lastIndexOf('|');
+    const lane = b.dataset.start || v.slice(0, bar), k = Number(v.slice(bar + 1)), q = PL.get(lane), now = Date.now();
+    if (!q) return;
+    if (b.dataset.placeIn) { placeBatch(lane, k, q.places.findIndex((x) => !x)); return; }
+    keep(q);
+    if (b.dataset.start) startSlots(lane, now);
+    else if (b.dataset.collect) collectSlot(lane, k, now);
+    else if (b.dataset.finish) collectSlot(lane, k, now, true);
+    else if (b.dataset.unlog) uncollect(lane, k);
+    else cancelSlot(lane, k, now);
+    save();
+    render();
+  }
+  // Dragging a batch still to put in by its ⠿: onto another one to change the order, or onto an empty place of the
+  // same station to put it in; works with a mouse or a finger.
   let drag = null;
   const clearDrop = () => document.querySelectorAll('.slot.drop').forEach((x) => x.classList.remove('drop'));
   document.addEventListener('pointerdown', (e) => {
@@ -928,7 +920,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (!grip || e.button > 0) return;
     const el = grip.closest('[data-slot]');
     e.preventDefault();
-    drag = { el, lane: el.dataset.lane, from: Number(el.dataset.slot), x: e.clientX, y: e.clientY, id: e.pointerId, on: false, to: null };
+    drag = { el, lane: el.dataset.lane, from: Number(el.dataset.slot), x: e.clientX, y: e.clientY, id: e.pointerId, on: false, to: null, place: null };
   });
   document.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
@@ -937,17 +929,20 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     drag.on = true;
     drag.el.classList.add('dragging');
     drag.el.style.transform = `translate(${dx}px, ${dy}px)`;
-    const t = document.elementsFromPoint(e.clientX, e.clientY).map((x) => x.closest('[data-slot]')).find((x) => x && x !== drag.el);
+    const t = document.elementsFromPoint(e.clientX, e.clientY).map((x) => x.closest('[data-slot], [data-place]')).find((x) => x && x !== drag.el);
     clearDrop();
-    drag.to = t && t.dataset.lane === drag.lane ? Number(t.dataset.slot) : null;
-    if (drag.to != null) t.classList.add('drop');
+    drag.to = drag.place = null;
+    if (!t || t.dataset.lane !== drag.lane) return;
+    if (t.dataset.place != null) drag.place = Number(t.dataset.place); else drag.to = Number(t.dataset.slot);
+    t.classList.add('drop');
   });
   const endDrag = (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const d = drag;
     drag = null;
     clearDrop();
-    if (d.on && d.to != null && d.to !== d.from) moveBatch(d.lane, d.from, d.to);
+    if (d.on && d.place != null) placeBatch(d.lane, d.from, d.place);
+    else if (d.on && d.to != null && d.to !== d.from) moveBatch(d.lane, d.from, d.to);
     else { d.el.classList.remove('dragging'); d.el.style.transform = ''; }
   };
   document.addEventListener('pointerup', endDrag);
@@ -1172,7 +1167,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 
   /* ---------- events ---------- */
   document.addEventListener('click', (e) => {
-    const qb = e.target.closest('[data-start], [data-collect], [data-unstart], [data-smove]');
+    const qb = e.target.closest('[data-start], [data-collect], [data-finish], [data-unslot], [data-place-in], [data-unlog], [data-testlock]');
     if (qb) { queueAction(qb); return; }
     const open = e.target.closest('[data-buyopen]');
     if (open) { openBuy(open.dataset.buyopen); return; }

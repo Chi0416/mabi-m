@@ -93,9 +93,8 @@
   delete S.draft.slots;
   // done: this week's actual progress, cleared when the shop week turns over (`week` is the week's start) —
   // bought ('who|town|item' → [count per character, first character first]), processed (made item → batches
-  // finished), assembled (dish → made), proc (station → { order: the batches still to line up, by item, in the order
-  // chosen; run: { at, items } — the round started at `at` (ms) and not yet collected }). What is gathered isn't
-  // kept: it shows in the stock.
+  // finished), assembled (dish → made), proc (station → { order: the batches still to put in, by item, in the order
+  // chosen; slots: the station's places, see slotsOf }). What is gathered isn't kept: it shows in the stock.
   const DONE_KINDS = ['bought', 'processed', 'assembled', 'proc'];
   if (!S.done || typeof S.done !== 'object') S.done = { week: 0 };
   for (const k of DONE_KINDS) if (!S.done[k] || typeof S.done[k] !== 'object') S.done[k] = {};
@@ -308,42 +307,99 @@
     worked(kind, key, n - old);
   }
 
-  // A station's queue (see S.done.proc). Starting a round takes its batches' inputs from the stock, as lining them up
-  // in the game does; collecting it (全部領取) counts the batches finished and adds what they made.
+  // A station (see S.done.proc) has `queue` places, each empty (null) or holding one batch { name, at, took }: at null
+  // while it waits for 開工, else when the batch starts (ms). It makes one batch at a time, in the order started, and a
+  // finished batch keeps its place until it is collected (領料); an empty place stays empty until a batch is put in.
+  // took is what 開工 really took from the stock (less than the inputs when the stock was short), so taking the batch
+  // back out gives back no more than that. log is the week's 領料, oldest first: { name, k (its place), at, took, done
+  // (when collected), test (finished at once in 測試) }.
   const procOf = (lane) => (S.done.proc[lane] && typeof S.done.proc[lane] === 'object' ? S.done.proc[lane] : (S.done.proc[lane] = {}));
-  const runOf = (lane) => { const run = procOf(lane).run; return run && Array.isArray(run.items) && run.items.length ? run : null; };
-  const runningItems = () => Object.keys(S.done.proc).flatMap((lane) => (runOf(lane) || { items: [] }).items);
+  const secsFor = (name) => (REC.has(name) ? stepInfo(name).secs || 0 : 0) * 1000;
+  // null until the places are first used this week (the page then shows the first batches in them, waiting).
+  function slotsOf(lane) {
+    const p = procOf(lane);
+    // a round started before places existed: its batches, one after another from when it started
+    if (p.run && Array.isArray(p.run.items) && !Array.isArray(p.slots)) {
+      let at = Number(p.run.at) || Date.now();
+      p.slots = p.run.items.map((name) => {
+        const r = REC.get(name), x = { name, at, took: Object.fromEntries(r ? r.inputs.map((i) => [i.item, i.qty]) : []) };
+        at += secsFor(name);
+        return x;
+      });
+    }
+    delete p.run;
+    return Array.isArray(p.slots) ? p.slots : null;
+  }
+  const setSlots = (lane, slots) => { procOf(lane).slots = slots.map((x) => x || null); };
+  const runningItems = () => Object.keys(S.done.proc).flatMap((lane) => (slotsOf(lane) || []).filter((x) => x && x.at != null).map((x) => x.name));
   const setOrder = (lane, order) => { procOf(lane).order = order.slice(); };
-  // took: what actually came out of the stock (less than the inputs when the stock was short), so taking the round
-  // back gives back no more than that.
-  function startRound(lane, items, at, rest) {
-    if (runOf(lane) || !items.length) return;
-    const took = {};
-    for (const name of items) {
-      const r = REC.get(name);
-      if (r) for (const i of r.inputs) { const k = Math.min(held(i.item), i.qty); took[i.item] = (took[i.item] || 0) + k; bump(i.item, -i.qty, { use: name }); }
+  // When a started batch ends.
+  const endOf = (x) => x.at + secsFor(x.name);
+  // 開工: every batch waiting in a place starts, one after another behind those already started, and its inputs leave
+  // the stock now.
+  function startSlots(lane, now) {
+    const slots = slotsOf(lane);
+    if (!slots) return;
+    let free = Math.max(now, ...slots.filter((x) => x && x.at != null).map(endOf));
+    for (const x of slots) {
+      if (!x || x.at != null) continue;
+      const r = REC.get(x.name);
+      x.took = {};
+      if (r) for (const i of r.inputs) { x.took[i.item] = (x.took[i.item] || 0) + Math.min(held(i.item), i.qty); bump(i.item, -i.qty, { use: x.name }); }
+      x.at = free;
+      free += secsFor(x.name);
     }
-    Object.assign(procOf(lane), { run: { at, items: items.slice(), took }, order: rest.slice() });
   }
-  function collectRound(lane) {
-    const run = runOf(lane);
-    if (!run) return;
-    for (const name of run.items) {
-      const r = REC.get(name);
-      S.done.processed[name] = (Math.floor(Number(S.done.processed[name])) || 0) + 1;
-      if (r) bump(name, yieldOf(r), { make: name });
+  const logOf = (lane) => (Array.isArray(procOf(lane).log) ? procOf(lane).log : (procOf(lane).log = []));
+  // The started batches not yet under way move up behind the others (one under way keeps its start).
+  function rechain(slots, now) {
+    let free = -Infinity;
+    for (const y of slots.filter((s) => s && s.at != null).sort((a, b) => a.at - b.at)) {
+      if (y.at > now) y.at = Math.max(now, free);
+      free = endOf(y);
     }
-    delete procOf(lane).run;
   }
-  // Taking a round back out: its inputs return to the stock and its batches to the front of the queue.
-  function cancelRound(lane) {
-    const run = runOf(lane);
-    if (!run) return;
-    for (const [item, qty] of Object.entries(run.took || {})) bump(item, qty, { lane });
-    procOf(lane).order = [...run.items, ...(procOf(lane).order || [])];
-    delete procOf(lane).run;
+  // 領料: a finished batch counts as processed, its output joins the stock, it goes on the log and its place empties.
+  // test: finished at once (測試), without waiting for its time; one still waiting for 開工 takes its inputs first.
+  function collectSlot(lane, k, now, test = false) {
+    const slots = slotsOf(lane), x = slots && slots[k];
+    if (!x || (x.at == null && !test)) return;
+    const r = REC.get(x.name);
+    if (x.at == null) {
+      x.took = {};
+      if (r) for (const i of r.inputs) { x.took[i.item] = (x.took[i.item] || 0) + Math.min(held(i.item), i.qty); bump(i.item, -i.qty, { use: x.name }); }
+      x.at = now;
+    }
+    S.done.processed[x.name] = (Math.floor(Number(S.done.processed[x.name])) || 0) + 1;
+    if (r) bump(x.name, yieldOf(r), { make: x.name });
+    logOf(lane).push({ name: x.name, k, at: x.at, took: x.took || {}, done: now, ...(test ? { test: true } : {}) });
+    slots[k] = null;
+    if (test) rechain(slots, now);
   }
-  const setRunAt = (lane, at) => { const run = runOf(lane); if (run) run.at = at; };
+  // 退回 a 領料 (log entry i): its output leaves the stock again and the batch goes back to its place, finished; when
+  // that place has been taken, it goes back to the front of the queue and what it took returns to the stock.
+  function uncollect(lane, i) {
+    const log = logOf(lane), e = log[i], slots = slotsOf(lane);
+    if (!e || !slots) return;
+    log.splice(i, 1);
+    const r = REC.get(e.name), n = (Math.floor(Number(S.done.processed[e.name])) || 0) - 1;
+    if (n > 0) S.done.processed[e.name] = n; else delete S.done.processed[e.name];
+    if (r) bump(e.name, -yieldOf(r), { make: e.name });
+    if (!slots[e.k]) { slots[e.k] = { name: e.name, at: e.test ? e.done - secsFor(e.name) : e.at, took: e.took }; return; }
+    procOf(lane).order = [e.name, ...(procOf(lane).order || [])];
+    for (const [item, qty] of Object.entries(e.took || {})) bump(item, qty, { lane });
+  }
+  // Taking a batch back out of its place: what 開工 took returns to the stock, the batch goes back to the front of the
+  // queue, and the started batches behind it move up.
+  function cancelSlot(lane, k, now) {
+    const slots = slotsOf(lane), x = slots && slots[k];
+    if (!x) return;
+    slots[k] = null;
+    procOf(lane).order = [x.name, ...(procOf(lane).order || [])];
+    if (x.at == null) return;
+    for (const [item, qty] of Object.entries(x.took || {})) bump(item, qty, { lane });
+    rechain(slots, now);
+  }
 
   // A raw material's weekly supply: its base plus what every shop can still sell every character this week.
   // Something that can be gathered, or whose source isn't known yet, has no cap (barter and quest loot aren't counted
@@ -714,6 +770,6 @@
     LINE, SHOP, CITIES, MAX_CHARS, COLORS, S, save, REC, load, dishes, dishOptions, esc, fmt, posInt, readLS, writeLS,
     fmtDur, clock, parseDur, shopWeek, yieldOf, gradeOf, nameHTML, sourcesOf, sourceText, townRank,
     stepInfo, quick, chars, charsFromBoard, held, allocate, makePlan, makeSchedule, countLE, jobAt, loginPlan, progress,
-    gathers, setBought, setDone, runOf, setOrder, startRound, collectRound, cancelRound, setRunAt, onStock,
+    gathers, setBought, setDone, slotsOf, setSlots, setOrder, startSlots, collectSlot, uncollect, cancelSlot, logOf, onStock,
   };
 })();
