@@ -77,13 +77,14 @@ button.sum:hover b { color: var(--accent); }
 .blk.ok { border-left-color: var(--ok); } .blk.wait { border-left-color: var(--wait); } .blk.bad { border-left-color: var(--bad); background: #fff8f8; }
 .blk:hover { border-color: rgba(47, 111, 222, .45); }
 .blk.sel { outline: 3px solid var(--accent); outline-offset: 1px; }
-.blk-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 2px; }
+/* the light always on its own line under the name, whatever the name's length */
+.blk-head { display: grid; justify-items: start; gap: 4px; margin-bottom: 2px; }
 .blk-name { font-weight: 700; font-size: 15px; }
 .blk .badge { padding: 0 8px; font-size: 12px; }
 .blk .ln { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 1.5; }
 .blk .ln span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; }
 .blk .ln.bad { color: var(--bad); }
-.blk .ln-note { margin-top: -3px; font-size: 12px; color: var(--muted); text-align: right; }
+.blk-cut { margin: 3px 0; border-top: 1px dashed #b9c3cd; }
 .blk .foot { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
 .btn { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
 .btn:hover { background: #e9edf1; }
@@ -91,6 +92,7 @@ button.sum:hover b { color: var(--accent); }
 .btn.primary:hover { background: #2a62c6; }
 .btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary:disabled { opacity: 1; color: var(--muted); background: var(--idle-soft); border-color: var(--line); }
 .btn:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 14px 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -553,8 +555,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   const tally = (rows) => [rows.reduce((t, r) => t + Math.min(r.done, r.plan), 0), rows.reduce((t, r) => t + r.plan, 0)];
   // [colour key, short text] for a point: red for a shortage or missing data, otherwise how far this week's actuals
   // have got — grey not started, yellow under way or ready to do, green done.
-  // Andon lights: ok (green) 運行 — running, or with everything in hand to run; wait (yellow) 要處理 — stopped until
-  // someone acts; bad (red) 異常; idle (grey) 無使用 — not in use, which takes in what is done (✓) as well.
+  // Andon lights: ok (green) 運行 — running, or a 投料區 with everything in hand to run; wait (yellow) 要處理 — stopped
+  // until someone acts (可開工, 可組裝); bad (red) 異常; idle (grey) 無使用 — not in use, which takes in what is done (✓) as well.
   function statusOf(n) {
     // 背包: how many of the things the week still takes it is short of.
     if (n.kind === 'bag') {
@@ -587,23 +589,22 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return ['idle', '設備空著'];
     }
     // A 投料區: how much of what its station still has to do its share of the bag covers — all of it at once, some, or
-    // none yet (等加工 when the assembly waits for made items); 缺料 when a missing item is one the shop limits can't
-    // cover, or a dish can't be made at all this week.
+    // none yet, told as how many batches (dishes) can be made of how many still to do; 缺料 when a missing item is one
+    // the shop limits can't cover, or a dish can't be made at all this week.
     if (n.kind === 'warehouse') {
       const left = n.outs.reduce((t, o) => t + o.left, 0), can = n.outs.reduce((t, o) => t + o.can, 0), none = n.outs.some((o) => o.none);
       if (!n.outs.length) return ['idle', '不用備料'];
       if (!left && !none) return ['idle', '✓ 完成'];
       if (n.cut.size || none) return ['bad', '缺料'];
       if (n.outs.every((o) => o.can >= o.left)) return ['ok', n.asm ? '全部可以一次製作' : '全部可以一次加工'];
-      if (can) return ['ok', n.asm ? '部分可以製作' : `可以加工 ${fmt(can)}／${fmt(left)} 批`];
-      return ['idle', n.asm && n.items.some((i) => i.made && i.lack) ? '等加工' : '還沒備料'];
+      return [can ? 'ok' : 'idle', n.asm ? `可以製作 ${fmt(can)}／${fmt(left)} 份` : `可以加工 ${fmt(can)}／${fmt(left)} 批`];
     }
     const rows = rowsOf(n);
     if (!rows.length) return ['idle', n.kind === 'fg' || n.kind === 'assembly' ? '沒有訂單' : '—'];
     const [d, p] = tally(rows);
     if (d >= p) return ['idle', `✓ ${{ machine: '加工完成', assembly: '組裝完成', fg: '全部入庫' }[n.kind] || `完成 ${fmt(d)}`}`];
     if (d > 0) return ['ok', `${n.kind === 'fg' ? '入庫' : VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
-    if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['ok', '可組裝'] : PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
+    if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
     return ['idle', n.kind === 'fg' ? `0/${fmt(p)}` : '未開始'];
   }
 
@@ -615,8 +616,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   function blockLines(n) {
     const line = (name, v, cls = '') => `<span class="ln ${cls}"><span>${esc(name)}</span><span>${v}</span></span>`;
     const dp = (r) => `${fmt(r.done)}／${fmt(r.plan)}`;
-    // a shop: what every character can still buy there; gathering: what is still to gather; a 投料區: each thing its
-    // station makes, how many its share covers against how many are still to do, and what holds the rest up
+    // a shop: what every character can still buy there; gathering: what is still to gather
     if (n.kind === 'shop') return n.items.map((i) => {
       const left = i.buy.per.length * SHOP.limit - i.buy.bought;
       return line(i.name, left ? `還能買 ${fmt(left)}` : '買滿', i.mat.short ? 'bad' : left ? '' : 'ok');
@@ -627,13 +627,13 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const g = bagGroups();
       return line(`這週要用 ${fmt([...g.raw, ...g.made].filter((name) => bagSplit(name).used).length)} 種`, g.other.length ? `用不到 ${fmt(g.other.length)} 種` : '');
     }
-    if (n.kind === 'warehouse') return n.outs.map((o) => {
-      if (o.none) return line(o.name, '這週做不了', 'bad');
-      if (!o.left) return line(o.name, outDone(n, o), 'ok');
-      const all = o.can >= o.left, miss = all ? '' : missText(n, o);
-      return line(o.name, `${fmt(o.can)}／${fmt(o.left)} ${n.asm ? '份' : '批'}${all ? ' ✓' : ''}`, all ? 'ok' : o.r.inputs.some((i) => n.cut.has(i.item)) ? 'bad' : '')
-        + (miss ? `<span class="ln-note">${esc(miss)}</span>` : '');
-    }).join('') || line('不用備料', '');
+    if (n.kind === 'warehouse') {
+      // each material its share of the bag against what its station still takes: raw materials, a dashed line, then
+      // made items (what each made item or dish still misses is in the panel)
+      const ln = (i) => line(i.name, `${fmt(i.have)}／${fmt(i.need)}`, n.cut.has(i.name) ? 'bad' : i.lack ? '' : 'ok');
+      const rawLines = n.items.filter((i) => !i.made).map(ln).join(''), madeLines = n.items.filter((i) => i.made).map(ln).join('');
+      return [rawLines, madeLines].filter(Boolean).join('<span class="blk-cut" aria-hidden="true"></span>') || line('不用備料', '');
+    }
     if (n.kind === 'machine') {
       const L = n.lane, q = PL.get(L.name);
       const now = !q || !q.busy ? (rowsOf(n).length ? '都做完了' : '沒有要排的了') : `設備 ${q.slots.filter(Boolean).length}/${q.size} 格・排程還有 ${q.seq.length} 批`;
@@ -746,10 +746,12 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     return s.state === 'done' ? `${hm(s.end)} 做好` : `${s.state === 'run' ? '做中' : '排隊'}・${hm(s.end)} 好`;
   }
   function queueHTML(q) {
-    const lane = esc(q.lane.name), empty = q.slots.some((s) => !s);
-    const top = q.slots.some((s) => s && s.state === 'wait')
-      ? `<div class="sec"><div class="round-act"><button class="btn primary" type="button" data-start="${lane}">開工</button><span>按下去就從現在開始算</span></div>
-        ${q.short.length ? `<p class="note bad-text">庫存不夠：${esc(q.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</p>` : ''}</div>` : '';
+    const lane = esc(q.lane.name), empty = q.slots.some((s) => !s), waiting = q.slots.some((s) => s && s.state === 'wait');
+    // 開工 and the line under it are always there, greyed out while no batch waits, so putting a batch in doesn't move
+    // the panel
+    const note = !waiting ? '<p class="note">設備裡有等開工的批數才能按。</p>'
+      : q.short.length ? `<p class="note bad-text">庫存不夠：${esc(q.short.map((x) => `${x.item} 差 ${fmt(x.lack)}`).join('、'))}</p>` : '<p class="note">料都夠，可以開工。</p>';
+    const top = `<div class="sec"><div class="round-act"><button class="btn primary" type="button" data-start="${lane}"${waiting ? '' : ' disabled'}>開工</button><span>按下去就從現在開始算</span></div>${note}</div>`;
     const places = q.slots.map((s, k) => (!s
       ? `<div class="slot place empty" data-place="${k}" data-lane="${lane}"><span class="no">${k + 1}</span><span>空</span></div>`
       : `<div class="slot place ${s.state}"><span class="no">${k + 1}</span><span class="what">${nameHTML(s.name)}<small>${esc(placeNote(s))}</small></span>
@@ -841,7 +843,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (!r) return ['bad', '做不了'];
     if (first !== o.i) return ['idle', `跟第 ${first + 1} 道一起入庫`];
     if (r.done >= r.plan) return ['idle', '✓ 已入庫'];
-    if (r.ready) return ['ok', '可以組裝'];
+    if (r.ready) return ['wait', '可以組裝'];
     return PR.process.some((p) => p.done < p.plan) ? ['idle', '等加工'] : ['wait', '等料'];
   }
   // 訂單, the panel's default view, shown only: the wish list, each dish and how many, with what the week can make of
