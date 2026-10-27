@@ -282,7 +282,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.8</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.9</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -876,7 +876,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
           : o.can >= o.left ? '<span class="ok-text">✓ 可以組裝</span>' : `材料 ${fmt(ok)}／${fmt(mats.length)} 樣`;
         const miss = o.left && o.can < o.left ? mats.filter(([, m]) => m.have < m.need) : [];
         return `<div class="sec"><h3 class="ord-h"><span>${nameHTML(o.name)} ×${fmt(qty)}</span><span>${state}</span></h3>
-          <p class="note dish-recipe">一份用：${esc(o.r.inputs.map((i) => `${i.item} ${i.qty}`).join('、'))}${y > 1 ? `（一次做出 ${y} 份）` : ''}</p>
+          <p class="note dish-recipe">${esc(o.r.inputs.map((i) => `${i.item} ${i.qty}`).join('、'))}${y > 1 ? `（一次做出 ${y} 份）` : ''}</p>
           ${miss.length ? `<ul class="rows">${miss.map(([item, m]) => `<li><span>${nameHTML(item)} <span class="bad-text">還缺 ${fmt(m.need - m.have)}</span></span><span>${whereFrom(item)}</span></li>`).join('')}</ul>` : ''}</div>`;
       }).join('');
     }
