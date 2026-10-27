@@ -461,7 +461,7 @@
       for (const [m, q] of x.left) add(pool, m, q);
       for (const [m, b] of x.batches) add(A.batches, m, b);
       for (const [m, q] of x.net) add(A.net, m, q);
-      A.rows.push({ i, dish: o.dish, qty: o.qty, n, max, stuck });
+      A.rows.push({ i, dish: o.dish, qty: o.qty, n, max, stuck, batches: x.batches });
     });
     // How each raw material is covered: its base first, then what the shops can still sell, in board town order and
     // first character first, the rest gathered (or from a source still to be filled in). stock is the bag now, used

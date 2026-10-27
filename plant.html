@@ -72,6 +72,8 @@ button.sum:hover b { color: var(--accent); }
 .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; padding: 14px; background: var(--panel-2); }
 .stage { display: grid; gap: 8px; align-content: start; min-width: 0; }
 .stage h3 { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; display: flex; align-items: center; gap: 6px; }
+.stage h3:has(.stock-open) { white-space: nowrap; }
+.stage h3 .stock-open { flex: none; margin-left: auto; letter-spacing: 0; }
 .stage + .stage h3::before { content: "→"; color: var(--idle); }
 .blk { font: inherit; color: var(--ink); text-align: left; display: grid; gap: 3px; width: 100%; padding: 9px 10px 10px; background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--idle); border-radius: 8px; cursor: pointer; }
 .blk.ok { border-left-color: var(--ok); } .blk.wait { border-left-color: var(--wait); } .blk.bad { border-left-color: var(--bad); background: #fff8f8; }
@@ -83,6 +85,7 @@ button.sum:hover b { color: var(--accent); }
 .blk .ln { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; line-height: 1.5; }
 .blk .ln span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; text-align: right; }
 .blk .ln.bad { color: var(--bad); }
+.blk .ln-note { margin-top: -3px; font-size: 12px; color: var(--muted); text-align: right; }
 .blk .foot { font-size: 12px; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; margin-top: 2px; }
 .btn { font: inherit; font-size: 14px; color: var(--ink); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; }
 .btn:hover { background: #e9edf1; }
@@ -170,7 +173,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .slot.queue { background: var(--panel); }
 .slot.done { border-color: rgba(46, 155, 91, .45); background: var(--ok-soft); }
 .slot.drop { outline: 2px dashed var(--accent); outline-offset: 1px; }
-.slot.dragging { position: relative; z-index: 5; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
+.slot.dragging { opacity: .35; }
+.slot.ghost { position: fixed; z-index: 50; margin: 0; pointer-events: none; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
+/* the panel's lists show at most five (renderPanel sets the height) and scroll inside */
+.list5 { overflow-y: auto; overscroll-behavior: contain; }
 .slot .grip { height: 32px; display: grid; place-items: center; border-radius: 6px; font-size: 18px; color: var(--idle); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .slot .grip:hover { background: var(--idle-soft); color: var(--ink); }
 .slot.dragging .grip { cursor: grabbing; }
@@ -197,15 +203,12 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .buy-line { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .buy-line .num { font-weight: 700; font-variant-numeric: tabular-nums; }
 .buy-open { width: 100%; margin-top: 10px; }
-.store-box { padding: 10px 12px 12px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
-.store-box + .store-box { margin-top: 12px; }
 .sheet { width: min(440px, calc(100% - 32px)); max-height: calc(100vh - 48px); overflow: auto; padding: 0; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 50px rgba(31, 41, 51, .25); }
 .sheet::backdrop { background: rgba(31, 41, 51, .45); }
 #sheet-form { padding: 16px 18px 14px; }
 #sheet-form h2 { font-size: 18px; }
 #sheet-form > .muted { margin: 4px 0 6px; font-size: 13px; }
 .bm-name small { display: block; font-size: 12px; }
-.blk-cut { margin: 3px 0; border-top: 1px dashed #b9c3cd; }
 .bm-char { margin: 10px 0 0; padding: 0; border: 0; }
 .bm-char legend { margin-bottom: 2px; padding: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
 .bm-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
@@ -284,8 +287,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   // see what it needs and how it stands. The plant is shown as blocks, one column per stage.
   const {
     LINE, SHOP, S, save, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, charsFromBoard, held,
-    allocate, makePlan, makeSchedule, progress, yieldOf, dishes, dishOptions, wireList, gathers, setBought, setDone,
-    REC, slotsOf, setSlots, setOrder, startSlots, collectSlot, uncollect, cancelSlot, logOf, onStock,
+    allocate, makePlan, makeSchedule, progress, yieldOf, dishes, dishOptions, wireList, gathers, setBought, setDone, stepInfo,
+    REC, slotsOf, setSlots, setOrder, startSlots, collectSlot, uncollect, cancelSlot, logOf,
   } = window.LineCore;
   const $ = (id) => document.getElementById(id);
 
@@ -303,8 +306,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 
   /* ---------- the plan and its points ---------- */
   let A, P, SCH, PR, PL = new Map(), NODES = [], BY = new Map(), ZONES = [], sel = null;
-  // zone: an item that more than one 投料區 takes → its count in each (投料區 id → count); see makeZones.
-  if (!S.zone || typeof S.zone !== 'object') S.zone = {};
+  // The stock is the bag alone (S.have); counts once kept per 投料區 are gone.
+  delete S.zone;
 
   function plan() {
     A = allocate();
@@ -323,7 +326,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         if (!shops.has(key)) shops.set(key, { id: `shop:${key}`, kind: 'shop', title: sh.town ? `${sh.who}（${sh.town}）` : sh.who, town: sh.town, items: [] });
         shops.get(key).items.push({ name: m.name, qty: sh.qty, buy: sh, mat: m });
       }
-      if (!gathers(m)) continue;
+      // a place to gather stays once what is wanted from it is in hand
+      if (!gathers(m) && !(m.s.gather && m.need)) continue;
       if (m.s.gather) {
         const g = m.s.src.find((x) => x.kind === 'gather').text;
         if (!fields.has(g)) fields.set(g, { id: `field:${g}`, kind: 'field', title: g, items: [] });
@@ -335,13 +339,34 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     out.forEach((n) => { n.zone = 'out'; });
     // Inside: 暫存區 (a 投料區 for each station), the stations from the raw side, assembly, 訂單. 立即製作 isn't a station
     // of its own: what it makes is put on the first assembly station (or one named after its skill's station) with the
-    // rest of the assembly.
-    const instant = SCH.lanes.filter((L) => L.steps.every((s) => s.instant)), extra = instant.flatMap((L) => L.steps);
+    // rest of the assembly. Every station the wish list's recipes use stays, also when nothing is left for it to make
+    // (made ahead, or done): an item it no longer has batches of is added with none. So does every station the dishes'
+    // kind of recipe draws on (食材加工設備 for 料理), empty when this week's dishes take nothing from it.
+    const kept = new Set(P.steps.map((s) => s.name)), seen = new Set(), more = [];
+    const visit = (name) => {
+      const r = REC.get(name);
+      if (!r || seen.has(name)) return;
+      seen.add(name);
+      if (!kept.has(name)) more.push({ name, r, need: 0, batches: 0, made: 0, ...stepInfo(name) });
+      for (const i of r.inputs) visit(i.item);
+    };
+    A.rows.forEach((o) => visit(o.dish));
+    const lanes = SCH.lanes.map((L) => ({ ...L, steps: [...L.steps, ...more.filter((s) => s.lane === L.name)] }));
+    for (const s of more) if (!lanes.some((L) => L.name === s.lane)) lanes.push({ name: s.lane, equip: s.equip, queue: s.queue, steps: more.filter((x) => x.lane === s.lane) });
+    const kinds = new Set(A.rows.map((o) => REC.get(o.dish).skill));
+    for (const r of REC.values()) {
+      if (!kinds.has(r.skill)) continue;
+      for (const i of r.inputs) {
+        const m = REC.get(i.item), x = m && !kinds.has(m.skill) ? stepInfo(i.item) : null;
+        if (x && !lanes.some((L) => L.name === x.lane)) lanes.push({ name: x.lane, equip: x.equip, queue: x.queue, steps: [] });
+      }
+    }
+    const instant = lanes.filter((L) => L.steps.length && L.steps.every((s) => s.instant)), extra = instant.flatMap((L) => L.steps);
     const stations = [];
     let asmNode = null;
-    for (const L of SCH.lanes) {
+    for (const L of lanes) {
       if (instant.includes(L)) continue;
-      const asm = L.steps.every(quick);
+      const asm = L.steps.length > 0 && L.steps.every(quick);
       const n = { id: `lane:${L.name}`, kind: asm ? 'assembly' : 'machine', title: L.equip || '設備待補', todo: !L.equip, lane: L, zone: 'in' };
       if (asm && !asmNode) asmNode = n;
       stations.push(n);
@@ -358,67 +383,85 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     PL = queues();
   }
 
-  // 暫存區: a 投料區 for each station (the processing stations first, raw side first, the assembly last) with what the
-  // station still has to take in this week — a processing station's batches not started yet, the assembly's dishes not
-  // assembled yet — against the stock kept for it. An item only one 投料區 takes counts the whole bag; one that several
-  // take has a count of its own in each (S.zone), typed in on each, and the bag holds their sum. Each item: need, have,
-  // lack, made (an item a station makes, not one to buy or gather), shared. cut lists the missing items the shop limits
-  // can't cover, on the last 投料區 that takes them.
+  // 暫存區: a 投料區 for each station (the processing stations first, raw side first, the assembly last). Its outs are
+  // what the station makes from it — each made item's batches, or each dish — and its items what the station still
+  // takes in: a processing station's batches not started yet, the assembly's dishes not in stock yet. The bag (S.have)
+  // is the only stock: it is shared out down the wish list, each line's processing before its dish, and a 投料區 holds
+  // what its station's share came to. Each item: need, have (the share), lack, made (an item a station makes, not one
+  // to buy or gather), mat. Each out: left (still to do, batches or dishes), can (how many of those the share covers),
+  // none (a dish the week can't make any of). cut lists the missing items the shop limits can't cover, on the last
+  // 投料區 that takes them.
   function makeZones(stations) {
-    const made = new Set(P.steps.map((s) => s.name));
+    const dishSet = new Set(A.rows.map((o) => o.dish)), made = new Set(stations.flatMap((n) => n.lane.steps.map((s) => s.name)));
+    const zoneOf = new Map();
     ZONES = stations.map((n) => {
-      const need = new Map();
+      const z = { id: `zone:${n.lane.name}`, kind: 'warehouse', title: `${n.title}投料區`, station: n, zone: 'in', asm: n.kind === 'assembly', items: [], outs: [] };
       for (const s of n.lane.steps) {
-        let todo = s.batches;
-        if (P.dishSet.has(s.name)) { const r = PR.assemble.find((x) => x.item === s.name); todo = r ? Math.max(0, r.plan - r.done) / yieldOf(s.r) : 0; }
-        else if (!quick(s)) { const r = PR.process.find((x) => x.item === s.name); if (r) todo = Math.max(0, r.plan - r.done - r.running); }
-        for (const i of s.r.inputs) if (todo > 0) need.set(i.item, (need.get(i.item) || 0) + i.qty * todo);
+        zoneOf.set(s.name, z);
+        if (z.asm ? dishSet.has(s.name) : !quick(s)) z.outs.push({ name: s.name, r: s.r, left: 0, can: 0, none: dishSet.has(s.name) && !P.dishSet.has(s.name) });
       }
-      return { id: `zone:${n.lane.name}`, kind: 'warehouse', title: `${n.title}投料區`, station: n, zone: 'in',
-        items: [...need].map(([name, q]) => ({ name, need: Math.ceil(q), made: made.has(name), mat: A.mats.find((m) => m.name === name) })) };
+      return z;
     });
-    for (const name of new Set(ZONES.flatMap((z) => z.items.map((i) => i.name)))) if (takers(name).length > 1) settle(name);
-    for (const z of ZONES) {
-      for (const i of z.items) { i.shared = takers(i.name).length > 1; i.have = stockIn(z, i.name); i.lack = Math.max(0, i.need - i.have); }
-      z.cut = new Set(z.items.filter((i) => i.lack && i.mat && i.mat.short && takers(i.name).pop() === z).map((i) => i.name));
+    // What is still to do, line by line down the wish list: the batches processed or started count for the lines on
+    // top first, and so do the dishes in stock.
+    const started = new Map(PR.process.map((r) => [r.item, r.done + r.running])), stocked = new Map(PR.assemble.map((r) => [r.item, r.done]));
+    const less = (map, k, n) => { const x = Math.min(n, map.get(k) || 0); map.set(k, (map.get(k) || 0) - x); return n - x; };
+    const claims = [];
+    for (const o of A.rows) {
+      if (!o.n) continue;
+      const units = less(stocked, o.dish, o.n);
+      for (const s of P.steps) {
+        const b = o.batches.get(s.name) || 0;
+        if (!b || s.name === o.dish) continue;
+        const left = quick(s) ? (units ? b : 0) : less(started, s.name, b);
+        if (left) claims.push({ z: zoneOf.get(s.name), name: s.name, r: s.r, n: left, out: left });
+      }
+      const r = REC.get(o.dish);
+      if (units) claims.push({ z: zoneOf.get(o.dish), name: o.dish, r, n: Math.ceil(units / yieldOf(r)), out: units });
     }
+    // The bag shared out in that order.
+    const bag = new Map();
+    for (const c of claims) {
+      if (!c.z) continue;
+      for (const i of c.r.inputs) {
+        if (!bag.has(i.item)) bag.set(i.item, held(i.item));
+        const want = i.qty * c.n, got = Math.min(want, bag.get(i.item));
+        bag.set(i.item, bag.get(i.item) - got);
+        let it = c.z.items.find((x) => x.name === i.item);
+        if (!it) c.z.items.push(it = { name: i.item, need: 0, have: 0, made: made.has(i.item), mat: A.mats.find((m) => m.name === i.item) });
+        it.need += want;
+        it.have += got;
+      }
+    }
+    // How many of each out its 投料區's share covers, in the same order.
+    for (const z of ZONES) {
+      const pool = new Map(z.items.map((i) => [i.name, i.have]));
+      for (const c of claims) {
+        if (c.z !== z) continue;
+        const k = Math.min(c.n, ...c.r.inputs.map((i) => Math.floor((pool.get(i.item) || 0) / i.qty)));
+        for (const i of c.r.inputs) pool.set(i.item, pool.get(i.item) - k * i.qty);
+        const o = z.outs.find((x) => x.name === c.name);
+        if (o) { o.left += c.out; o.can += z.asm ? Math.min(c.out, k * yieldOf(c.r)) : k; }
+      }
+      for (const i of z.items) i.lack = i.need - i.have;
+    }
+    for (const z of ZONES) z.cut = new Set(z.items.filter((i) => i.lack && i.mat && i.mat.short && takers(i.name).pop() === z).map((i) => i.name));
     return ZONES;
   }
   const takers = (name) => ZONES.filter((z) => z.items.some((i) => i.name === name));
-  const stockIn = (z, name) => (takers(name).length > 1 ? Math.max(0, Math.floor(Number((S.zone[name] || {})[z.id])) || 0) : held(name));
+  // A 投料區's share of an item.
+  const stockIn = (z, name) => { const i = z.items.find((x) => x.name === name); return i ? i.have : 0; };
   // The 投料區 an item's shortage lands on (the last that takes it), else the first.
   const zoneFor = (name) => { const z = takers(name).pop() || ZONES[0]; return z ? z.id : ''; };
-  // A shared item's counts take d more or less: more goes to the first 投料區 up to what each still needs, the rest to
-  // the last; less comes off the last first.
-  function spread(name, d) {
-    const zs = takers(name), z = S.zone[name], need = (x) => x.items.find((i) => i.name === name).need;
-    if (d > 0) zs.forEach((x, k) => { const add = k === zs.length - 1 ? d : Math.min(d, Math.max(0, need(x) - (z[x.id] || 0))); z[x.id] = (z[x.id] || 0) + add; d -= add; });
-    else for (const x of zs.slice().reverse()) { const off = Math.min(z[x.id] || 0, -d); z[x.id] = (z[x.id] || 0) - off; d += off; }
+  // What keeps an out from being made in full: the made items still to come (等…) and the materials short, the
+  // 投料區's share against its need.
+  function missText(z, o) {
+    const miss = z.items.filter((i) => i.lack > 0 && o.r.inputs.some((x) => x.item === i.name));
+    const wait = miss.filter((i) => i.made).map((i) => i.name);
+    return [wait.length ? `等${wait.join('、')}` : '', ...miss.filter((i) => !i.made).map((i) => `${i.name} ${fmt(i.have)}／${fmt(i.need)}`)].filter(Boolean).join('・');
   }
-  // A shared item's counts kept to its 投料區 now and adding up to the bag (a change made on the planner page is spread).
-  function settle(name) {
-    const zs = takers(name), z = S.zone[name] = S.zone[name] && typeof S.zone[name] === 'object' ? S.zone[name] : {};
-    for (const k of Object.keys(z)) if (zs.some((x) => x.id === k)) z[k] = Math.max(0, Math.floor(Number(z[k])) || 0); else delete z[k];
-    spread(name, held(name) - zs.reduce((t, x) => t + (z[x.id] || 0), 0));
-  }
-  // A shared item's count typed in on one 投料區; the bag becomes the sum.
-  function setZone(id, name, n) {
-    const zs = takers(name), z = S.zone[name] || (S.zone[name] = {});
-    z[id] = Math.max(0, Math.floor(Number(n)) || 0);
-    const sum = zs.reduce((t, x) => t + (z[x.id] || 0), 0);
-    if (sum) S.have[name] = sum; else delete S.have[name];
-  }
-  // A purchase, a round or a dish moves a shared item in the 投料區 it belongs to: what a step takes or gives back in its
-  // station's, a round given back in that station's, anything else spread.
-  onStock((name, d, why) => {
-    const zs = takers(name);
-    if (zs.length < 2) return;
-    const z = S.zone[name] || (S.zone[name] = {});
-    spread(name, held(name) - d - zs.reduce((t, x) => t + (z[x.id] || 0), 0));
-    const own = why.use ? zs.find((x) => x.station.lane.steps.some((s) => s.name === why.use)) : why.lane ? zs.find((x) => x.station.lane.name === why.lane) : null;
-    if (own) { const was = z[own.id] || 0; z[own.id] = Math.max(0, was + d); d -= z[own.id] - was; }
-    spread(name, d);
-  });
+  // An out with nothing left to put in: made, or still in the station.
+  const outDone = (z, o) => { const r = !z.asm && PR.process.find((x) => x.item === o.name); return r && r.done < r.plan ? '✓ 都投料了' : '✓ 完成'; };
 
   /* ---------- stations' queues ---------- */
   // Clock times in this browser's time zone: 14:05, 明天 01:20, 10/28 09:00.
@@ -505,27 +548,30 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     // what they take).
     if (n.kind === 'machine') {
       const q = PL.get(n.lane.name), has = (st) => q.slots.some((s) => s && s.state === st);
-      if (!q || !q.busy) return rowsOf(n).length ? ['ok', '加工完成'] : ['idle', '—'];
+      if (!q || !q.busy) return rowsOf(n).length ? ['ok', '加工完成'] : ['ok', '這週不用加工'];
       if (has('done')) return ['ok', '可領料'];
       if (has('run') || has('queue')) return ['wait', '做中'];
       if (has('wait')) return q.short.length ? ['idle', '等料'] : ['wait', '可開工'];
       return ['idle', '設備空著'];
     }
-    // A 投料區: its stock against what its station still takes in; 缺料 when a missing item is one the shop limits can't
-    // cover.
+    // A 投料區: how much of what its station still has to do its share of the bag covers — all of it at once, some, or
+    // none yet (等加工 when the assembly waits for made items); 缺料 when a missing item is one the shop limits can't
+    // cover, or a dish can't be made at all this week.
     if (n.kind === 'warehouse') {
-      if (!n.items.length) return ['ok', '都投料了'];
-      const ok = n.items.filter((i) => !i.lack).length;
-      if (ok === n.items.length) return ['ok', '齊料'];
-      if (n.cut.size) return ['bad', '缺料'];
-      return ok ? ['wait', `齊 ${ok}/${n.items.length} 樣`] : ['idle', '還沒備料'];
+      const left = n.outs.reduce((t, o) => t + o.left, 0), can = n.outs.reduce((t, o) => t + o.can, 0), none = n.outs.some((o) => o.none);
+      if (!n.outs.length) return ['ok', '不用備料'];
+      if (!left && !none) return ['ok', '完成'];
+      if (n.cut.size || none) return ['bad', '缺料'];
+      if (n.outs.every((o) => o.can >= o.left)) return ['ok', n.asm ? '全部可以一次製作' : '全部可以一次加工'];
+      if (can) return ['wait', n.asm ? '部分可以製作' : `可以加工 ${fmt(can)}／${fmt(left)} 批`];
+      return ['idle', n.asm && n.items.some((i) => i.made && i.lack) ? '等加工' : '還沒備料'];
     }
     const rows = rowsOf(n);
     if (!rows.length) return ['idle', n.kind === 'fg' ? '沒有訂單' : '—'];
     const [d, p] = tally(rows);
     if (d >= p) return ['ok', { machine: '加工完成', assembly: '組裝完成', fg: '全部入庫' }[n.kind] || `完成 ${fmt(d)}`];
     if (d > 0) return ['wait', `${n.kind === 'fg' ? '入庫' : VERB[rows[0].kind]} ${fmt(d)}/${fmt(p)}`];
-    if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : ['idle', '等加工'];
+    if (n.kind === 'assembly') return PR.assemble.every((r) => r.ready) ? ['wait', '可組裝'] : ['idle', PR.process.some((p) => p.done < p.plan) ? '等加工' : '等料'];
     return ['idle', n.kind === 'fg' ? `0/${fmt(p)}` : '未開始'];
   }
 
@@ -537,22 +583,23 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   function blockLines(n) {
     const line = (name, v, cls = '') => `<span class="ln ${cls}"><span>${esc(name)}</span><span>${v}</span></span>`;
     const dp = (r) => `${fmt(r.done)}／${fmt(r.plan)}`;
-    // a shop: what every character can still buy there; gathering: what is still to gather; a 投料區: its stock against
-    // what its station still takes in, raw materials and made items apart
+    // a shop: what every character can still buy there; gathering: what is still to gather; a 投料區: each thing its
+    // station makes, how many its share covers against how many are still to do, and what holds the rest up
     if (n.kind === 'shop') return n.items.map((i) => {
       const left = i.buy.per.length * SHOP.limit - i.buy.bought;
       return line(i.name, left ? `還能買 ${fmt(left)}` : '買滿', i.mat.short ? 'bad' : left ? '' : 'ok');
     }).join('');
     if (n.kind === 'field' || n.kind === 'unknown') return n.items.map((i) => line(i.name, i.mat.get ? `還要採 ${fmt(i.mat.get)}` : '齊', i.mat.get ? '' : 'ok')).join('');
-    if (n.kind === 'warehouse') {
-      // raw materials, a dashed line, then made items
-      const ln = (i) => line(i.name, `${fmt(i.have)}／${fmt(i.need)}`, n.cut.has(i.name) ? 'bad' : i.lack ? '' : 'ok');
-      const rawLines = n.items.filter((i) => !i.made).map(ln).join(''), madeLines = n.items.filter((i) => i.made).map(ln).join('');
-      return [rawLines, madeLines].filter(Boolean).join('<span class="blk-cut" aria-hidden="true"></span>') || line('都投料了', '');
-    }
+    if (n.kind === 'warehouse') return n.outs.map((o) => {
+      if (o.none) return line(o.name, '這週做不了', 'bad');
+      if (!o.left) return line(o.name, outDone(n, o), 'ok');
+      const all = o.can >= o.left, miss = all ? '' : missText(n, o);
+      return line(o.name, `${fmt(o.can)}／${fmt(o.left)} ${n.asm ? '份' : '批'}${all ? ' ✓' : ''}`, all ? 'ok' : o.r.inputs.some((i) => n.cut.has(i.item)) ? 'bad' : '')
+        + (miss ? `<span class="ln-note">${esc(miss)}</span>` : '');
+    }).join('') || line('不用備料', '');
     if (n.kind === 'machine') {
       const L = n.lane, q = PL.get(L.name);
-      const now = !q || !q.busy ? '都做完了' : `設備 ${q.slots.filter(Boolean).length}/${q.size} 格・排程還有 ${q.seq.length} 批`;
+      const now = !q || !q.busy ? (rowsOf(n).length ? '都做完了' : '沒有要排的了') : `設備 ${q.slots.filter(Boolean).length}/${q.size} 格・排程還有 ${q.seq.length} 批`;
       return rowsOf(n).map((x) => line(x.item, `${dp(x)} 批`, x.done >= x.plan ? 'ok' : '')).join('')
         + `<span class="foot">${esc(now)}${L.queue == null ? '・排程上限待補' : ''}</span>`;
     }
@@ -568,7 +615,9 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     return `<div class="flow">${STAGES.map(([key, title]) => {
       const list = NODES.filter((n) => stageOf(n) === key);
       if (!list.length) return '';
-      return `<section class="stage"><h3>${esc(title)}</h3>${list.map((n) => {
+      // 暫存區's heading carries the one place the stock is typed in
+      const stock = key === 'warehouse' ? '<button class="btn small stock-open" type="button" data-stockopen>填現有庫存</button>' : '';
+      return `<section class="stage"><h3>${esc(title)}${stock}</h3>${list.map((n) => {
         const [k, text] = statusOf(n);
         return `<button class="blk ${k}${sel === n.id ? ' sel' : ''}" type="button" data-go="${esc(n.id)}" data-blk="${esc(n.id)}">
           <span class="blk-head"><span class="blk-name">${esc(n.title)}</span><span class="badge ${k}">${esc(text)}</span></span>
@@ -607,20 +656,23 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     </div>`;
   }
 
-  // A 投料區 in the panel, two blocks: each raw material's need and what its stock still lacks, then each made item's
-  // need and the batches still to make (one made ahead cuts them); each block's 填現有庫存 opens the form for it.
+  // A 投料區 in the panel, shown only: what its station makes and how many its share covers, then each material — what
+  // the station still takes, what this 投料區's share of the bag is and what is missing. The stock itself is typed in
+  // on 暫存區's 填現有庫存.
   function storeHTML(n) {
-    const open = (group) => (i, right) => `<li><button class="go buy-line" type="button" data-stockopen="${esc(n.id)}|${group}"><span>${nameHTML(i.name)}</span>
-      <span class="num">${right}</span></button><span class="sub">需要 ${fmt(i.need)}・現有 ${fmt(i.have)}${i.shared ? '・共用料，這區自己的數量' : ''}</span></li>`;
-    const ok = '<span class="ok-text">✓ 夠了</span>';
-    const rawRows = n.items.filter((i) => !i.made).map((i) => open('raw')(i, i.lack ? `<span class="bad-text">還缺 ${fmt(i.lack)}</span>` : ok));
-    const madeRows = n.items.filter((i) => i.made).map((i) => {
-      const r = PR.process.find((x) => x.item === i.name), left = r ? Math.max(0, r.plan - r.done - r.running) : 0;
-      return open('made')(i, !i.lack ? ok : left ? `還要做 ${fmt(left)} 批` : `還缺 ${fmt(i.lack)}`);
-    });
-    const box = (group, title, rows) => (rows.length ? `<div class="store-box"><h3>${title}</h3><ul class="rows">${rows.join('')}</ul>
-      <button class="btn primary buy-open" type="button" data-stockopen="${esc(n.id)}|${group}">填${group === 'raw' ? '原料' : '加工品'}現有庫存</button></div>` : '');
-    return `<div class="sec">${(box('raw', '原料', rawRows) + box('made', '加工品・可以先做好放著', madeRows)) || '<p class="muted" style="margin:0">這週要用的料都投進去了。</p>'}</div>`;
+    const unit = n.asm ? '份' : '批';
+    const outs = n.outs.map((o) => {
+      const miss = o.left && o.can < o.left ? missText(n, o) : '';
+      const right = o.none ? '<span class="bad-text">這週做不了</span>' : !o.left ? `<span class="ok-text">${outDone(n, o)}</span>`
+        : o.can >= o.left ? `<span class="ok-text">✓ ${fmt(o.left)} ${unit}都可以${n.asm ? '製作' : '加工'}</span>` : `可以${n.asm ? '製作' : '加工'} ${fmt(o.can)}／${fmt(o.left)} ${unit}`;
+      return `<li><span>${nameHTML(o.name)}</span><span class="num">${right}</span>${miss ? `<span class="sub">${esc(miss)}</span>` : ''}</li>`;
+    }).join('');
+    const mat = (i) => `<li><span>${nameHTML(i.name)}</span><span class="num">${i.lack ? `<span class="bad-text">還缺 ${fmt(i.lack)}</span>` : '<span class="ok-text">✓ 夠了</span>'}</span>
+      <span class="sub">需要 ${fmt(i.need)}・${takers(i.name).length > 1 ? `背包 ${fmt(held(i.name))}，別區也要用，照需求清單順序這區分到 ${fmt(i.have)}` : `現有 ${fmt(i.have)}`}</span></li>`;
+    const list = (title, items) => (items.length ? `<h4>${title}</h4><ul class="rows">${items.map(mat).join('')}</ul>` : '');
+    const mats = list('原料', n.items.filter((i) => !i.made)) + list('加工品', n.items.filter((i) => i.made));
+    return `<div class="sec"><h3>${n.asm ? '料理' : '加工品'}</h3>${outs ? `<ul class="rows">${outs}</ul>` : `<p class="muted" style="margin:0">這週不用${n.asm ? '製作' : '加工'}，不用備料。</p>`}</div>
+      ${mats ? `<div class="sec"><h3>要投的料</h3>${mats}<p class="note">數量照背包算；要改庫存，按「暫存區」標題旁的「填現有庫存」。</p></div>` : ''}`;
   }
   // A shop in the panel: what it sells and how many have been bought this week; 填已購買 opens the form.
   function shopHTML(n) {
@@ -653,8 +705,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const seq = q.seq.map((name, i) => `<div class="slot" data-slot="${i}" data-lane="${lane}">
         <span class="grip" title="拖拉換順序" aria-hidden="true">⠿</span><span class="no">${i + 1}</span><span class="what">${nameHTML(name)}</span>
         <span class="mv"><button class="btn small" type="button" data-place-in="${lane}|${i}"${empty ? '' : ' disabled'}>加入</button></span></div>`).join('');
-    return `${top}<div class="sec"><h3 class="ord-h">設備<span>${q.slots.filter(Boolean).length}/${q.size} 格${q.lane.queue == null ? '・上限待補，先當 1 格' : ''} ${lock}</span></h3>${places}</div>
-      <div class="sec"><h3 class="ord-h">排程<span>還有 ${fmt(q.seq.length)} 批</span></h3>${seq || '<p class="muted" style="margin:0">沒有要排的了。</p>'}
+    return `${top}<div class="sec"><h3 class="ord-h">設備<span>${q.slots.filter(Boolean).length}/${q.size} 格${q.lane.queue == null ? '・上限待補，先當 1 格' : ''} ${lock}</span></h3><div class="list5" data-keep="places">${places}</div></div>
+      <div class="sec"><h3 class="ord-h">排程<span>還有 ${fmt(q.seq.length)} 批</span></h3>${seq ? `<div class="list5" data-keep="seq">${seq}</div>` : '<p class="muted" style="margin:0">沒有要排的了。</p>'}
         ${q.seq.length ? '<p class="note">拖 ⠿ 換順序，或拖進上面的空格。</p>' : ''}</div>`;
   }
 
@@ -683,12 +735,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       return head + shopHTML(n);
     }
     if (n.kind === 'field' || n.kind === 'unknown') {
-      // Only how many are still to gather; what is gathered goes into the stock on the 投料區 that takes it.
-      const z = BY.get(zoneFor(n.items[0].name));
-      const wh = z ? `<button class="go" type="button" data-go="${esc(z.id)}" style="display:inline;width:auto"><b>${esc(z.title)}</b></button>` : '暫存區';
+      // Only how many are still to gather; what is gathered goes into the stock on 暫存區's 填現有庫存.
       return head + `<div class="sec"><ul class="rows">${n.items.map((i) => `<li><span>${nameHTML(i.name)}</span>
           <span class="num${i.mat.get ? '' : ' ok-text'}">${i.mat.get ? `${n.kind === 'field' ? '要採' : '要拿'} ${fmt(i.mat.get)}` : '✓ 齊了'}</span></li>`).join('')}</ul>
-        <p class="note">${n.kind === 'unknown' ? '還不知道在哪拿，先當成不限量。拿到後' : '採回來後'}到${wh}填現有庫存，這裡就會跟著減少。</p></div>`;
+        <p class="note">${n.kind === 'unknown' ? '還不知道在哪拿，先當成不限量。拿到後' : '採回來後'}按「暫存區」標題旁的「填現有庫存」填數量，這裡就會跟著減少。</p></div>`;
     }
     // the 異常 alarms open the 投料區 a shortage lands on (zoneFor), so each shortage is told there
     if (n.kind === 'warehouse') return head + storeHTML(n) + n.items.filter((i) => i.mat && i.mat.short && zoneFor(i.name) === n.id).map((i) => shortageHTML(i.mat)).join('');
@@ -699,7 +749,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
           <span><button class="btn small" type="button" data-unlog="${lane}|${i}">退回</button></span></li>`).join('');
       const tally = rowsOf(n).map((r) => `${r.item} ${fmt(r.done)}/${fmt(r.plan)} 批`).join('・');
       return head + (q ? queueHTML(q) : '') + `<div class="sec"><h3 class="ord-h">已完成<span>${esc(tally)}</span></h3>
-        ${log ? `<ul class="rows">${log}</ul>` : '<p class="muted" style="margin:0">還沒有領料。做好的批數按「領料」會記在這裡。</p>'}</div>`;
+        ${log ? `<ul class="rows list5" data-keep="log">${log}</ul>` : ''}</div>`;
     }
     if (n.kind === 'assembly') {
       const L = n.lane, need = new Map(), made = new Set(P.steps.map((s) => s.name));
@@ -712,9 +762,18 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     return head;
   }
 
-  function renderPanel() {
+  // Where the panel's lists are scrolled to, while it still shows the same point (data-shows).
+  const keptLists = () => ($('panel') && $('panel').dataset.shows === String(sel) ? [...$('panel').querySelectorAll('[data-keep]')].map((el) => [el.dataset.keep, el.scrollTop]) : []);
+  function renderPanel(lists = keptLists()) {
     const n = sel && BY.get(sel);
     $('panel').innerHTML = n ? nodeHTML(n) : overviewHTML();
+    $('panel').dataset.shows = String(sel);
+    // a list in the panel (.list5) shows at most five; more scroll inside it, and stay where they were
+    for (const box of $('panel').querySelectorAll('.list5')) {
+      const six = box.children[5];
+      box.style.maxHeight = six ? `${six.getBoundingClientRect().top - box.getBoundingClientRect().top}px` : '';
+    }
+    for (const [k, v] of lists) { const el = $('panel').querySelector(`[data-keep="${CSS.escape(k)}"]`); if (el) el.scrollTop = v; }
   }
 
   /* ---------- the wish list and the materials it takes ---------- */
@@ -767,44 +826,30 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       ${fillButton(r, locked)}
     </div>`;
   }
-  const haveInput = (name, where = 'h') => `<input class="have" data-have="${esc(name)}" data-f="${where}:${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 庫存">`;
-  // A shared item's count in one 投料區 (see setZone).
-  const zoneInput = (z, name) => `<input class="have" data-zh="${esc(z.id)}|${esc(name)}" data-f="zh:${esc(z.id)}|${esc(name)}" inputmode="numeric" value="${stockIn(z, name) || ''}" placeholder="0" aria-label="${esc(z.title)} ${esc(name)} 庫存">`;
-  // 原物料: one table per 投料區 — what its station still takes in and its stock (a shared item's own count there; what
-  // to buy and gather is the item's whole) — then any left over, then the made items.
+  // 原物料: every raw material the week takes — what is still to use, the bag's stock (shown only; it is typed in on
+  // 暫存區's 填現有庫存), what to buy and gather — then the made items.
   function matsHTML() {
     const rank = (m) => (m.s.limited ? 0 : m.s.buyCap ? 1 : m.s.gather ? 2 : 3);
     const mats = A.mats.filter((m) => m.need || m.short).sort((a, b) => rank(a) - rank(b) || b.util - a.util || b.need - a.need);
-    const row = (m, need, stock, shared) => {
+    const row = (m) => {
       const s = m.s, pct = Math.round(m.util * 100);
       const tag = m.short ? badge(['bad', `異常・缺 ${fmt(m.short)}`]) : s.limited ? badge([m.util >= 0.9 ? 'wait' : 'ok', '限購']) : s.gather ? badge(['idle', '可採集']) : s.unknown ? badge(['bad', '來源待補']) : '';
       const where = [...m.shops.map((sh) => `${sh.who} ${fmt(sh.qty)}`), m.get ? (s.gather ? `採：${s.src.find((x) => x.kind === 'gather').text}` : '來源待補') : ''].filter(Boolean);
       return `<tr>
-        <th scope="row">${nameHTML(m.name)} ${tag}${shared ? ` ${badge(['idle', '共用'])}` : ''}</th>
-        <td class="num">${fmt(need)}</td>
-        <td>${stock}</td>
+        <th scope="row">${nameHTML(m.name)} ${tag}</th>
+        <td class="num">${fmt(Math.max(0, m.need - m.used))}</td>
+        <td class="num">${fmt(m.stock)}</td>
         <td class="num">${s.buyCap ? `${fmt(m.buy)}<small>／${fmt(s.buyCap)}</small>${barHTML(m.util, pct >= 100 ? (s.limited ? 'full' : 'cap') : '')}` : '—'}</td>
         <td class="num">${m.get ? fmt(m.get) : '—'}</td>
         <td class="src">${esc(where.join('、') || '用庫存')}</td>
       </tr>`;
     };
-    const table = (rows) => `<div class="table-wrap"><table><thead><tr><th>原物料</th><th class="r">還要用</th><th>庫存</th><th class="r">建議買／還能買</th><th class="r">要採</th><th>去哪</th></tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
-    const zoned = new Set(), groups = ZONES.map((z) => {
-      const rows = mats.filter((m) => z.items.some((i) => i.name === m.name && !i.made)).map((m) => {
-        const i = z.items.find((x) => x.name === m.name);
-        zoned.add(m.name);
-        return row(m, i.need, i.shared ? zoneInput(z, m.name) : haveInput(m.name), i.shared);
-      });
-      return rows.length ? `<div class="mats-head mats-sub"><h3>${esc(z.title)}</h3><span class="muted">${rows.length} 種</span></div>${table(rows)}` : '';
-    });
-    const rest = mats.filter((m) => !zoned.has(m.name)).map((m) => row(m, Math.max(0, m.need - m.used), haveInput(m.name), false));
-    if (rest.length) groups.push(`<div class="mats-head mats-sub"><h3>其他</h3><span class="muted">${rest.length} 種</span></div>${table(rest)}`);
-    const rows = groups.join('');
+    const rows = mats.length ? `<div class="table-wrap"><table><thead><tr><th>原物料</th><th class="r">還要用</th><th class="r">庫存</th><th class="r">建議買／還能買</th><th class="r">要採</th><th>去哪</th></tr></thead><tbody>${mats.map(row).join('')}</tbody></table></div>` : '';
     const made = P.steps.filter((s) => !P.dishSet.has(s.name));
     const madeRows = made.map((s) => `<tr>
         <th scope="row">${nameHTML(s.name)}</th>
         <td class="num">${fmt(s.batches)} 批</td>
-        <td>${haveInput(s.name)}</td>
+        <td class="num">${fmt(held(s.name))}</td>
         <td class="num">${fmt(s.made)}</td>
         <td class="num">${fmt(s.need)}</td>
         <td class="src">${esc(s.equip || '設備待補')}${A.pool.get(s.name) ? `・剩 ${fmt(A.pool.get(s.name))} 個留到下週` : ''}</td>
@@ -814,7 +859,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       <div class="mats-head"><h2>原物料</h2><span class="muted">${mats.length} 種，還要用 ${fmt(sum(mats, rem))} 個：庫存有 ${fmt(sum(mats, (m) => Math.min(m.stock, rem(m))))}、建議買 ${fmt(sum(mats, (m) => m.buy))}、要採 ${fmt(sum(mats, (m) => m.get))}</span></div>
       ${rows || '<p class="muted">這週不用原物料。</p>'}
       ${madeRows ? `<div class="mats-head mats-sub"><h3>加工品</h3><span class="muted">${made.length} 種，要做 ${fmt(sum(made, (s) => s.batches))} 批：做出 ${fmt(sum(made, (s) => s.made))} 個、要用 ${fmt(sum(made, (s) => s.need))} 個</span></div>
-      <div class="table-wrap"><table><thead><tr><th>加工品</th><th class="r">要做</th><th>庫存</th><th class="r">做出</th><th class="r">要用</th><th>設備</th></tr></thead><tbody>${madeRows}</tbody></table></div>` : ''}
+      <div class="table-wrap"><table><thead><tr><th>加工品</th><th class="r">要做</th><th class="r">庫存</th><th class="r">做出</th><th class="r">要用</th><th>設備</th></tr></thead><tbody>${madeRows}</tbody></table></div>` : ''}
+      <p class="note">庫存照背包算，要改請按「暫存區」標題旁的「填現有庫存」。</p>
     </section>`;
   }
 
@@ -823,6 +869,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const a = document.activeElement, f = a && a.dataset ? a.dataset.f : null;
     const caret = f && typeof a.selectionStart === 'number' ? [a.selectionStart, a.selectionEnd] : null;
     const scroll = $('panel') ? $('panel').scrollTop : 0;
+    const lists = keptLists();
     plan();
     if (sel && !BY.has(sel)) sel = null;
     const wk = shopWeek();
@@ -848,7 +895,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         <aside class="card panel" id="panel"></aside>
         <div class="left">${matsHTML()}</div>
       </div>`;
-    renderPanel();
+    renderPanel(lists);
     $('panel').scrollTop = scroll;
     if (f) {
       const el = document.querySelector(`[data-f="${CSS.escape(f)}"]`);
@@ -925,7 +972,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     render();
   }
   // Dragging a batch still to put in by its ⠿: onto another one to change the order, or onto an empty place of the
-  // same station to put it in; works with a mouse or a finger.
+  // same station to put it in; works with a mouse or a finger. A copy follows the pointer (the lists scroll, so the
+  // batch itself would be cut off), and a list scrolls when the pointer nears its top or bottom edge.
   let drag = null;
   const clearDrop = () => document.querySelectorAll('.slot.drop').forEach((x) => x.classList.remove('drop'));
   document.addEventListener('pointerdown', (e) => {
@@ -933,16 +981,29 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     if (!grip || e.button > 0) return;
     const el = grip.closest('[data-slot]');
     e.preventDefault();
-    drag = { el, lane: el.dataset.lane, from: Number(el.dataset.slot), x: e.clientX, y: e.clientY, id: e.pointerId, on: false, to: null, place: null };
+    drag = { el, lane: el.dataset.lane, from: Number(el.dataset.slot), x: e.clientX, y: e.clientY, id: e.pointerId, on: false, to: null, place: null, ghost: null };
   });
   document.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
     if (!drag.on && Math.hypot(dx, dy) < 5) return;
+    if (!drag.on) {
+      const r = drag.el.getBoundingClientRect(), g = drag.el.cloneNode(true);
+      g.classList.add('ghost');
+      Object.assign(g.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px` });
+      document.body.appendChild(g);
+      drag.ghost = g;
+    }
     drag.on = true;
     drag.el.classList.add('dragging');
-    drag.el.style.transform = `translate(${dx}px, ${dy}px)`;
-    const t = document.elementsFromPoint(e.clientX, e.clientY).map((x) => x.closest('[data-slot], [data-place]')).find((x) => x && x !== drag.el);
+    drag.ghost.style.transform = `translate(${dx}px, ${dy}px)`;
+    const under = document.elementsFromPoint(e.clientX, e.clientY);
+    const box = under.map((x) => x.closest('.list5')).find(Boolean);
+    if (box) {
+      const b = box.getBoundingClientRect();
+      if (e.clientY < b.top + 28) box.scrollTop -= 12; else if (e.clientY > b.bottom - 28) box.scrollTop += 12;
+    }
+    const t = under.map((x) => x.closest('[data-slot], [data-place]')).find((x) => x && x !== drag.el);
     clearDrop();
     drag.to = drag.place = null;
     if (!t || t.dataset.lane !== drag.lane) return;
@@ -954,9 +1015,10 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const d = drag;
     drag = null;
     clearDrop();
+    if (d.ghost) d.ghost.remove();
     if (d.on && d.place != null) placeBatch(d.lane, d.from);
     else if (d.on && d.to != null && d.to !== d.from) moveBatch(d.lane, d.from, d.to);
-    else { d.el.classList.remove('dragging'); d.el.style.transform = ''; }
+    else d.el.classList.remove('dragging');
   };
   document.addEventListener('pointerup', endDrag);
   document.addEventListener('pointercancel', endDrag);
@@ -967,7 +1029,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     render();
   }, 30e3);
 
-  /* ---------- forms over the page: 填已購買 for one shop (a block per character), 填現有庫存 for a 投料區 ---------- */
+  /* ---------- forms over the page: 填已購買 for one shop (a block per character), 填現有庫存 for the whole bag ---------- */
   function openBuy(id) {
     const n = BY.get(id);
     if (!n || n.kind !== 'shop') return;
@@ -985,20 +1047,22 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const first = $('sheet-form').querySelector('input');
     if (first) first.select();
   }
-  // One block of a 投料區 ('zone:…|raw' the raw materials, '…|made' the made items, held ones cut the batches still to
-  // make). A shared item is this 投料區's own count (data-sz), anything else the bag's (data-sm).
-  function openStock(v) {
-    const n = BY.get(v.slice(0, v.lastIndexOf('|'))), group = v.slice(v.lastIndexOf('|') + 1);
-    if (!n || n.kind !== 'warehouse') return;
-    const row = (i) => `<div class="bm-row"><span class="bm-name">${nameHTML(i.name)}<small class="muted">需要 ${fmt(i.need)}${i.shared ? '・共用料，填這區自己的' : ''}</small></span>
-      <input class="have" ${i.shared ? `data-sz="${esc(n.id)}|${esc(i.name)}"` : `data-sm="${esc(i.name)}"`} inputmode="numeric" value="${i.have || ''}" placeholder="0" aria-label="${esc(i.name)} 現有庫存"></div>`;
+  // 填現有庫存, the one place the stock is typed in: every raw material the week takes, then every made item (one made
+  // ahead cuts the batches still to make), each as many as the game's bag holds now (data-sm). Purchases, 開工, 領料
+  // and 已入庫 move it by themselves.
+  function openStock() {
+    const need = new Map();
+    for (const z of ZONES) for (const i of z.items) need.set(i.name, (need.get(i.name) || 0) + i.need);
+    const row = (name) => `<div class="bm-row"><span class="bm-name">${nameHTML(name)}<small class="muted">${need.get(name) ? `還要用 ${fmt(need.get(name))}` : '這週不用再投'}</small></span>
+      <input class="have" data-sm="${esc(name)}" inputmode="numeric" value="${held(name) || ''}" placeholder="0" aria-label="${esc(name)} 現有庫存"></div>`;
+    const dishSet = new Set(A.rows.map((o) => o.dish));
+    const raw = A.mats.filter((m) => m.need || m.short).map((m) => m.name);
+    const made = [...new Set(ZONES.flatMap((z) => z.station.lane.steps.map((s) => s.name)))].filter((name) => !dishSet.has(name));
     $('sheet-form').dataset.kind = 'stock';
-    const body = group === 'made'
-      ? `<h2>${esc(n.title)}・加工品</h2><p class="muted">已經做好放著的加工品，填了就會少做幾批。</p>
-        <fieldset class="bm-char">${n.items.filter((i) => i.made).map(row).join('')}</fieldset>`
-      : `<h2>${esc(n.title)}・原料</h2><p class="muted">照遊戲背包現在的數量填。</p>
-        <fieldset class="bm-char">${n.items.filter((i) => !i.made).map(row).join('')}</fieldset>`;
-    $('sheet-form').innerHTML = `${body}
+    $('sheet-form').innerHTML = `<h2>填現有庫存</h2><p class="muted">照遊戲背包現在的數量填，每樣一個數字。兩區都要用的料，會照需求清單的順序自動分。</p>
+      ${raw.length ? `<fieldset class="bm-char"><legend>原料</legend>${raw.map(row).join('')}</fieldset>` : ''}
+      ${made.length ? `<fieldset class="bm-char"><legend>加工品・做好放著的，填了會少做幾批</legend>${made.map(row).join('')}</fieldset>` : ''}
+      ${raw.length || made.length ? '' : '<p class="muted">需求清單還沒有要用的料。</p>'}
       <div class="bm-act"><span class="grow"></span><button class="btn" type="button" data-bmcancel>取消</button><button class="btn primary" type="submit">完成</button></div>`;
     $('sheet').showModal();
     const first = $('sheet-form').querySelector('input');
@@ -1034,10 +1098,6 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const name = inp.dataset.sm, n = Math.max(0, Math.floor(Number(inp.value)) || 0);
       if (n === held(name)) continue;
       if (n) S.have[name] = n; else delete S.have[name];
-    }
-    for (const inp of $('sheet-form').querySelectorAll('[data-sz]')) {
-      const v = inp.dataset.sz, a = v.lastIndexOf('|'), z = BY.get(v.slice(0, a)), name = v.slice(a + 1);
-      if (z && Math.max(0, Math.floor(Number(inp.value)) || 0) !== stockIn(z, name)) setZone(z.id, name, inp.value);
     }
     for (const inp of $('sheet-form').querySelectorAll('[data-bm]')) {
       const v = inp.dataset.bm, a = v.indexOf('|'), c = Number(v.slice(0, a)), key = v.slice(a + 1);
@@ -1168,24 +1228,13 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
   $('sheet').addEventListener('pointerup', endODrag);
   $('sheet').addEventListener('pointercancel', endODrag);
 
-  // A shared item's count typed in on the 原物料 table (data-zh 'zone:…|item'); Enter moves on.
-  document.addEventListener('change', (e) => {
-    const v = e.target.dataset && e.target.dataset.zh;
-    if (v == null) return;
-    setZone(v.slice(0, v.lastIndexOf('|')), v.slice(v.lastIndexOf('|') + 1), e.target.value);
-    save();
-    setTimeout(render, 0);
-  });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches && e.target.matches('input[data-zh]')) e.target.blur(); });
-
   /* ---------- events ---------- */
   document.addEventListener('click', (e) => {
     const qb = e.target.closest('[data-start], [data-collect], [data-finish], [data-unslot], [data-place-in], [data-unlog], [data-testlock]');
     if (qb) { queueAction(qb); return; }
     const open = e.target.closest('[data-buyopen]');
     if (open) { openBuy(open.dataset.buyopen); return; }
-    const stock = e.target.closest('[data-stockopen]');
-    if (stock) { openStock(stock.dataset.stockopen); return; }
+    if (e.target.closest('[data-stockopen]')) { openStock(); return; }
     if (e.target.closest('[data-oopen]')) { openOrders(); return; }
     if (e.target.closest('[data-inopen]')) { openStocked(); return; }
     const go = e.target.closest('[data-go]');
