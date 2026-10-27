@@ -167,7 +167,8 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 /* a station: its `queue` places (one batch made at a time, each collected on its own), then the batches still to put
    in; ⠿ drags one to another order or into an empty place */
 .ok-text { color: var(--ok); }
-.slot { display: grid; grid-template-columns: 28px 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 44px; padding: 5px 6px; margin-top: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+/* every place and batch the same height, empty or not, so the lists don't shift as they fill */
+.slot { display: grid; grid-template-columns: 28px 16px minmax(0, 1fr) auto; align-items: center; gap: 6px; height: 48px; padding: 5px 6px; margin-top: 5px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
 .slot.place { grid-template-columns: 16px minmax(0, 1fr) auto; }
 .slot.empty { background: transparent; border-style: dashed; color: var(--muted); font-size: 13px; }
 .slot.run, .slot.queue { border-color: rgba(201, 138, 12, .45); background: var(--wait-soft); }
@@ -178,12 +179,21 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 .slot.ghost { position: fixed; z-index: 50; margin: 0; pointer-events: none; box-shadow: 0 6px 18px rgba(31, 41, 51, .22); }
 /* the panel's lists show at most five (renderPanel sets the height) and scroll inside */
 .list5 { overflow-y: auto; overscroll-behavior: contain; }
+/* a station's panel is one screen high and never scrolls as a whole: 排程 and 已完成 share what is left under 設備 and
+   scroll inside (side by side layout only; under the plant it is as tall as it needs) */
+@media (min-width: 721px) {
+  .panel.station { height: calc(100vh - 24px); overflow: hidden; display: flex; flex-direction: column; }
+  .panel.station > * { flex: none; }
+  .panel.station > .sec.grow { flex: 3 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .panel.station > .sec.grow ~ .sec.grow { flex-grow: 2; }
+  .panel.station > .sec.grow > .list5 { flex: 1 1 auto; min-height: 0; max-height: none !important; }
+}
 .slot .grip { height: 32px; display: grid; place-items: center; border-radius: 6px; font-size: 18px; color: var(--idle); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 .slot .grip:hover { background: var(--idle-soft); color: var(--ink); }
 .slot.dragging .grip { cursor: grabbing; }
 .slot .no { font-size: 12px; color: var(--muted); text-align: center; }
-.slot .what { min-width: 0; line-height: 1.35; }
-.slot .what small { display: block; font-size: 12px; color: var(--muted); }
+.slot .what { min-width: 0; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.slot .what small { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
 .slot.done .what small { color: var(--ok); font-weight: 700; }
 .slot .mv { display: inline-flex; gap: 2px; }
 .slot .mv .btn { min-height: 32px; min-width: 36px; padding: 2px 10px; }
@@ -276,7 +286,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27-2</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.3</small></h1>
     <nav><a href="factory.html">生產線</a><a href="index.html">佈告欄</a></nav>
   </div>
 </header>
@@ -767,7 +777,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
         <span class="grip" title="拖拉換順序" aria-hidden="true">⠿</span><span class="no">${i + 1}</span><span class="what">${nameHTML(name)}</span>
         <span class="mv"><button class="btn small" type="button" data-place-in="${lane}|${i}"${empty ? '' : ' disabled'}>加入</button></span></div>`).join('');
     return `${top}<div class="sec"><h3 class="ord-h">設備<span>${q.slots.filter(Boolean).length}/${q.size} 格${q.lane.queue == null ? '・上限待補，先當 1 格' : ''} ${lock}</span></h3><div class="list5" data-keep="places">${places}</div></div>
-      <div class="sec"><h3 class="ord-h">排程<span>還有 ${fmt(q.seq.length)} 批</span></h3>${seq ? `<div class="list5" data-keep="seq">${seq}</div>` : '<p class="muted" style="margin:0">沒有要排的了。</p>'}
+      <div class="sec grow"><h3 class="ord-h">排程<span>還有 ${fmt(q.seq.length)} 批</span></h3>${seq ? `<div class="list5" data-keep="seq">${seq}</div>` : '<p class="muted" style="margin:0">沒有要排的了。</p>'}
         ${q.seq.length ? '<p class="note">拖 ⠿ 換順序，或拖進上面的空格。</p>' : ''}</div>`;
   }
 
@@ -810,7 +820,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
       const log = logOf(L.name).map((e, i) => [e, i]).reverse().map(([e, i]) => `<li><span>${nameHTML(e.name)} ×${fmt(yieldOf(REC.get(e.name)))}<span class="muted">・${esc(hm(e.done))} 領料${e.test ? '・測試' : ''}</span></span>
           <span><button class="btn small" type="button" data-unlog="${lane}|${i}">退回</button></span></li>`).join('');
       const tally = rowsOf(n).map((r) => `${r.item} ${fmt(r.done)}/${fmt(r.plan)} 批`).join('・');
-      return head + (q ? queueHTML(q) : '') + `<div class="sec"><h3 class="ord-h">已完成<span>${esc(tally)}</span></h3>
+      return head + (q ? queueHTML(q) : '') + `<div class="sec grow"><h3 class="ord-h">已完成<span>${esc(tally)}</span></h3>
         ${log ? `<ul class="rows list5" data-keep="log">${log}</ul>` : ''}</div>`;
     }
     if (n.kind === 'assembly') {
@@ -831,6 +841,7 @@ input.have { width: 72px; font: inherit; font-size: 14px; text-align: right; col
     const n = sel && BY.get(sel);
     $('panel').innerHTML = n ? nodeHTML(n) : overviewHTML();
     $('panel').dataset.shows = String(sel);
+    $('panel').classList.toggle('station', !!n && n.kind === 'machine');
     // a list in the panel (.list5) shows at most five; more scroll inside it, and stay where they were
     for (const box of $('panel').querySelectorAll('.list5')) {
       const six = box.children[5];
