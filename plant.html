@@ -316,7 +316,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.28.2</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.28.3</small></h1>
     <nav><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -1326,11 +1326,12 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
     $('sheet').close();
     render();
   });
-  // 設定: wipe this week's purchases (every shop's limit back to full), the whole bag, the stations (their places, the
-  // order of what is still to put in, 已完成 and the finished batch counts) or all of these and the orders' 完成 —
-  // the wish list and the character count stay. None of it can be undone, so each button has to be pressed twice;
-  // `done` says what the last one cleared.
+  // 設定: wipe the wish list (with the orders' 完成), this week's purchases (every shop's limit back to full), the whole
+  // bag, the stations (their places, the order of what is still to put in, 已完成 and the finished batch counts) or the
+  // last three and the orders' 完成 at once — that one leaves the wish list and the character count. None of it can be
+  // undone, so each button has to be pressed twice; `done` says what the last one cleared.
   const CLEAR = {
+    orders: () => { S.orders.splice(0, S.orders.length); S.done.assembled = {}; },
     bought: () => { S.done.bought = {}; },
     have: () => { S.have = {}; },
     proc: () => { S.done.proc = {}; S.done.processed = {}; },
@@ -1341,14 +1342,16 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
     const procs = Object.values(S.done.proc), placed = procs.reduce((t, p) => t + (Array.isArray(p.slots) ? p.slots.filter(Boolean).length : 0), 0);
     const logged = procs.reduce((t, p) => t + (Array.isArray(p.log) ? p.log.length : 0), 0);
     const proc = procs.filter((p) => Object.keys(p).length).length + Object.keys(S.done.processed).length, made = Object.keys(S.done.assembled).length;
+    const orders = S.orders.length;
     const row = (key, title, sub, n, label) => `<div class="set-row"><span class="bm-name"><b>${title}</b><small class="muted">${sub}</small></span>
       <button class="btn" type="button" data-clear="${key}"${n ? '' : ' disabled'}>${label}</button></div>`;
     $('sheet-form').dataset.kind = 'settings';
     $('sheet-form').innerHTML = formHTML('廠區', '設定', `<p class="note0">${done || '清除後沒辦法復原，按鈕要按兩次才會清。'}</p>
+      ${row('orders', '清除訂單', orders ? `需求清單上的 ${fmt(orders)} 道料理全部拿掉，訂單的完成標記也一起清掉。背包、已購買和加工台不會動。` : '需求清單已經是空的。', orders, '清除')}
       ${row('bought', '清除已購買', bought ? `這週在商店填的已購買（${fmt(bought)} 筆）全部歸零，每家店的額度回到滿的。` : '目前沒有已購買的紀錄。', bought, '清除')}
       ${row('have', '清空背包', have ? `背包裡的 ${fmt(have)} 樣東西全部變成 0，之後再照遊戲重填。` : '背包已經是空的。', have, '清空')}
       ${row('proc', '清除加工台排程', proc ? `設備裡的 ${fmt(placed)} 批、排程順序和已完成的 ${fmt(logged)} 筆紀錄全部清掉，加工台回到還沒開始。背包不會動。` : '加工台還沒有排程。', proc, '清除')}
-      ${row('all', '清除全部', bought + have + proc + made ? '上面三項，加上訂單的完成標記，一次全部清掉。需求清單和角色數會留著。' : '目前沒有東西可以清。', bought + have + proc + made, '清除全部')}`,
+      ${row('all', '清除全部', bought + have + proc + made ? '已購買、背包、加工台排程，加上訂單的完成標記，一次全部清掉。需求清單和角色數會留著。' : '目前沒有東西可以清。', bought + have + proc + made, '清除全部')}`,
     { act: '<button class="btn" type="button" data-bmcancel>關閉</button>' });
     if (!$('sheet').open) $('sheet').showModal();
   }
@@ -1363,7 +1366,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
       CLEAR[key]();
       save();
       render();
-      openSettings({ bought: '已購買都清除了。', have: '背包清空了。', proc: '加工台排程清除了。', all: '全部清除了。' }[key]);
+      openSettings({ orders: '訂單清除了。', bought: '已購買都清除了。', have: '背包清空了。', proc: '加工台排程清除了。', all: '全部清除了。' }[key]);
       return;
     }
     const one = e.target.closest('[data-bmfill]');
