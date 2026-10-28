@@ -60,7 +60,8 @@ main { max-width: 1440px; margin: 0 auto; padding: 16px var(--gutter-r) 48px var
 
 /* the summary: the week's figures in a row, each opening where it comes from; a done／need one has the rows' bar */
 .summary { display: flex; flex-wrap: wrap; align-items: stretch; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.kpi { color: inherit; text-align: left; display: grid; align-content: center; padding: 8px 18px; border: 0; border-right: 1px solid var(--line); background: none; }
+/* every figure starts at the top, so the titles line up whether a bar follows or not */
+.kpi { color: inherit; text-align: left; display: grid; align-content: start; padding: 8px 18px; border: 0; border-right: 1px solid var(--line); background: none; }
 button.kpi { cursor: pointer; }
 button.kpi:hover { background: var(--panel-2); }
 .kpi .k { font-size: 12px; color: var(--muted); }
@@ -70,11 +71,13 @@ button.kpi:hover { background: var(--panel-2); }
 .kpi.bad b { color: var(--bad-text); }
 .kpi.edit { margin-left: auto; border-right: 0; border-left: 1px solid var(--line); }
 .hint { flex: 1 1 100%; margin: 0; padding: 5px 18px 6px; font-size: 12px; color: var(--muted); background: var(--panel-2); border-top: 1px solid var(--line); }
+/* −1, the count and +1 in one font, one size and one height, so the three numbers sit on one line */
 .stepper { display: inline-flex; margin-top: 2px; }
+.stepper .btn, .stepper input { height: 36px; min-height: 0; padding: 0 10px; font-family: var(--mono); font-size: 14px; font-weight: 700; line-height: 1; }
 .stepper .btn { min-width: 40px; border-radius: 0; }
 .stepper .btn:first-child { border-radius: 4px 0 0 4px; }
 .stepper .btn:last-child { border-radius: 0 4px 4px 0; }
-.stepper input { width: 52px; min-height: 36px; text-align: center; font-family: var(--mono); font-weight: 700; color: var(--ink); background: #fff; border: 1px solid var(--ctl); border-left: 0; border-right: 0; border-radius: 0; }
+.stepper input { width: 52px; text-align: center; color: var(--ink); background: #fff; border: 1px solid var(--ctl); border-left: 0; border-right: 0; border-radius: 0; }
 
 /* the board: a floor grid, the stage titles as flow arrows; wide, 廠外 takes two columns of cards */
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-left: auto; font-size: 12px; color: var(--muted); }
@@ -86,18 +89,17 @@ button.kpi:hover { background: var(--panel-2); }
 .cards { display: grid; gap: 10px; align-content: start; }
 .s-out .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-/* a card: its head (tower light, name, its light on the line under the name), its rows, a foot */
+/* a card: its head (the light, name, its light's words on the line under the name), its rows, a foot */
 .c { color: inherit; text-align: left; width: 100%; display: flex; flex-direction: column; padding: 0; margin: 0; cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; box-shadow: 0 1px 0 rgba(24, 34, 44, .06); }
 .c:hover { border-color: #8fa6c2; box-shadow: 0 4px 14px rgba(24, 34, 44, .12); }
 .c-head { display: grid; grid-template-columns: 10px minmax(0, 1fr); grid-template-areas: "light name" "light state"; column-gap: 9px; align-items: center; }
 .c .c-head { padding: 7px 10px 6px; background: var(--st-soft); border-top: 3px solid var(--st-lamp); border-bottom: 1px solid var(--line); }
 .c-name { grid-area: name; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.35; }
 .c-state { grid-area: state; font-size: 12px; font-weight: 700; line-height: 1.5; color: var(--st); }
-/* the tower light: red, yellow, green; the one lit is the card's light, none for 無使用 */
-.light { grid-area: light; display: grid; gap: 2px; align-self: center; }
-.lg .light { display: inline-grid; }
-.light i { display: block; width: 10px; height: 7px; border-radius: 2px; background: #cdd4db; }
-.bad .light i:nth-child(1), .wait .light i:nth-child(2), .ok .light i:nth-child(3) { background: var(--st-lamp); box-shadow: 0 0 6px var(--st-lamp); }
+/* the light: one lamp in the card's colour, lit for 運行, 要處理 and 異常, plain grey for 無使用 */
+.light { grid-area: light; display: block; width: 10px; height: 10px; border-radius: 50%; align-self: center; background: var(--st-lamp); }
+.ok .light, .wait .light, .bad .light { box-shadow: 0 0 6px var(--st-lamp); }
+.lg .light { display: inline-block; }
 .c-body { display: grid; padding: 4px 10px 7px; }
 /* a row: a name on the left, a number on the right; one with a done and a need has a thin bar under it, the number
    and the bar slate while under way, green with ✓ once met, red for a material the week is short of (異常) */
@@ -146,7 +148,7 @@ button.kpi:hover { background: var(--panel-2); }
 .mc .c-head { grid-template-columns: 12px minmax(0, 1fr); column-gap: 10px; margin-top: 2px; }
 .mc .c-name, .mc-title { font-size: 20px; }
 .mc .c-state { font-size: 13px; }
-.mc .light i { width: 12px; height: 9px; }
+.mc .light { width: 12px; height: 12px; }
 .mc-body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .mc-body.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
 .mc-body.cols > .col + .col { border-left: 1px solid var(--line); }
@@ -305,7 +307,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.27.11</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.28.1</small></h1>
     <nav><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -688,7 +690,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
   // first, a full-width slash, the unit last (materials have none) — with a thin bar under it: slate while under way,
   // green with ✓ once met, red for a material the week is short of (異常). A row that only knows what is left
   // (還要採 N) has no bar.
-  const LIGHT = '<span class="light" aria-hidden="true"><i></i><i></i><i></i></span>';
+  const LIGHT = '<span class="light" aria-hidden="true"></span>';
   const barOf = (f) => `<span class="m-bar" aria-hidden="true"><i style="width:${Math.round(Math.max(0, Math.min(1, f)) * 100)}%"></i></span>`;
   const rowHTML = (tag, label, value, { cls = '', f = null, sub = '' } = {}) => `<${tag} class="m${cls ? ` ${cls}` : ''}">${label == null ? '' : `<span class="m-l">${label}</span>`}<span class="m-v">${value}</span>${f == null ? '' : barOf(f)}${sub ? `<span class="m-sub">${sub}</span>` : ''}</${tag}>`;
   const meterHTML = (tag, label, done, need, { unit = '', short = false, sub = '', cls = '' } = {}) => {
