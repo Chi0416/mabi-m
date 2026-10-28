@@ -316,7 +316,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.28.3</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.28.4</small></h1>
     <nav><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -331,7 +331,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
   // The plant page: the week (wish list, holdings and characters) as a factory floor. Click a point to see what it
   // needs and how it stands. The plant is shown as blocks, one column per stage.
   const {
-    LINE, SHOP, S, save, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, charsFromBoard, held,
+    LINE, SHOP, S, save, MAX_CHARS, esc, fmt, fmtDur, shopWeek, nameHTML, sourceText, townRank, quick, chars, held,
     allocate, makePlan, makeSchedule, progress, yieldOf, dishes, dishOptions, wireList, gathers, setBought, setDone, stepInfo,
     REC, slotsOf, setSlots, setOrder, startSlots, collectSlot, uncollect, cancelSlot, logOf,
   } = window.LineCore;
@@ -544,8 +544,8 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
     };
   }
   // Where a missing material comes from, as a link to that point: the station that makes it (with the batches it still
-  // has to make), a shop with some left this week, the place to gather it, or 來源待補; a shop-only one every shop has
-  // sold out of says so.
+  // has to make), the place to gather it (gathering comes first, as in the plan), a shop with some left this week, or
+  // 來源待補; a shop-only one every shop has sold out of says so.
   function whereFrom(item) {
     const go = (id, text) => `<button class="link" type="button" data-go="${esc(id)}">→ ${esc(text)}</button>`;
     const m = A.mats.find((x) => x.name === item);
@@ -554,9 +554,9 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
       const lane = stepInfo(item).lane, r = PR.process.find((x) => x.item === item), left = r ? Math.max(0, r.plan - r.done - r.running) : 0;
       return go(`lane:${lane}`, `${lane}${left ? `（還要做 ${fmt(left)} 批）` : ''}`);
     }
+    if (m.s.gather) { const g = m.s.src.find((x) => x.kind === 'gather').text; return go(`field:${g}`, g); }
     const sh = m.buys.find((x) => x.per.length * SHOP.limit > x.bought);
     if (sh) return go(`shop:${sh.who}|${sh.town || sh.note}`, `${sh.who} 還能買 ${fmt(sh.per.length * SHOP.limit - sh.bought)}`);
-    if (m.s.gather) { const g = m.s.src.find((x) => x.kind === 'gather').text; return go(`field:${g}`, g); }
     if (m.s.unknown) return go('unknown', '來源待補');
     return m.buys.length ? '<span class="bad-text">商店已售完</span>' : '';
   }
@@ -1044,7 +1044,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
       return `<tr>
         <th scope="row">${nameHTML(m.name)}${tag}</th>
         <td class="num">${cell(m.stock, rem(m), { short: !!m.short })}</td>
-        <td class="num">${s.buyCap ? fmt(m.buy) : '—'}</td>
+        <td class="num">${m.buy ? fmt(m.buy) : '—'}</td>
         <td class="num">${s.buyCap ? fmt(s.buyCap) : '—'}</td>
         <td class="num">${m.get ? fmt(m.get) : '—'}</td>
         <td class="src">${esc(where.join('、') || '用現有的')}</td>
@@ -1133,7 +1133,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
         ${kpi('完成／訂單', `${fmt(done)}／${fmt(PR.assemble.length)} 道`, 'fg', { f: PR.assemble.length ? done / PR.assemble.length : 0 })}
         ${kpi('異常', short.length ? esc(short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')) : '沒有', short.length ? zoneFor(short[0].name) : null, { cls: short.length ? 'bad' : '' })}
         ${kpi('加工', !ps.busy ? '都做好了' : ps.finish != null ? `${esc(hm(ps.finish))} 做好` : '時間待補', station ? station.id : null)}
-        <span class="kpi edit"><span class="k">幾隻角色去買${charsFromBoard() ? '（照佈告欄）' : ''}</span>${stepper('chars', chars(), '角色數', 1)}</span>
+        <span class="kpi edit"><span class="k">幾隻角色去買</span>${stepper('chars', chars(), '角色數', 1)}</span>
         <p class="hint">可做、異常、加工是照你填的現有數量、已購買、開工和完成算出來的。點一下看是怎麼來的。角色最多 ${MAX_CHARS} 隻。</p>
       </div>
       <section class="box board-box">
@@ -1327,14 +1327,16 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
     render();
   });
   // 設定: wipe the wish list (with the orders' 完成), this week's purchases (every shop's limit back to full), the whole
-  // bag, the stations (their places, the order of what is still to put in, 已完成 and the finished batch counts) or the
-  // last three and the orders' 完成 at once — that one leaves the wish list and the character count. None of it can be
-  // undone, so each button has to be pressed twice; `done` says what the last one cleared.
+  // bag, the stations (their places, the order of what is still to put in, 已完成 and the finished batch counts), the
+  // times the old 生產線 page left typed in (暫填), or purchases, bag, stations and the orders' 完成 at once (清除全部
+  // leaves the wish list, the character count and the 暫填 times). None of it can be undone, so each button has to be
+  // pressed twice; `done` says what the last one cleared.
   const CLEAR = {
     orders: () => { S.orders.splice(0, S.orders.length); S.done.assembled = {}; },
     bought: () => { S.done.bought = {}; },
     have: () => { S.have = {}; },
     proc: () => { S.done.proc = {}; S.done.processed = {}; },
+    draft: () => { S.draft = { steps: {}, queue: {} }; },
     all: () => { for (const k of ['bought', 'have', 'proc']) CLEAR[k](); S.done.assembled = {}; },
   };
   function openSettings(done) {
@@ -1343,6 +1345,9 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
     const logged = procs.reduce((t, p) => t + (Array.isArray(p.log) ? p.log.length : 0), 0);
     const proc = procs.filter((p) => Object.keys(p).length).length + Object.keys(S.done.processed).length, made = Object.keys(S.done.assembled).length;
     const orders = S.orders.length;
+    // what the old 生產線 page left typed in (暫填): times per batch, stations, how many places a station has
+    const drafts = [...Object.entries(S.draft.steps).flatMap(([item, d]) => [d.secs != null ? `${item} 每批 ${fmtDur(d.secs)}` : '', d.equip ? `${item} 在${d.equip}` : '']),
+      ...Object.entries(S.draft.queue).map(([lane, n]) => `${lane} ${fmt(n)} 格`)].filter(Boolean);
     const row = (key, title, sub, n, label) => `<div class="set-row"><span class="bm-name"><b>${title}</b><small class="muted">${sub}</small></span>
       <button class="btn" type="button" data-clear="${key}"${n ? '' : ' disabled'}>${label}</button></div>`;
     $('sheet-form').dataset.kind = 'settings';
@@ -1351,6 +1356,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
       ${row('bought', '清除已購買', bought ? `這週在商店填的已購買（${fmt(bought)} 筆）全部歸零，每家店的額度回到滿的。` : '目前沒有已購買的紀錄。', bought, '清除')}
       ${row('have', '清空背包', have ? `背包裡的 ${fmt(have)} 樣東西全部變成 0，之後再照遊戲重填。` : '背包已經是空的。', have, '清空')}
       ${row('proc', '清除加工台排程', proc ? `設備裡的 ${fmt(placed)} 批、排程順序和已完成的 ${fmt(logged)} 筆紀錄全部清掉，加工台回到還沒開始。背包不會動。` : '加工台還沒有排程。', proc, '清除')}
+      ${row('draft', '清除暫填的加工時間', drafts.length ? `以前在生產線填的：${esc(drafts.join('、'))}。清掉後改用資料裡的時間，資料裡沒有的會顯示時間待補。` : '沒有暫填的加工時間，現在用的都是資料裡的時間。', drafts.length, '清除')}
       ${row('all', '清除全部', bought + have + proc + made ? '已購買、背包、加工台排程，加上訂單的完成標記，一次全部清掉。需求清單和角色數會留著。' : '目前沒有東西可以清。', bought + have + proc + made, '清除全部')}`,
     { act: '<button class="btn" type="button" data-bmcancel>關閉</button>' });
     if (!$('sheet').open) $('sheet').showModal();
@@ -1366,7 +1372,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
       CLEAR[key]();
       save();
       render();
-      openSettings({ orders: '訂單清除了。', bought: '已購買都清除了。', have: '背包清空了。', proc: '加工台排程清除了。', all: '全部清除了。' }[key]);
+      openSettings({ orders: '訂單清除了。', bought: '已購買都清除了。', have: '背包清空了。', proc: '加工台排程清除了。', draft: '暫填的加工時間清掉了。', all: '全部清除了。' }[key]);
       return;
     }
     const one = e.target.closest('[data-bmfill]');

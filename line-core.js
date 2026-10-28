@@ -1,6 +1,7 @@
 // 生產線 core for plant.html (廠區): the week's wish list, shop limits,
-// the plan they allow and the schedule the stations run. Recipes, item sources and the board's gathering scrolls come
-// from index.html, so every page reads one set of data. Exposed as window.LineCore.
+// the plan they allow and the order the stations take their batches in. Recipes, item sources and the board's
+// gathering scrolls are read from index.html (read only, so both pages share one set of data); nothing else is shared
+// with 佈告欄 — 廠區 keeps its own saved state. Exposed as window.LineCore.
 (() => {
   // Production-line facts the board doesn't have:
   //   shop: { limit, resetDay, resetAt } — every shop sells each item at most `limit` per character per week, and the
@@ -10,7 +11,8 @@
   //   equipment: { station: { queue } } — how many batches can be lined up on a station (排程上限); a station makes one
   //     batch at a time, a finished batch keeps its place until 全部領取, and stations are shared by all characters,
   //   steps: { item: { equip?, secs? } } — an item's own station or time per batch, in seconds.
-  // Anything not here shows as 待補. Values typed on the planner are kept only in the browser (暫填) until moved here.
+  // Anything not here shows as 待補. Values typed on the old 生產線 page stay in the browser (暫填) until they are moved
+  // here or cleared in 廠區's 設定.
   const LINE = {
     rev: 3,
     updated: '2026-10-25',
@@ -31,7 +33,6 @@
   const SKILLS = ['料理'];
   const SECTION_ORDER = ['簡便', '力量特化', '技巧特化', '智力特化', '共享'];
   const KEY = 'mm-line-v1';
-  const COLORS = ['#e8b33a', '#5fa04e', '#4f7fc0', '#c9503a', '#9a6bc0', '#e07a9a', '#3aa3a0', '#b07440'];
   const SHOP = Object.assign({ limit: 30, resetDay: 1, resetAt: '06:30' }, LINE.shop);
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (n) => Number(n || 0).toLocaleString('zh-TW');
@@ -46,23 +47,6 @@
     const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
     return [d && `${d}天`, h && `${h}小時`, m && `${m}分`, x && `${x}秒`].filter(Boolean).join('');
   };
-  const clock = (s) => {
-    s = Math.floor(s || 0);
-    const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
-    return `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}`;
-  };
-  // "1:20" is 1 hour 20 minutes, a bare number is minutes, and units can be spelled out: 1小時20分, 30秒, 2h, 45m.
-  const UNIT = { 天: 86400, d: 86400, 小時: 3600, 時: 3600, h: 3600, 分鐘: 60, 分: 60, m: 60, 秒: 1, s: 1 };
-  const parseDur = (v) => {
-    const s = String(v ?? '').trim().replace(/：/g, ':').replace(/\s+/g, '');
-    if (!s) return null;
-    const hm = s.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
-    if (hm) return Number(hm[1]) * 3600 + Number(hm[2]) * 60 + Number(hm[3] || 0);
-    if (/^\d+(\.\d+)?$/.test(s)) return Math.round(parseFloat(s) * 60);
-    let total = 0, used = '';
-    for (const [all, n, u] of s.matchAll(/(\d+(?:\.\d+)?)(天|小時|分鐘|時|分|秒|[dhms])/gi)) { used += all; total += parseFloat(n) * UNIT[u.toLowerCase()]; }
-    return used && used.length === s.length ? Math.round(total) : NaN;
-  };
   // The shop week, from the last reset to the next, in Taiwan time (UTC+8).
   function shopWeek() {
     const TZ = 8 * 3600e3, DAY = 864e5, [hh, mm] = String(SHOP.resetAt).split(':').map(Number);
@@ -74,12 +58,13 @@
     return { start: start - TZ, range: `${day(start)} ～ ${day(end)}`, left: fmtDur(Math.floor((end - t) / 60e3) * 60) };
   }
 
-  /* ---------- saved state, shared by the pages ---------- */
-  // orders: the week's wish list, top first ({ dish, qty }); chars: how many characters buy (0 = the board's count);
-  // have: the stock in hand now, as the game's bag shows it, by item; draft: station, time and queue values typed on the
-  // planner.
+  /* ---------- saved state ---------- */
+  // orders: the week's wish list, top first ({ dish, qty }); chars: how many characters buy, 廠區's own count (see
+  // load); have: the stock in hand now, as the game's bag shows it, by item; draft: station, time and queue values typed
+  // on the old 生產線 page.
   const SAVED = readLS(KEY);
-  const S = Object.assign({ orders: [], chars: 0, have: {}, speed: 0, draft: { steps: {}, queue: {} } }, SAVED || {});
+  const S = Object.assign({ orders: [], chars: 0, have: {}, draft: { steps: {}, queue: {} } }, SAVED || {});
+  delete S.speed; // the old page's playback speed
   if (!Array.isArray(S.orders)) S.orders = [];
   // Older saves planned one dish ({ dish, qty }); it becomes the first line of the list.
   if (!S.orders.length && S.dish) S.orders.push({ dish: S.dish, qty: S.qty });
@@ -113,14 +98,17 @@
   const REC = new Map();     // item → { name, skill, yield, inputs, instant, … } — recipes plus 加工 notes
   const MATS = { items: {}, grades: {} };
   const GATHER = new Map();  // item → gathering skills from the board's scrolls
-  let BOARD_CHARS = null;
   const yieldOf = (r) => Math.max(1, Math.floor(Number(r.yield)) || 1);
   const gradeOf = (name) => { const g = (REC.get(name) || {}).grade || MATS.grades[name] || ''; return g === '白' ? '' : g; };
   const nameHTML = (name) => { const g = gradeOf(name); return `<b class="${g ? `grade-${g}` : ''}">${esc(name)}</b>`; };
 
   async function load() {
-    // Until a count is picked here, buy with as many characters as the board's 角色數.
-    BOARD_CHARS = posInt((readLS('mm-board-progress-v1') || {}).chars);
+    // 廠區 keeps its own character count. One that has never been set starts from the board's 角色數 once (so an old
+    // save keeps the number it was using), and from then on the two pages don't follow each other.
+    if (!posInt(S.chars)) {
+      S.chars = Math.min(MAX_CHARS, posInt((readLS('mm-board-progress-v1') || {}).chars) || 1);
+      save();
+    }
     const res = await fetch('index.html', { cache: 'no-cache' });
     if (!res.ok) throw new Error(String(res.status));
     const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
@@ -185,7 +173,7 @@
 
   /* ---------- the plan: how much of everything, in how many batches ---------- */
   // A made item's station, time per batch and the station's queue, each with where it came from (data / draft / none),
-  // so the planner can mark 待補 and 暫填.
+  // so 待補 and 暫填 can be told apart.
   function stepInfo(name) {
     const r = REC.get(name);
     const data = LINE.steps[name] || {}, draft = S.draft.steps[name] || {}, skill = LINE.skills[r.skill] || {};
@@ -251,8 +239,7 @@
 
   /* ---------- this week's allocation: shop limits shared out down the wish list ---------- */
   const MAX_CHARS = 6; // the game lets an account have at most this many characters
-  const chars = () => Math.min(MAX_CHARS, posInt(S.chars) || BOARD_CHARS || 1);
-  const charsFromBoard = () => !posInt(S.chars) && !!BOARD_CHARS;
+  const chars = () => Math.min(MAX_CHARS, posInt(S.chars) || 1);
   const held = (name) => Math.max(0, Math.floor(Number(S.have[name])) || 0);
 
   /* ---------- stock and this week's purchases ---------- */
@@ -260,20 +247,15 @@
   // output. A purchase or a dish marked 完成 doesn't: the bag is typed in from the game after buying or cooking. The
   // plan works from base(): what would be in hand had none of this week's processing or assembly happened, so the stock
   // can be typed in from the game at any point.
-  // A page may follow every move (onStock): the item, how much it really moved and why — { use: step } a step took (or
-  // gave back) its inputs, { make: step } a step's output, { lane } a station's round given back.
-  let stockHook = null;
-  const onStock = (fn) => { stockHook = fn; };
-  const bump = (name, d, why = {}) => {
-    const old = held(name), n = Math.max(0, old + Math.round(d));
+  const bump = (name, d) => {
+    const n = Math.max(0, held(name) + Math.round(d));
     if (n) S.have[name] = n; else delete S.have[name];
-    if (stockHook && n !== old) stockHook(name, n - old, why);
   };
   function worked(kind, name, d) {
     const r = REC.get(name);
     if (!r || !d || kind !== 'processed') return;
-    for (const i of r.inputs) bump(i.item, -i.qty * d, { use: name });
-    bump(name, yieldOf(r) * d, { make: name });
+    for (const i of r.inputs) bump(i.item, -i.qty * d);
+    bump(name, yieldOf(r) * d);
   }
   // What this week's finished batches, rounds still running and assembled dishes have taken (used) and made, by item.
   function usedThisWeek() {
@@ -346,7 +328,7 @@
       if (!x || x.at != null) continue;
       const r = REC.get(x.name);
       x.took = {};
-      if (r) for (const i of r.inputs) { x.took[i.item] = (x.took[i.item] || 0) + Math.min(held(i.item), i.qty); bump(i.item, -i.qty, { use: x.name }); }
+      if (r) for (const i of r.inputs) { x.took[i.item] = (x.took[i.item] || 0) + Math.min(held(i.item), i.qty); bump(i.item, -i.qty); }
       x.at = free;
       free += secsFor(x.name);
     }
@@ -370,11 +352,11 @@
     const r = REC.get(x.name);
     if (x.at == null) {
       x.took = {};
-      if (r) for (const i of r.inputs) { x.took[i.item] = (x.took[i.item] || 0) + Math.min(held(i.item), i.qty); bump(i.item, -i.qty, { use: x.name }); }
+      if (r) for (const i of r.inputs) { x.took[i.item] = (x.took[i.item] || 0) + Math.min(held(i.item), i.qty); bump(i.item, -i.qty); }
       x.at = now;
     }
     S.done.processed[x.name] = (Math.floor(Number(S.done.processed[x.name])) || 0) + 1;
-    if (r) bump(x.name, yieldOf(r), { make: x.name });
+    if (r) bump(x.name, yieldOf(r));
     logOf(lane).push({ name: x.name, at: x.at, took: x.took || {}, done: now, ...(test ? { test: true } : {}) });
     takeOut(slots, k);
     if (test) rechain(slots, now);
@@ -387,8 +369,8 @@
     log.splice(i, 1);
     const r = REC.get(e.name), n = (Math.floor(Number(S.done.processed[e.name])) || 0) - 1;
     if (n > 0) S.done.processed[e.name] = n; else delete S.done.processed[e.name];
-    if (r) bump(e.name, -yieldOf(r), { make: e.name });
-    for (const [item, qty] of Object.entries(e.took || {})) bump(item, qty, { lane });
+    if (r) bump(e.name, -yieldOf(r));
+    for (const [item, qty] of Object.entries(e.took || {})) bump(item, qty);
     procOf(lane).order = [e.name, ...(procOf(lane).order || [])];
   }
   // Taking a batch back out of its place: what 開工 took returns to the stock, the batch goes back to the front of the
@@ -399,7 +381,7 @@
     takeOut(slots, k);
     procOf(lane).order = [x.name, ...(procOf(lane).order || [])];
     if (x.at == null) return;
-    for (const [item, qty] of Object.entries(x.took || {})) bump(item, qty, { lane });
+    for (const [item, qty] of Object.entries(x.took || {})) bump(item, qty);
     rechain(slots, now);
   }
 
@@ -463,15 +445,17 @@
       for (const [m, q] of x.net) add(A.net, m, q);
       A.rows.push({ i, dish: o.dish, qty: o.qty, n, max, stuck, batches: x.batches });
     });
-    // How each raw material is covered: its base first, then what the shops can still sell, in board town order and
-    // first character first, the rest gathered (or from a source still to be filled in). stock is the bag now, used
+    // How each raw material is covered: its base first; then one that can be gathered is gathered (the user's choice,
+    // 2026-10-28: the shops are planned only for what can't be — what has been bought still counts once it is in the
+    // bag), and one that can't is bought where the shops can still sell, in board town order and first character
+    // first, the rest from a source still to be filled in. stock is the bag now, used
     // what this week's work has taken, so need - used is still to use and need - base still to get. buys has every
     // shop that sells it with each character's purchases (bought) and suggested purchases (more); shops only the ones
     // with something left to buy. want is what the full wish list would take; short is how much of a shop-only
     // material the limits can't cover (異常: not enough raw material), users the dishes that want it.
     A.mats = [...new Set([...A.raw.keys(), ...want.keys()])].map((name) => {
       const s = supply(name), need = A.raw.get(name) || 0, base = baseOf(name, U), have = Math.min(base, need), rest = need - have;
-      const buy = Math.min(rest, s.buyCap);
+      const buy = s.gather ? 0 : Math.min(rest, s.buyCap);
       let r = buy;
       const buys = s.shops.map((sh) => {
         const key = `${sh.who}|${sh.town || sh.note}|${name}`, got = boughtBy(key);
@@ -509,20 +493,14 @@
     };
     steps.forEach((s) => { s.height = h(s.name); });
     steps.sort((a, b) => a.height - b.height); // raw-side steps first
-    steps.forEach((s, i) => { s.color = COLORS[i % COLORS.length]; });
     const out = [];
     for (const o of A.rows) if (o.n) { const d = out.find((x) => x.dish === o.dish); if (d) d.n += o.n; else out.push({ dish: o.dish, n: o.n }); }
-    return {
-      steps, dishes: out, dishSet: new Set(out.map((d) => d.dish)), qty: out.reduce((t, d) => t + d.n, 0),
-      raw: [...A.raw].map(([name, qty]) => ({ name, qty })), stock: new Map([...A.raw, ...A.use]),
-      missing: steps.filter((s) => s.secs == null),
-    };
+    return { steps, dishes: out, dishSet: new Set(out.map((d) => d.dish)), qty: out.reduce((t, d) => t + d.n, 0) };
   }
 
-  /* ---------- the schedule: every batch on its station ---------- */
-  // A station makes one batch at a time. Batches start as soon as the station is free and their inputs are in stock
-  // (raw materials are all on hand at 0:00), as if someone were there to collect and line up the next one; when
-  // several steps share a station, the one with the most work still downstream of it goes first.
+  /* ---------- the stations: which batches each takes, in what order ---------- */
+  // Every made item's station (lane). On a station several items share, the one with the most work still downstream of
+  // it goes first; stations come raw side first. (The page lines the batches up from this order.)
   function makeSchedule(P) {
     const byName = new Map(P.steps.map((s) => [s.name, s]));
     const consumers = new Map();
@@ -541,131 +519,13 @@
     P.steps.forEach((s) => rk(s.name));
     const lanes = new Map();
     for (const s of P.steps) {
-      if (!lanes.has(s.lane)) lanes.set(s.lane, { name: s.lane, equip: s.equip, queue: s.queue, steps: [], height: 0, free: 0 });
+      if (!lanes.has(s.lane)) lanes.set(s.lane, { name: s.lane, equip: s.equip, queue: s.queue, steps: [], height: 0 });
       const L = lanes.get(s.lane);
       L.steps.push(s);
       L.height = Math.max(L.height, s.height);
     }
     for (const L of lanes.values()) L.steps.sort((a, b) => rank.get(b.name) - rank.get(a.name));
-    const inv = new Map(P.stock);
-    const left = new Map(P.steps.map((s) => [s.name, s.batches]));
-    const ready = (s) => left.get(s.name) > 0 && s.r.inputs.every((i) => (inv.get(i.item) || 0) >= i.qty);
-    const jobs = [];
-    let running = [], t = 0;
-    for (let guard = 0; guard < 500000; guard++) {
-      for (const L of lanes.values()) {
-        while (L.free <= t) {
-          const s = L.steps.find(ready);
-          if (!s) break;
-          for (const i of s.r.inputs) inv.set(i.item, inv.get(i.item) - i.qty);
-          left.set(s.name, left.get(s.name) - 1);
-          const job = { step: s.name, lane: L.name, start: t, end: t + (s.secs || 0) };
-          jobs.push(job);
-          running.push(job);
-          L.free = job.end;
-        }
-      }
-      if (!running.length) break;
-      t = Math.min(...running.map((j) => j.end));
-      running = running.filter((j) => {
-        if (j.end > t) return true;
-        const s = byName.get(j.step);
-        inv.set(s.name, (inv.get(s.name) || 0) + yieldOf(s.r));
-        return false;
-      });
-    }
-    const total = jobs.reduce((m, j) => Math.max(m, j.end), 0);
-    const stuck = [...left.values()].some((n) => n > 0);
-    // Lookups for drawing any moment quickly: each station's jobs by start, each step's start and end times, each raw
-    // item's draws.
-    const laneJobs = new Map([...lanes.keys()].map((k) => [k, []]));
-    for (const j of jobs) laneJobs.get(j.lane).push(j);
-    const ends = new Map(P.steps.map((s) => [s.name, []]));
-    const starts = new Map(P.steps.map((s) => [s.name, []]));
-    const draws = new Map(P.raw.map((x) => [x.name, []]));
-    for (const j of jobs) {
-      ends.get(j.step).push(j.end);
-      starts.get(j.step).push(j.start);
-      for (const i of byName.get(j.step).r.inputs) if (draws.has(i.item)) draws.get(i.item).push([j.start, i.qty]);
-    }
-    for (const a of ends.values()) a.sort((x, y) => x - y);
-    for (const a of starts.values()) a.sort((x, y) => x - y);
-    for (const [k, a] of draws) {
-      a.sort((x, y) => x[0] - y[0]);
-      let sum = 0;
-      draws.set(k, { at: a.map((d) => d[0]), sum: a.map((d) => (sum += d[1])) });
-    }
-    const byEnd = jobs.slice().sort((a, b) => a.end - b.end);
-    return { jobs, byEnd, total, stuck, lanes: [...lanes.values()].sort((a, b) => a.height - b.height), laneJobs, ends, starts, draws };
-  }
-  // How many values in a sorted array are <= t.
-  const countLE = (a, t) => { let lo = 0, hi = a.length; while (lo < hi) { const m = (lo + hi) >> 1; if (a[m] <= t) lo = m + 1; else hi = m; } return lo; };
-  // The job running on a station at time t, if any.
-  const jobAt = (SCH, lane, t) => {
-    const list = SCH.laneJobs.get(lane) || [];
-    let lo = 0, hi = list.length;
-    while (lo < hi) { const m = (lo + hi) >> 1; if (list[m].start <= t) lo = m + 1; else hi = m; }
-    const j = list[lo - 1];
-    return j && j.end > t && j.end > j.start ? j : null;
-  };
-
-  // The week as logins, for someone who isn't online the whole time. Each login collects everything finished, assembles
-  // what it can (assembly takes seconds), and lines up to `queue` batches on every station from what is in stock (a
-  // batch takes its inputs when it is lined up); the next login comes when the slowest station's line is done.
-  // { rounds: [{ at, dur, lanes: station → { counts: item → batches, secs } }], total, logins, stuck,
-  //   stations: [{ name, equip, queue, steps, batches, busy }] } — stations are the ones that take time.
-  function loginPlan(P) {
-    const byName = new Map(P.steps.map((s) => [s.name, s]));
-    const inv = new Map(P.stock), left = new Map(P.steps.map((s) => [s.name, s.batches]));
-    const ready = (s) => left.get(s.name) > 0 && s.r.inputs.every((i) => (inv.get(i.item) || 0) >= i.qty);
-    const take = (s) => { for (const i of s.r.inputs) inv.set(i.item, inv.get(i.item) - i.qty); left.set(s.name, left.get(s.name) - 1); };
-    const give = (s, n = 1) => inv.set(s.name, (inv.get(s.name) || 0) + n * yieldOf(s.r));
-    // Downstream work first, as in the schedule.
-    const rank = new Map();
-    const rk = (n) => {
-      if (rank.has(n)) return rank.get(n);
-      rank.set(n, 0);
-      const users = P.steps.filter((s) => s.r.inputs.some((i) => i.item === n)).map((s) => rk(s.name));
-      const v = (byName.get(n).secs || 0) + Math.max(0, ...users);
-      rank.set(n, v);
-      return v;
-    };
-    P.steps.forEach((s) => rk(s.name));
-    const instant = P.steps.filter(quick);
-    const stations = new Map();
-    for (const s of P.steps.filter((x) => !quick(x)).sort((a, b) => rank.get(b.name) - rank.get(a.name))) {
-      if (!stations.has(s.lane)) stations.set(s.lane, { name: s.lane, equip: s.equip, queue: s.queue, steps: [], batches: 0, busy: 0 });
-      const st = stations.get(s.lane);
-      st.steps.push(s);
-      st.batches += s.batches;
-      st.busy += s.batches * (s.secs || 0);
-    }
-    const assemble = () => { for (const s of instant) while (ready(s)) { take(s); give(s); } };
-    const rounds = [];
-    let t = 0;
-    for (let guard = 0; guard < 10000; guard++) {
-      assemble();
-      const round = { at: t, dur: 0, lanes: new Map() }, made = [];
-      for (const st of stations.values()) {
-        const counts = new Map();
-        let secs = 0;
-        for (let k = 0; k < Math.max(1, st.queue || 1); k++) {
-          const s = st.steps.find(ready);
-          if (!s) break;
-          take(s);
-          made.push(s);
-          counts.set(s.name, (counts.get(s.name) || 0) + 1);
-          secs += s.secs || 0;
-        }
-        if (counts.size) { round.lanes.set(st.name, { counts, secs }); round.dur = Math.max(round.dur, secs); }
-      }
-      if (!made.length) break;
-      made.forEach((s) => give(s));
-      rounds.push(round);
-      t += round.dur;
-    }
-    assemble();
-    return { rounds, total: t, logins: rounds.length ? rounds.length + 1 : 0, stuck: [...left.values()].some((n) => n > 0), stations: [...stations.values()] };
+    return { lanes: [...lanes.values()].sort((a, b) => a.height - b.height) };
   }
 
   /* ---------- this week's actual progress ---------- */
@@ -704,66 +564,27 @@
     return { buy, gather, process, assemble, inHand, missing, total: lines.length, finished: lines.filter((r) => r.done >= r.plan).length };
   }
 
-  /* ---------- editing the wish list, characters and holdings ---------- */
-  // Both pages use the same controls: data-odish (a line's dish), data-num (a stepper's number: 'chars' or 'o' + a
-  // line's index), data-step ('key|±n'), data-oset ('index|count'), data-omove ('index|±1'), data-odel (index),
-  // data-have (an item's stock), data-done ('kind|key', an actual) and data-donefill ('kind|n|key'), data-buy
-  // ('c|key', a character's purchase) and data-buyfill ('c|n|key'), and #add-order. `changed` redraws the page after
-  // an edit.
-  const ADD_QTY = 10;
-  function setNum(key, n) {
-    if (key === 'chars') S.chars = Math.min(MAX_CHARS, Math.max(1, n || 1));
-    else if (S.orders[Number(key.slice(1))]) S.orders[Number(key.slice(1))].qty = Math.max(1, n || 1);
-  }
+  /* ---------- the character count ---------- */
+  // The page's stepper: data-num="chars" (the box) and data-step="chars|±n" (−1 / +1). `changed` redraws the page.
+  const setChars = (n) => { S.chars = Math.min(MAX_CHARS, Math.max(1, n || 1)); };
   function wireList(changed) {
     document.addEventListener('change', (e) => {
-      const t = e.target;
-      if (t.dataset.odish != null) { const o = S.orders[Number(t.dataset.odish)]; if (o) o.dish = t.value; }
-      else if (t.dataset.num) setNum(t.dataset.num, posInt(t.value));
-      else if (t.dataset.done) {
-        const v = t.dataset.done, a = v.indexOf('|');
-        setDone(v.slice(0, a), v.slice(a + 1), t.value);
-      } else if (t.dataset.buy) {
-        const v = t.dataset.buy, a = v.indexOf('|');
-        setBought(v.slice(a + 1), Number(v.slice(0, a)), t.value);
-      } else if (t.dataset.have != null) {
-        const n = Math.floor(Number(t.value));
-        if (n > 0) S.have[t.dataset.have] = n; else delete S.have[t.dataset.have];
-      } else return;
+      if (e.target.dataset.num !== 'chars') return;
+      setChars(posInt(e.target.value));
       save();
       setTimeout(changed, 0); // after the focus has moved on, so the page can put it back
     });
     document.addEventListener('click', (e) => {
       const b = e.target.closest('button');
-      if (!b) return;
-      if (b.dataset.step) {
-        const [key, d] = b.dataset.step.split('|');
-        setNum(key, (key === 'chars' ? chars() : (S.orders[Number(key.slice(1))] || {}).qty || 0) + Number(d));
-      } else if (b.dataset.oset) {
-        const [i, n] = b.dataset.oset.split('|').map(Number);
-        setNum(`o${i}`, n);
-      } else if (b.dataset.omove) {
-        const [i, d] = b.dataset.omove.split('|').map(Number), j = i + d;
-        if (!S.orders[i] || !S.orders[j]) return;
-        [S.orders[i], S.orders[j]] = [S.orders[j], S.orders[i]];
-      } else if (b.dataset.odel) {
-        S.orders.splice(Number(b.dataset.odel), 1);
-      } else if (b.dataset.donefill || b.dataset.buyfill) {
-        // 'kind|n|key': set a line to n (its plan, or 0 to clear it); 'c|n|key': set a character's purchase to n
-        const v = b.dataset.donefill || b.dataset.buyfill, a = v.indexOf('|'), c = v.indexOf('|', a + 1);
-        if (b.dataset.donefill) setDone(v.slice(0, a), v.slice(c + 1), v.slice(a + 1, c));
-        else setBought(v.slice(c + 1), Number(v.slice(0, a)), v.slice(a + 1, c));
-      } else if (b.id === 'add-order') {
-        const taken = new Set(S.orders.map((o) => o.dish));
-        const next = dishes().find((r) => !taken.has(r.name)) || dishes()[0];
-        if (!next) return;
-        S.orders.push({ dish: next.name, qty: ADD_QTY });
-      } else return;
+      if (!b || !b.dataset.step) return;
+      const [key, d] = b.dataset.step.split('|');
+      if (key !== 'chars') return;
+      setChars(chars() + Number(d));
       save();
       changed();
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && e.target.matches && e.target.matches('input[data-num], input[data-have], input[data-done], input[data-buy]')) e.target.blur();
+      if (e.key === 'Enter' && e.target.matches && e.target.matches('input[data-num]')) e.target.blur();
     });
   }
 
@@ -794,9 +615,8 @@
 
   window.LineCore = {
     wireList,
-    LINE, SHOP, CITIES, MAX_CHARS, COLORS, S, save, REC, load, dishes, dishOptions, esc, fmt, posInt, readLS, writeLS,
-    fmtDur, clock, parseDur, shopWeek, yieldOf, gradeOf, nameHTML, sourcesOf, sourceText, townRank,
-    stepInfo, quick, chars, charsFromBoard, held, allocate, makePlan, makeSchedule, countLE, jobAt, loginPlan, progress,
-    gathers, setBought, setDone, slotsOf, setSlots, setOrder, startSlots, collectSlot, uncollect, cancelSlot, logOf, onStock,
+    LINE, SHOP, MAX_CHARS, S, save, REC, load, dishes, dishOptions, esc, fmt, fmtDur, shopWeek, yieldOf, nameHTML, sourceText,
+    townRank, stepInfo, quick, chars, held, allocate, makePlan, makeSchedule, progress,
+    gathers, setBought, setDone, slotsOf, setSlots, setOrder, startSlots, collectSlot, uncollect, cancelSlot, logOf,
   };
 })();
