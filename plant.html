@@ -79,6 +79,15 @@ button.kpi:hover { background: var(--panel-2); }
 .stepper .btn:last-child { border-radius: 0 4px 4px 0; }
 .stepper input { width: 52px; text-align: center; color: var(--ink); background: #fff; border: 1px solid var(--ctl); border-left: 0; border-right: 0; border-radius: 0; }
 
+/* 下一步: one line over the board saying what to do next, in that thing's light; it opens that card */
+.next { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; width: 100%; margin: 0; padding: 10px 16px; text-align: left; color: var(--ink); background: var(--st-soft); border: 0; border-bottom: 1px solid var(--line); box-shadow: inset 4px 0 0 var(--st-lamp); cursor: pointer; }
+.next:hover .next-t { text-decoration: underline; text-underline-offset: 3px; }
+.next:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.next-k { flex: none; padding: 1px 8px; border-radius: 3px; background: var(--plate); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+.next-t { flex: 1 1 16em; min-width: 0; font-size: 14px; font-weight: 700; }
+.next-more { font-size: 12px; color: var(--muted); }
+.next-go { margin-left: auto; color: var(--st); font-weight: 700; }
+
 /* the board: a floor grid, the stage titles as flow arrows; wide, 廠外 takes two columns of cards */
 .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-left: auto; font-size: 12px; color: var(--muted); }
 .lg { display: inline-flex; align-items: center; gap: 6px; }
@@ -307,7 +316,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
 <header class="top">
   <div class="top-in">
     <!-- 版本號寫死在這裡，程式沒跑起來也看得到；每次 push 前改一次 -->
-    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.28.1</small></h1>
+    <h1>廠區 <small id="week-line"></small><small class="ver">v2026.10.28.2</small></h1>
     <nav><a href="index.html">佈告欄</a><button class="nav-btn" type="button" data-settings>設定</button></nav>
   </div>
 </header>
@@ -1061,6 +1070,47 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
     </section>`;
   }
 
+  // 下一步: what to do next, along the flow (廠外, 背包, the stations, 組裝), each as { id of the card it opens, light,
+  // text }, the first shown over the board — an order list and the bag's count first; then a shop with something still
+  // to buy, a place to gather, a material from a source still to be filled in, the bag still short of a raw material, a
+  // station's batch to collect, batches to start or to put in, a dish with all its materials in hand. With none of
+  // those: the stations at work, the week done, or what the week is short of — a shortage (異常) is never the next step
+  // while something else can be done.
+  function nextSteps() {
+    if (!A.rows.length) return [{ id: 'fg', k: 'wait', text: '先排訂單：到訂單按「編輯訂單」，加這週要做的料理' }];
+    const started = Object.values(S.done.proc).some((p) => Array.isArray(p.slots) && p.slots.some((x) => x && x.at != null));
+    const fresh = !Object.keys(S.have).some((name) => held(name)) && !Object.keys(S.done.bought).length && !Object.keys(S.done.processed).length && !started;
+    const steps = fresh ? [{ id: 'bag', k: 'wait', text: '先到背包按「填現有庫存」，照遊戲背包填現在的數量' }] : [];
+    const list = (items, n) => items.map((i) => `${i.name} ${fmt(n(i))}`).join('、');
+    for (const n of NODES) {
+      if (n.kind === 'shop') {
+        const buy = n.items.filter((i) => i.buy.qty > 0);
+        if (buy.length) steps.push({ id: n.id, k: 'wait', text: `去${n.title}買：${list(buy, (i) => i.buy.qty)}` });
+      } else if (n.kind === 'field' || n.kind === 'unknown') {
+        const get = n.items.filter((i) => i.mat.get > 0);
+        if (get.length) steps.push({ id: n.id, k: 'wait', text: `${n.kind === 'field' ? `去${n.title}採` : '還要拿（來源待補）'}：${list(get, (i) => i.mat.get)}` });
+      } else if (n.kind === 'bag' && !fresh) {
+        const lack = bagGroups().raw.filter((name) => bagSplit(name).lack > 0);
+        if (lack.length) steps.push({ id: 'bag', k: 'wait', text: `背包還缺 ${lack.slice(0, 3).join('、')}${lack.length > 3 ? ' 等' : ''}：買了或採了，到背包按「填現有庫存」` });
+      } else if (n.kind === 'machine') {
+        const q = PL.get(n.lane.name), has = (st) => !!q && q.slots.some((s) => s && s.state === st);
+        if (has('done')) steps.push({ id: n.id, k: 'wait', text: `${n.title}：有做好的，去領料` });
+        else if (has('wait') && !q.short.length) steps.push({ id: n.id, k: 'wait', text: `${n.title}：可以開工` });
+        else if (q && q.seq.length && q.slots.some((s) => !s)) steps.push({ id: n.id, k: 'wait', text: `${n.title}：把排程加進設備的空格` });
+      } else if (n.kind === 'assembly') {
+        const ready = dishOuts(n).filter((o) => o.left && o.can >= o.left);
+        if (ready.length) steps.push({ id: 'fg', k: 'wait', text: `${ready.map((o) => o.name).join('、')} 料齊了：到遊戲的${n.title}做好，再到訂單按「完成」` });
+      }
+    }
+    if (steps.length) return steps;
+    const ps = procSummary(), station = NODES.find((n) => n.kind === 'machine' && PL.get(n.lane.name) && PL.get(n.lane.name).busy);
+    if (ps.busy && station) return [{ id: station.id, k: 'ok', text: ps.finish != null ? `加工做中，${hm(ps.finish)} 做好，到時候回來領料` : '加工做中' }];
+    if (PR.assemble.length && PR.assemble.every((r) => r.done >= r.plan)) return [{ id: 'fg', k: 'idle', text: '這週的訂單都完成了' }];
+    const short = A.mats.filter((m) => m.short);
+    if (short.length) return [{ id: zoneFor(short[0].name), k: 'bad', text: `剩下的料這週不夠：${short.map((m) => `${m.name}缺 ${fmt(m.short)}`).join('、')}，點這裡看對策` }];
+    return [{ id: 'fg', k: 'idle', text: '目前沒有要處理的' }];
+  }
+
   function render() {
     // Keep the focused field (by data-f) and its caret across the rebuild.
     const a = document.activeElement, f = a && a.dataset ? a.dataset.f : null;
@@ -1074,6 +1124,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
     // The summary's figures open the card they come from; the character count is edited right here.
     const station = NODES.find((n) => n.kind === 'machine'), ps = procSummary();
     const total = A.rows.reduce((t, o) => t + o.qty, 0), done = PR.assemble.filter((r) => r.done >= r.plan).length;
+    const steps = nextSteps(), next = steps[0];
     const kpi = (k, v, go, { cls = '', f: part = null } = {}) => (go != null
       ? `<button class="kpi${cls ? ` ${cls}` : ''}" type="button" data-go="${esc(go)}"><span class="k">${k}</span><b>${v}</b>${part == null ? '' : barOf(part)}</button>`
       : `<span class="kpi${cls ? ` ${cls}` : ''}"><span class="k">${k}</span><b>${v}</b></span>`);
@@ -1088,6 +1139,7 @@ td.src { white-space: normal; min-width: 140px; font-size: 13px; color: var(--mu
       <section class="box board-box">
         <div class="box-head"><h2>廠區</h2><span class="muted">點一張卡看詳細・數字都是「完成／需求」</span>
           <div class="legend">${Object.entries(STATUS_TEXT).map(([k, text]) => `<span class="lg ${k}">${LIGHT}${text}</span>`).join('')}</div></div>
+        ${next ? `<button class="next ${next.k}" type="button" data-go="${esc(next.id)}"><span class="next-k">下一步</span><span class="next-t">${esc(next.text)}</span>${steps.length > 1 ? `<span class="next-more">另外還有 ${fmt(steps.length - 1)} 件</span>` : ''}<span class="next-go" aria-hidden="true">→</span></button>` : ''}
         ${blocksHTML()}
       </section>
       ${matsHTML()}`;
