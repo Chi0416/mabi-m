@@ -189,10 +189,11 @@ section { display: grid; gap: 14px; }
 .empty { margin: 0; padding: 18px 16px; border: 1px dashed var(--line); border-radius: var(--r); color: var(--muted); font-size: 14px; }
 
 /* Town boards */
-.boards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
-.board { display: grid; gap: 10px; min-width: 0; }
-.board-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 6px; border-bottom: 2px solid var(--fg); }
-.board-head h3 { font-size: 22px; }
+.boards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+.board { display: grid; gap: 2px; min-width: 0; }
+.board-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding-bottom: 4px; border-bottom: 1px solid var(--fg); }
+.board-head h3 { font-size: 17px; }
+.board-head .sum { margin-right: auto; }
 .board-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: inherit; color: inherit; }
 @media (hover: hover) { .board-toggle:hover { color: var(--accent); } }
 .board-toggle .chev { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid currentColor; }
@@ -204,10 +205,24 @@ section { display: grid; gap: 14px; }
 .fold-sum span { white-space: nowrap; }
 #sec-boards.is-folded > :not(.sec-head):not(.fold-sum) { display: none; }
 .board-head span { font-size: 13px; color: var(--muted); }
-.board-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--muted); }
-.board-tools .chk { display: inline-flex; align-items: center; gap: 6px; color: var(--fg); }
-.board-tools .sum { margin-left: auto; }
-.board-tools .gold { color: var(--gold); font-variant-numeric: tabular-nums; }
+.board-tools { display: inline-flex; align-items: center; gap: 10px; font-size: 13px; }
+.board-tools .chk { display: inline-flex; align-items: center; gap: 4px; color: var(--fg); }
+.board-head .gold { color: var(--gold); font-variant-numeric: tabular-nums; }
+.board-tools .tick.small { width: 18px; height: 18px; border-radius: 5px; }
+.board-tools .tick.small[aria-checked="true"]::after { width: 4px; height: 8px; }
+/* A town's scrolls as a compact table: 項目 · 類別 · 數量, one line each. */
+.ledger.qlist { border: 0; border-radius: 0; background: none; }
+.qrow { display: grid; min-height: 28px; grid-template-columns: minmax(0, 1fr) 36px 72px; align-items: center; gap: 0 10px; padding: 2px 2px; border-top: 1px solid var(--line); font-size: 14px; scroll-margin: 80px; }
+.qrow.qhead { border-top: 0; padding: 2px 2px 1px; font-size: 11px; color: var(--muted); }
+.q-name { min-width: 0; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; }
+.q-name .item-link { overflow: hidden; text-overflow: ellipsis; }
+.q-ok { color: var(--good); font-weight: 700; }
+.q-tag { font-size: 11px; color: var(--ink); }
+.qrow .q-kind { background: none; font-size: 12px; white-space: nowrap; }
+.q-qty { text-align: right; white-space: nowrap; color: var(--muted); }
+.q-qty .link-btn { padding: 0 0 0 4px; font-size: 12px; color: var(--info); }
+.q-qty .qty-input { width: 40px; padding: 0 4px; }
+.q-name .link-btn { padding: 0 4px; font-size: 12px; }
 .tick.small { width: 22px; height: 22px; border-radius: 6px; margin-top: 0; }
 .tick.small[aria-checked="true"]::after { width: 5px; height: 10px; border-width: 0 2px 2px 0; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg); }
@@ -372,7 +387,6 @@ h2[id] { scroll-margin-top: 16px; }
     </div>
     <div class="chars" id="chars"></div>
     <p class="hint" id="unknown-hint" hidden></p>
-    <p class="ready-banner" id="ready" hidden>材料全部打勾了，可以回佈告欄交付。</p>
   </section>
 
   <section id="sec-boards" aria-labelledby="h-boards">
@@ -381,16 +395,8 @@ h2[id] { scroll-margin-top: 16px; }
       <span id="boards-toggle-all"></span>
     </div>
     <p class="sec-note fold-sum num" id="boards-fold-sum"></p>
-    <p class="sec-note">卷軸每張：提爾克那 300、杜巴頓 480、庫漢 900、班克爾 1,000 金幣。每個角色每種最多買 3 張，選 0 就是這輪不做。點城市名稱展開卷軸；買好、交付後在城市名稱下方打勾。</p>
+    <p class="sec-note">卷軸每張：提爾克那 300、杜巴頓 480、庫漢 900、班克爾 1,000 金幣。數量是每個角色買 3 張要交的總數。點城市名稱展開卷軸；買好、交付後在城市名稱旁打勾。</p>
     <div class="boards" id="boards"></div>
-  </section>
-
-  <section aria-labelledby="h-mats">
-    <div class="sec-head">
-      <h2 id="h-mats">採集總表</h2>
-      <p>依生活技能分組，同一組可以一次採完。需要量 = 每張數量 × 每角色張數 × 角色數，收齊就打勾。</p>
-    </div>
-    <div id="mats"></div>
   </section>
 
   <section aria-labelledby="h-hunts">
@@ -784,31 +790,9 @@ h2[id] { scroll-margin-top: 16px; }
   }
 
   function renderStats(d) {
-    const active = d.mats.filter((m) => m.st !== 'idle');
-    const ready = active.filter((m) => m.done).length;
     const h = $('unknown-hint');
     h.hidden = !d.unknown;
     h.textContent = d.unknown ? `還有 ${d.unknown} 種卷軸的數量待確認，總數會先少算這部分。` : '';
-    $('ready').hidden = !(active.length > 0 && ready === active.length);
-  }
-
-  function renderMats(d) {
-    const el = $('mats');
-    if (!d.mats.length) { el.innerHTML = '<p class="empty">目前沒有需要交材料的卷軸。在上方「各城佈告欄」把卷軸的張數選回 1 到 3，這裡就會自動加總。</p>'; return; }
-    // One group per gathering life skill, in the game's own order, so each skill can be done in one go.
-    // Within a group, list materials town by town (提爾克那 → 杜巴頓 → 庫漢 → 班克爾), then in board order.
-    const townIdx = (m) => Math.min(...m.parts.map((p) => { const i = CITIES.indexOf(p.q.city); return i < 0 ? 99 : i; }));
-    const boardIdx = (m) => Math.min(...m.parts.map((p) => Number(p.q.order) || 0));
-    const byTown = (a, b) => townIdx(a) - townIdx(b) || boardIdx(a) - boardIdx(b) || a.name.localeCompare(b.name, 'zh-Hant');
-    const groups = METHOD_ORDER.map((name) => ({ name, mats: d.mats.filter((m) => m.method === name).sort(byTown) }))
-      .concat([{ name: '其他', mats: d.mats.filter((m) => !METHOD_ORDER.includes(m.method)).sort(byTown) }])
-      .filter((g) => g.mats.length);
-    el.innerHTML = `<div class="mat-groups">${groups.map((g) => {
-      const active = g.mats.filter((m) => m.st !== 'idle');
-      const ticked = active.filter((m) => m.done).length;
-      const meta = `${g.mats.length} 種${active.length ? `・已打勾 ${ticked}／${active.length}` : '・已全部交付'}${g.name === '料理' ? '・要自己做' : ''}`;
-      return `<div class="mat-group"><div class="g-head"><h3>${esc(g.name)}</h3><span class="g-meta num">${meta}</span></div>${ledgerRows(g.mats)}${g.name === '料理' ? cookIngredients(g.mats, d) : ''}</div>`;
-    }).join('')}</div>`;
   }
 
   // A list of names, each once, joined with 、.
@@ -826,7 +810,7 @@ h2[id] { scroll-margin-top: 16px; }
       + (end ? `<div class="row-end">${end}</div>` : '') + '</li>';
   }
   const tickBtn = (on, label, attrs, key) => `<button type="button" class="tick" role="checkbox" aria-checked="${!!on}" aria-label="${esc(label)}" ${attrs} data-focus-key="${esc(key)}"></button>`;
-  // A row that counts what is held against what is needed (採集總表, 料理食材): tick for 已收齊, the gap as its key line,
+  // A row that counts what is held against what is needed (所需材料): tick for 已收齊, the gap as its key line,
   // the held count's stepper at the end. `key` is the P.have / P.done key; `off` is the line for a row with nothing to do.
   // 所需材料 passes its own `tickAttrs` and stepper `ref` (C.ready / C.have) and keeps `key` only for focus.
   function stockRow({ key, name, tags = '', st, done, need, have, short, unit, more = '', off = '',
@@ -905,45 +889,6 @@ h2[id] { scroll-margin-top: 16px; }
     drawSheet();
   }
 
-  // Ingredients for the dishes still to be made (needed minus already held; ticked dishes count as done), from each
-  // dish's #recipes entry. Kept under their own 食材: keys so holding eggs for cooking never mixes with eggs handed in raw.
-  function cookIngredients(dishes, d) {
-    const need = new Map(), usedBy = new Map(), missing = [];
-    for (const m of dishes) {
-      const left = m.done ? 0 : Math.max(0, m.need - m.have);
-      if (!left) continue;
-      const recipe = itemOf(m.name).recipe;
-      if (!recipe) { missing.push(m.name); continue; }
-      const crafts = Math.ceil(left / yieldOf(recipe));
-      for (const r of recipe.inputs || []) {
-        need.set(r.item, (need.get(r.item) || 0) + (Number(r.qty) || 0) * crafts);
-        if (!usedBy.has(r.item)) usedBy.set(r.item, []);
-        usedBy.get(r.item).push(m.name);
-      }
-    }
-    const rows = [...need].map(([name, n]) => {
-      const key = '食材:' + name, have = Math.max(0, P.have[key] | 0), done = !!P.done[key];
-      const short = Math.max(0, n - have);
-      return stockRow({ key, name, st: done ? 'ready' : short > 0 ? 'short' : 'enough', done, need: n, have, short, unit: '個' });
-    });
-    const note = missing.length ? `<p class="hint">${missing.map(esc).join('、')}的配方還沒有，食材先不計算。</p>` : '';
-    if (!rows.length && !note) return '';
-    // This list is independent of the gathering list above: its own counts, gathered separately.
-    const warn = rows.length ? '<p class="cook-warn">這是獨立的清單：料理食材要<b>另外採集</b>，不包含在上面的採集總表內。</p>' : '';
-    return `<div class="cook-sub"><div class="g-head"><h4>料理食材</h4><span class="g-meta">額外採集・不含在總表內</span></div>${warn}${rows.length ? `<ul class="ledger">${rows.join('')}</ul>` : ''}${note}</div>`;
-  }
-
-  // The board's materials: town tags, the gap as the key line (how many per scroll and where to get it are in the sheet).
-  function ledgerRows(list) {
-    return `<ul class="ledger">${list.map((m) => {
-      const towns = [...new Set(m.parts.map((p) => p.q.city))].map((c) => `<span class="chip place">${esc(c)}</span>`).join('');
-      // Nothing left either because every scroll was handed in, or because every scroll was set to 0 this round.
-      const off = m.parts.every((p) => !total(p.q)) ? '這輪不做' : '已全部交付';
-      return stockRow({ key: m.name, name: m.name, tags: towns, st: m.st, done: m.done, need: m.need, have: m.have, short: m.short,
-        unit: m.unit, more: m.unknown && m.need ? '＋待確認' : '', off });
-    }).join('')}</ul>`;
-  }
-
   function renderHunts(d) {
     const el = $('hunts');
     if (!d.hunts.length) { el.innerHTML = '<p class="empty">目前沒有討伐卷軸。</p>'; return; }
@@ -968,22 +913,23 @@ h2[id] { scroll-margin-top: 16px; }
       const qs = d.qs.filter((q) => q.city === city).sort((a, b) => (a.src === b.src ? 0 : a.src === 'cat' ? -1 : 1) || (a.order ?? 0) - (b.order ?? 0));
       const all = qs.reduce((n, q) => n + total(q), 0);
       const gold = qs.reduce((n, q) => n + (Number(q.price) || 0) * total(q), 0);
-      let tools = '';
+      // One header line per town: name (folds the table), totals, then the 已買 / 已交付 ticks.
+      let tools = '', summary = qs.length ? `${qs.length} 種・這輪不做` : '';
       if (all > 0) {
         sum.towns++; sum.scrolls += all; sum.gold += gold;
         if (P.bought[city]) sum.bought++;
         if (P.handed[city]) sum.handed++;
         const c = esc(city);
         const chk = (role, on, label) => `<span class="chk"><button type="button" class="tick small" role="checkbox" aria-checked="${on}" aria-label="${c} ${label}" data-role="${role}" data-city="${c}" data-focus-key="${role}:${c}"></button>${label}</span>`;
-        tools = `<div class="board-tools">${chk('buy', !!P.bought[city], '卷軸已買')}${chk('hand', !!P.handed[city], '已交付')}<span class="sum num">${fmt(all)} 張・<span class="gold">${fmt(gold)} 金幣</span></span></div>`;
+        summary = `${fmt(all)} 張・<span class="gold">${fmt(gold)} 金幣</span>`;
+        tools = `<span class="board-tools">${chk('buy', !!P.bought[city], '已買')}${chk('hand', !!P.handed[city], '已交付')}</span>`;
       }
-      // Collapsed towns keep their header and ticks; only the scroll rows fold away.
+      // Collapsed towns keep their header and ticks; only the scroll table folds away.
       const open = !!UI.open[city], listId = `quests-${cities.indexOf(city)}`;
-      const body = qs.length ? `<ul class="ledger" id="${listId}"${open ? '' : ' hidden'}>${qs.map((q) => questCard(q, matBy)).join('')}</ul>`
+      const head = '<li class="qrow qhead" aria-hidden="true"><span>項目</span><span>類別</span><span class="q-qty">數量</span></li>';
+      const body = qs.length ? `<ul class="ledger qlist" id="${listId}"${open ? '' : ' hidden'}>${head}${qs.map((q) => questCard(q, matBy)).join('')}</ul>`
         : `<p class="empty" id="${listId}"${open ? '' : ' hidden'}>清單裡還沒有${esc(city)}的卷軸。</p>`;
-      const changed = qs.filter((q) => perChar(q) !== MAX_BUY).length;
-      const summary = !qs.length ? '' : open ? `${qs.length} 種卷軸` : `${qs.length} 種卷軸・${changed ? `已調整 ${changed} 種` : `每角色各 ${MAX_BUY} 張`}`;
-      return `<div class="board"><div class="board-head"><h3><button type="button" class="board-toggle" aria-expanded="${open}" aria-controls="${listId}" data-role="toggle-city" data-city="${esc(city)}" data-focus-key="toggle:${esc(city)}"><span class="chev" aria-hidden="true"></span>${esc(city)}</button></h3><span class="num">${summary}</span></div>${tools}${body}</div>`;
+      return `<div class="board"><div class="board-head"><h3><button type="button" class="board-toggle" aria-expanded="${open}" aria-controls="${listId}" data-role="toggle-city" data-city="${esc(city)}" data-focus-key="toggle:${esc(city)}"><span class="chev" aria-hidden="true"></span>${esc(city)}</button></h3><span class="sum num">${summary}</span>${tools}</div>${body}</div>`;
     }).join('');
     const allOpen = cities.every((c) => UI.open[c]);
     const hide = !UI.boardsShown;
@@ -1005,29 +951,30 @@ h2[id] { scroll-margin-top: 16px; }
     // The title is what gets handed in (it opens that item's sheet); a hunt's target is a place, not an item. When the
     // scroll's own name differs (蜘蛛絲 asks for 蜘蛛網), the key line says so.
     const name = (q.target || '').trim(), isItem = q.kind !== '討伐' && !!name;
-    const scroll = shortTitle(q) && shortTitle(q) !== name ? `卷軸「${esc(shortTitle(q))}」・` : '';
-    const price = q.price ? `・${fmt(q.price)} 金幣` : '';
-    const req = qty
-      ? `${scroll}${verb} ${fmt(qty)} ${esc(unit)}／張${price}${self ? ` <button type="button" class="link-btn" ${ref} data-role="qty-clear" data-focus-key="${esc(k)}:qc">（自填，改）</button>` : ''}`
-      : `${scroll}${verb} <input class="qty-input" inputmode="numeric" placeholder="?" ${ref} data-role="qty" data-focus-key="${esc(k)}:qty" aria-label="${esc(q.target)} 每張數量"> ${esc(unit)}／張${price}・數量待確認`;
-    let chip = '';
-    if (!per) chip = '<span class="chip done">不做</span>';
-    else if (left === 0) chip = '<span class="chip done">已交付</span>';
-    else if (q.kind !== '討伐') {
-      const m = matBy.get(matKey(q));
-      if (m && (m.done || (qty && m.have >= m.need))) chip = '<span class="chip ok">材料齊了</span>';
-    } else if (P.done['hunt:' + q.id]) chip = '<span class="chip ok">已討伐</span>';
-    // How many each character buys this round, 0–3 (usually 3).
-    const seg = `<span class="seg" role="radiogroup" aria-label="${esc(shortTitle(q))} 每角色買幾張">${[0, 1, 2, 3].map((n) => `<button type="button" role="radio" aria-checked="${n === per}" aria-label="每角色買 ${n} 張" ${ref} data-role="set-buy" data-n="${n}" data-focus-key="${esc(k)}:b${n}">${n}</button>`).join('')}</span>`;
-    const mine = q.src === 'mine' ? '<span class="chip mine">我的</span>' : '';
+    const scroll = shortTitle(q) && shortTitle(q) !== name ? `卷軸「${shortTitle(q)}」` : '';
+    // 數量 column: what one character hands in this round (每張 × 張數, usually × 3), a box to fill in the per-scroll
+    // count when it is not known yet, or the self-typed count with 改.
+    const req = !per ? '—' : qty
+      ? `${fmt(qty * per)} ${esc(unit)}${self ? `<button type="button" class="link-btn" ${ref} data-role="qty-clear" data-focus-key="${esc(k)}:qc" aria-label="改 ${esc(q.target)} 自填的數量">改</button>` : ''}`
+      : `<input class="qty-input" inputmode="numeric" placeholder="?" ${ref} data-role="qty" data-focus-key="${esc(k)}:qty" aria-label="${esc(q.target)} 每張數量"> ${esc(unit)}／張`;
+    // 不做 / 已交付 rows fade out; a scroll whose materials are all in (or whose hunt is done) gets a ✓ after its name.
+    let ok = false;
+    if (per && left > 0) {
+      if (q.kind !== '討伐') { const m = matBy.get(matKey(q)); ok = !!(m && (m.done || (qty && m.have >= m.need))); }
+      else ok = !!P.done['hunt:' + q.id];
+    }
+    const mine = q.src === 'mine' ? '<span class="q-tag">我的</span>' : '';
     // Players can only remove scrolls they added in an older version.
     const del = q.src !== 'mine' ? '' : ui.confirm === `del:${k}`
-      ? ` <button type="button" class="link-btn danger" ${ref} data-role="del-yes">確定刪除</button><button type="button" class="link-btn" data-role="cancel-confirm">保留</button>`
-      : ` <button type="button" class="link-btn" ${ref} data-role="del">刪除</button>`;
+      ? `<button type="button" class="link-btn danger" ${ref} data-role="del-yes">確定刪除</button><button type="button" class="link-btn" data-role="cancel-confirm">保留</button>`
+      : `<button type="button" class="link-btn" ${ref} data-role="del">刪除</button>`;
     const kind = esc(q.kind || '其他');
-    return listRow({ title: `${isItem ? itemLink(name) : esc(name || shortTitle(q))}<span class="chip k-${kind}">${kind}</span>${mine}${chip}`,
-      sub: req + del, end: seg, cls: !per || left === 0 ? 'is-off' : '', open: isItem ? name : '', id: questAnchor(q),
-      tip: [q.note, q.reward ? `獎勵 ${q.reward}` : ''].filter(Boolean).join('\n') });
+    const open = isItem ? name : '';
+    const tip = [scroll, !per ? '這輪不做' : left === 0 ? '已交付' : ok ? (q.kind === '討伐' ? '已討伐' : '材料齊了') : '', !qty ? '數量待確認' : '',
+      qty && per ? `每張 ${fmt(qty)} ${unit} × ${per} 張` : '', q.price ? `卷軸每張 ${fmt(q.price)} 金幣` : '', q.reward ? `獎勵 ${q.reward}` : '', q.note].filter(Boolean).join('\n');
+    return `<li class="row qrow${!per || left === 0 ? ' is-off' : ''}" id="${esc(questAnchor(q))}"${open ? ` data-open="${esc(open)}"` : ''}${tip ? ` title="${esc(tip)}"` : ''}>`
+      + `<span class="q-name">${isItem ? itemLink(name) : esc(name || shortTitle(q))}${ok ? '<span class="q-ok" aria-label="材料齊了">✓</span>' : ''}${mine}${del}</span>`
+      + `<span class="q-kind k-${kind}">${kind}</span><span class="q-qty num">${req}</span></li>`;
   }
 
   function renderMine() {
@@ -1039,7 +986,7 @@ h2[id] { scroll-margin-top: 16px; }
   }
 
   const JUMPS = {
-    board: [['top', '頂部'], ['h-boards', '佈告欄'], ['h-mats', '採集總表']],
+    board: [['top', '頂部'], ['h-boards', '佈告欄']],
     craft: [['top', '頂部'], ['h-skills', '製作台'], ['h-craft-need', '所需材料']],
     cook: [['top', '頂部'], ['h-cook-skills', '製作台'], ['h-cook-need', '所需材料']],
     barter: [['top', '頂部'], ['h-barter', '今日兌換'], ['h-barter-need', '換滿要準備']],
@@ -1070,7 +1017,7 @@ h2[id] { scroll-margin-top: 16px; }
     $(ids.tools).innerHTML = plan.picked.length ? `<span>已選 ${plan.picked.length} 種產品，共要做 ${fmt(plan.totalMake)} ${unit}・已打勾 ${readyN}／${plan.list.length}</span>` : '';
     $(ids.reset).disabled = !plan.picked.length;
 
-    // The materials to gather before crafting, as 採集總表-style rows: the held count's stepper at the end and what is
+    // The materials to gather before crafting, as stockRow rows: the held count's stepper at the end and what is
     // still short as the key line, with what each is for (and how many times a material with its own recipe still has
     // to be processed) after it. Reaching the total ticks the row.
     $(ids.need).innerHTML = !plan.list.length
@@ -1240,7 +1187,7 @@ h2[id] { scroll-margin-top: 16px; }
     const d = derive();
     ITEMS = itemIndex(d.qs);
     renderTabs(); renderQuickNav();
-    renderHead(); renderChars(d); renderStats(d); renderMats(d); renderHunts(d); renderBoards(d); renderMine();
+    renderHead(); renderChars(d); renderStats(d); renderHunts(d); renderBoards(d); renderMine();
     renderCraft('craft'); renderCraft('cook'); renderBarter(); renderItems();
     if ($('item-sheet').open && SHEET.stack.length) drawSheet(true);
     if (fk) {
